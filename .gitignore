@@ -1,0 +1,8 @@
+/.cpcache/
+/.nrepl-port
+/resources/public/js
+/.shadow-cljs/
+/target/
+/resources/public/
+/release.jar
+/data/

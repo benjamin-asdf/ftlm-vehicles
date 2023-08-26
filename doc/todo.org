@@ -1,0 +1,26 @@
+
+
+* demo
+- serve a frontend
+- heart clip anim page
+- vibrate + heart anim
+- maybe after tapping the heart
+
+
+
+* mvp
+- users, login, (oauth)
+- user can make a heart clip
+  - by saying the timestamps
+  - or bpm
+
+
+* HRV
+- automatically add some heart rate variability
+- maybe user says "I feel good", then change profile
+  maybe physiologically correct, or just with a very rough model
+
+* audio clips
+- analysis
+
+* milestone

@@ -1,0 +1,10 @@
+{:tasks
+ {watch-css
+  (clojure "-X:cljs:+css-gen go")
+  dev
+  (clojure
+   "-A:cljs:dev -M -m shadow.cljs.devtools.cli watch client")
+  build
+  (clojure "-X:cljs:+css-gen:build uberjar")
+  cljs-prod-build
+  (clojure "-X:cljs:+css-gen:build build-client")}}

@@ -1,0 +1,37 @@
+{:paths ["src" "resources"]
+ :deps {integrant/integrant {:mvn/version "0.8.1"}
+        ring/ring-jetty-adapter {:mvn/version "1.10.0"}
+        ring/ring-defaults {:mvn/version "0.3.4"}
+        metosin/reitit-middleware {:mvn/version "0.7.0-alpha5"}
+        metosin/reitit {:mvn/version "0.7.0-alpha5"}
+        metosin/reitit-malli {:mvn/version "0.7.0-alpha5"}
+        com.fbeyer/reitit-ring-defaults {:mvn/version "0.1.0"}
+        com.thheller/shadow-graft {:mvn/version "0.9.0"}
+        hiccup/hiccup {:mvn/version "2.0.0-RC1"}
+        com.thheller/shadow-css {:mvn/version "0.4.4"}
+        amalloy/ring-gzip-middleware {:mvn/version "0.1.4"}
+        com.xtdb/xtdb-core {:mvn/version "1.24.0"}
+        com.xtdb/xtdb-rocksdb {:mvn/version "1.24.0"}
+        buddy/buddy-auth {:mvn/version "3.0.323"}
+        buddy/buddy-hashers {:mvn/version "2.0.167"}
+        thi.ng/geom {:mvn/version "1.0.0"}
+}
+ :aliases
+ {:server {}
+  :dev {:extra-paths ["dev"]
+        :extra-deps
+        {binaryage/devtools {:mvn/version "1.0.3"}
+         cider/cider-nrepl {:mvn/version "0.34.0"}}}
+  :+css-gen {:extra-paths ["css"]
+             :ns-default css-gen}
+  :cljs {:extra-paths ["src" "resources"]
+         :extra-deps
+         {thheller/shadow-cljs {:mvn/version "2.24.1"}}}
+  :test {:extra-paths []
+         :extra-deps {}}
+  :build
+  {:extra-paths ["src-build"]
+   :ns-default build
+   :extra-deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
+                io.github.seancorfield/build-clj {:git/tag "v0.8.0" :git/sha "9bd8b8a"}
+                babashka/fs {:mvn/version "0.4.19"}}}}}
