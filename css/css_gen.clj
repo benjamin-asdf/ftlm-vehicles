@@ -5,8 +5,8 @@
     [shadow.cljs.devtools.server.fs-watch :as fs-watch]))
 
 (def output (io/file "resources" "public" "css"))
-(def generate-opts '{:ui {:include [ftlm.hearts*]}})
-(def index-path (io/file "src" "ftlm" "hearts"))
+(def generate-opts '{:ui {:include [ftlm.vehicles*]}})
+(def index-path (io/file "src" "ftlm" "vehicles"))
 
 (defonce css-ref (atom nil))
 (defonce css-watch-ref (atom nil))

@@ -1,10 +1,9 @@
-(defun ftlm-hearts-shadow-cljs-connect-app-client ()
+(defun ftlm-vehicles-shadow-cljs-connect-app-client ()
   (interactive)
   (let ((cider-shadow-default-options ":client"))
     (cider-connect-cljs
      '(:project-dir
-       "/home/benj/repos/clojure/ftlm-hearts" 
+       "/home/benj/repos/clojure/ftlm-vehicles" 
        :cljs-repl-type shadow
        :host "localhost"
-       :port
-       7013))))
+       :port 7014))))

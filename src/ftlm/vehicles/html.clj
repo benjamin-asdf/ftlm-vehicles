@@ -1,4 +1,4 @@
-(ns ftlm.hearts.html
+(ns ftlm.vehicles.html
   (:require
    [hiccup2.core :as h]
    [ring.util.response :as resp]
@@ -10,9 +10,7 @@
       [:head
        [:link {:rel "preload" :as "script" :href "/js/main.js"}]
        [:link {:rel "stylesheet" :href "/css/ui.css"}]
-       (when (bound? #'csrf/*anti-forgery-token*)
-         [:meta {:name "x-csrf-token" :content csrf/*anti-forgery-token*}])
-       [:title "ftl-hearts"]]
+       [:title "ftl-vehicles"]]
       [:body
        body
        [:script {:type "text/javascript" :src "/js/main.js" :defer true}]]))

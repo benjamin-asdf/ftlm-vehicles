@@ -10,12 +10,7 @@
         hiccup/hiccup {:mvn/version "2.0.0-RC1"}
         com.thheller/shadow-css {:mvn/version "0.4.4"}
         amalloy/ring-gzip-middleware {:mvn/version "0.1.4"}
-        com.xtdb/xtdb-core {:mvn/version "1.24.0"}
-        com.xtdb/xtdb-rocksdb {:mvn/version "1.24.0"}
-        buddy/buddy-auth {:mvn/version "3.0.323"}
-        buddy/buddy-hashers {:mvn/version "2.0.167"}
-        thi.ng/geom {:mvn/version "1.0.0"}
-}
+        thi.ng/geom {:mvn/version "1.0.0"}}
  :aliases
  {:server {}
   :dev {:extra-paths ["dev"]

@@ -1,7 +1,7 @@
-{:nrepl {:port 7013}
+{:nrepl {:port 7014}
  :deps {:aliases [:client]}
  :builds
  {:client
   {:target :browser
    :output-dir "resources/public/js"
-   :modules {:main {:init-fn ftlm.hearts.client/init}}}}}
+   :modules {:main {:init-fn ftlm.vehicles.client/init}}}}}

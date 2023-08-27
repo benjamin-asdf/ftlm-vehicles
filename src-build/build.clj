@@ -11,7 +11,7 @@
    [shadow.cljs.devtools.api :as shadow-api]
    [shadow.cljs.devtools.server :as shadow-server]))
 
-(def lib 'benjamin/ftlm-hearts)
+(def lib 'benjamin/ftlm-vehicles)
 (def version (b/git-process {:git-args "describe --tags --long --always --dirty"}))
 (def basis (b/create-basis {:project "deps.edn"}))
 
@@ -65,7 +65,7 @@
   (println "Compiling server. Version:" version)
   (b/compile-clj {:basis      basis
                   :src-dirs   ["src"]
-                  :ns-compile '[ftlm.hearts.prod]
+                  :ns-compile '[ftlm.vehicles.prod]
                   :class-dir  class-dir})
 
   (let [uber-file (str (or jar-name (default-jar-name {:version version})))]
@@ -73,7 +73,7 @@
     (b/uber {:class-dir class-dir
              :uber-file  uber-file
              :basis     basis
-             :main      'ftlm.hearts.prod})
+             :main      'ftlm.vehicles.prod})
 
     (println "Setting up run scripts")
     (fs/delete-if-exists "release.jar")
