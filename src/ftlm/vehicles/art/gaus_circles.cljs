@@ -17,10 +17,7 @@
           :color
           (fn [c]
             (mod
-             (+
-              c
-              ;; (/ (q/sin t) 10)
-              (* 1 (@controls :speed)))
+             (+ c (/ (* 1 (@controls :speed)) 2))
              255))))
 
 (comment
@@ -30,7 +27,7 @@
 (defn move [{[xv yv] :velocity :as entity}]
   (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
 
-(defn wobble [{:keys [wobble] :as entity}]
+(defn wobble [{:keys [wobble spawn-time] :as entity}]
   (if-not wobble
     entity
     (update-in
@@ -39,7 +36,7 @@
      (fn [s]
        (+
         s
-        (* wobble (abs (q/sin (q/millis)))))))))
+        (* wobble (/ (q/sin (* q/TWO-PI (/ (mod (- (q/millis) spawn-time) 1000) 1000))) 30)))))))
 
 (defn update-circ [entity dt]
   (-> entity
@@ -58,14 +55,14 @@
   (let [{:keys [spread]} @controls
         cx (/ (q/width) 2)
         cy (/ (q/height) 2)
-        angle (/ (mod (/ (q/millis) 200) 360) -1)
+        angle (/ (mod (/ (q/millis) 200) 360) (rand-nth [1 -1]))
         radius 20
 
-        ;; px (+ cx (* 50 (* (q/random-gaussian) spread)))
-        ;; py (+ cy (* 50 (* (q/random-gaussian) spread)))
+        px (+ cx (* 50 (* (q/random-gaussian) spread)))
+        py (+ cy (* 50 (* (q/random-gaussian) spread)))
 
-        px (+ cx (* radius (q/cos angle))) ; calculate the x position using polar coordinates
-        py (+ cy (* radius (q/sin angle))) ; calculate the y position using polar coordinates
+        ;; px (+ cx (* radius (q/cos angle))) ; calculate the x position using polar coordinates
+        ;; py (+ cy (* radius (q/sin angle))) ; calculate the y position using polar coordinates
 
         dx (- px cx)
         dy (- py cy)
@@ -75,6 +72,7 @@
         uy (/ dy dist)
         spread-speed 1]
     {:color (rand 256)
+     :spawn-time (q/millis)
      :wobble 3
      :transform
      (->transform
@@ -110,7 +108,7 @@
   (-> state
       update-lifetime
       (update-the-circles)
-      (random-cirlces (rand 1))
+      (random-cirlces (rand 4))
       (update :t inc)))
 
 (defn setup []
@@ -125,6 +123,7 @@
     (q/fill color 255 255)
     (let [[x y] (:pos transform)
           {:keys [width height scale]} transform]
+      (println scale)
       (q/ellipse x y (* scale width) (* scale height)))))
 
 (defn sketch [host]
