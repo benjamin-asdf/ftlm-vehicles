@@ -7,26 +7,35 @@
 
 (defonce controls
   (atom
-   {:spread 1.5
+   {:spread 1
     :base-color 7.790258368269614
     :speed 2
     :spread-spead 1
-    :brownian-factor 0.2
-    :infected-rate (/ 1 2)
+    :brownian-factor 0.4
+    :infected-rate (/ 1 10)
     ;; (/ 1 5)
     }))
 
 (defn ->entity [kind]
-  {:kind kind})
+  {:kind kind :id (random-uuid) :spawn-time (q/millis)})
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
+
+(defn ->connection-line [entity-a entity-b]
+  (merge
+   (->entity :line)
+   {:connection-line? true
+    :entity-a entity-a
+    :entity-b entity-b}))
+
+(def connection->infected :entity-a)
+(def connection->non-infected :entity-b)
 
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
 ;; assume hsb
-
 
 (defn shine [entity _dt]
   (update entity
@@ -82,7 +91,6 @@
 (defn update-infected [{:keys [infected?] :as entity}]
   (if infected? (assoc entity :color 0) entity))
 
-
 (defn infection-jump [{:keys [entities] :as state}]
   (let [ents (filter :infectable? entities)
         non-infected
@@ -97,30 +105,36 @@
     (if-not
         (and infected non-infected)
         state
-        (let [infected-pos (get-in infected [:transform :pos])
-              non-infected-pos (get-in non-infected [:transform :pos])]
-          (update
-           state
-           :entities
-           (fnil conj [])
-           (merge
-            (->entity :line)
-            {:color (get infected :color)
-             :end-pos non-infected-pos
-             :transform (->transform infected-pos 1 1 1)}))))))
+        (update
+         state
+         :entities
+         (fnil conj [])
+         (merge
+          (->connection-line
+           (:id infected)
+           (:id non-infected))
+          {:color (get infected :color) :transform (->transform nil nil 1 1)
+           :lifetime 20})))))
 
-(defn update-entities [entity]
+(defn entity-pos [state eid]
+  (-> state :entity-db (get eid) :transform :pos))
+
+(defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
+  (if-not connection-line?
+    entity
+    (-> entity
+        (assoc-in [:transform :pos] (entity-pos state entity-a))
+        (assoc :end-pos (entity-pos state entity-b)))))
+
+
+(defn update-entities [entity state]
   (-> entity
-      ;; (shine dt)
       move
       wobble
       friction
       brownian-motion
-      update-infected))
-
-(comment
-  (update {:foo []} :foo conj :b :c)
-  (update-entities {:color 0}))
+      update-infected
+      (update-conn-line state)))
 
 (defn rand-circle [{:keys [color-palatte]}]
   (->
@@ -146,7 +160,6 @@
      (merge
       (->entity :circle)
       {:color 100 ;; (rand-nth color-palatte)
-       :spawn-time (q/millis)
        ;; :wobble 1
        :transform
        (->transform
@@ -154,7 +167,7 @@
         radius
         radius
         1.5)
-       :infected? (< (:infected-rate @controls) (q/random 1))
+       :infected? (< (q/random 1) (:infected-rate @controls))
        :friction (/ 1 (- 40 (rand 10)))
        :velocity [(* ux spread-speed) (* uy spread-speed)]
        :lifetime (+ 100 (rand 20))
@@ -162,7 +175,43 @@
    update-infected))
 
 (defn random-cirlces [state n]
-  (update state :entities (fn [circles] (concat circles (repeatedly n #(rand-circle state))))))
+  (update state :entities (fn [ents] (concat ents (repeatedly n #(rand-circle state))))))
+
+;; i = amount * time * intrinsict-infectiousness
+
+(defn infect-connected-sometimes [{:keys [entities] :as state}]
+  (let [infectious? (comp #(< 500 %) age)
+        new-infected
+        (into
+         #{}
+         (comp
+          (filter :connection-line?)
+          (filter infectious?)
+          (map connection->non-infected))
+         entities)]
+    (update
+     state
+     :entities
+     (fn [ents]
+       (map
+        (fn [{:keys [infected? id] :as e}]
+          (assoc e :infected? (boolean (or infected? (new-infected id)))))
+        ents)))))
+
+(defn alive? [{:keys [entity-db]} eid] (boolean (get entity-db eid false)))
+(def dead? (complement alive?))
+
+(defn cleanup-connections [state]
+  (update
+   state
+   :entities
+   (fn [ents]
+     (remove
+      (fn [{:keys [connection-line?] :as e}]
+        (when
+            connection-line?
+            (some #(dead? state %) [(connection->non-infected e) (connection->infected e)])))
+      ents))))
 
 (defn update-lifetime [state]
   (update
@@ -172,29 +221,38 @@
      (into
       []
       (comp
-       (map #(update % :lifetime dec))
-       (remove (comp #(< % 1) :lifetime)))
+       (map (fn [{:keys [lifetime] :as e}] (if lifetime (update e :lifetime dec) e)))
+       (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
       circles))))
 
-(defn update-the-circles [state]
-  (->  state
-       (update :entities #(map update-entities %))
-       infection-jump))
+(defn track-ents [{:keys [entities] :as state}]
+  (let [current-ents (into {} (map (juxt :id identity) entities))]
+    (->
+     (update state :entity-db merge current-ents)
+     (update state :entity-db (fn [db] (into {} (filter (comp current-ents key) db)))))))
 
 (defn update-state [state]
-  (-> state
-      update-lifetime
-      (update-the-circles)
-      (random-cirlces (* 4 (max (sine-wave 2 (q/millis)) 0)))
-      (update :t inc)))
+  (let [state
+        (-> state
+            (random-cirlces  (max (sine-wave 2 (q/millis)) 0))
+            track-ents
+            infection-jump
+            infect-connected-sometimes)
+        ;; state (update state :entities (fn [ents] (map #(assoc % :infected? true) ents)))
+        state
+        (-> state
+            (update :entities #(map (fn [e] (update-entities e state)) %))
+            update-lifetime
+            track-ents
+            cleanup-connections)]
+    state))
 
 (defn setup []
   (q/frame-rate 30)
-  (q/color-mode :hsb
-                )
-  {:color-palatte (generate-palette (-> @controls :base-color) 8)}
-  ;; (random-cirlces {:t 0} )
-  )
+  (q/color-mode :hsb)
+  {:color-palatte
+   (generate-palette (-> @controls :base-color) 8)
+   :entity-db {}})
 
 (defmulti draw-entity :kind)
 
@@ -205,15 +263,16 @@
 
 (defmethod draw-entity :line [{:keys [transform end-pos]}]
   (let [[x y] (:pos transform)
-        {:keys [_scale]} transform]
+        {:keys [_scale color]} transform]
     (q/stroke-weight 2)
-    (q/line [x y] end-pos)
-    ;; (q/ellipse x y (* scale width) (* scale height))
-    ))
+    (q/with-stroke [color 255 255]
+      (q/line [x y] end-pos))
+    (q/stroke-weight 1)))
 
 (defn draw-state [state]
   (q/background 255)
-  ;; (q/specular 0 0 0)
+  (q/stroke-weight 1)
+  (q/stroke 0.3)
   (doseq [{:keys [color] :as entity} (:entities state)]
     (q/fill color 255 255)
     (draw-entity entity)))
