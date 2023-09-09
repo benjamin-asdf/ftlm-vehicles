@@ -4,7 +4,6 @@
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]))
 
-(enable-console-print!)
 
 (defonce controls
   (atom
@@ -13,6 +12,7 @@
     :speed 2
     :spread-spead 1
     :brownian-factor 0.2
+    :infected-rate (/ 1 2)
     ;; (/ 1 5)
     }))
 
@@ -40,7 +40,6 @@
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
 
 (defn generate-palette [base num-colors]
-  ;; (into [] (map #(mod (+ base (* % (/ 360 num-colors))) 360) (range num-colors)))
   (into [] (map (fn [_] (mod (+ base (rand 50)) 360)) (range num-colors))))
 
 (comment
@@ -68,7 +67,6 @@
         s
         (* wobble (/ (q/sin (* q/TWO-PI (/ (mod (- (q/millis) spawn-time) 1000) 1000))) 30)))))))
 
-
 (defn brownian-motion [entity]
   (let [brownian-factor (:brownian-factor @controls)]
     (update entity :velocity (fnil (fn [[x y]] [(+ x
@@ -77,56 +75,78 @@
                                                    (* brownian-factor (q/random-gaussian)))])
                                    [0 0]))))
 
+(defn update-infected [{:keys [infected?] :as entity}]
+  (if infected? (assoc entity :color 0) entity))
+
+(defn infection-jump [{:keys [circles]}]
+  (let [non-infected
+        (first
+         (shuffle
+          (remove :infected? circles)))
+        infected
+        (first
+          (shuffle
+           (filter :infected? circles)))]
+    (when (and infected non-infected)
+      (let [infected-pos  (get-in infected [:transform :pos])
+            non-infected-pos (get-in non-infected [:transform :pos])]
+        {:line [infected-pos non-infected-pos]
+         :color (get infected :color)}))))
+
+
 (defn update-circ [entity]
   (-> entity
       ;; (shine dt)
       move
       wobble
       friction
-      brownian-motion))
+      brownian-motion
+      update-infected))
 
 (comment
   (update {:foo []} :foo conj :b :c)
   (update-circ {:color 0}))
 
-
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
 
 (defn rand-circle [{:keys [color-palatte]}]
-  (let [{:keys [spread]} @controls
-        cx (/ (q/width) 2)
-        cy (/ (q/height) 2)
-        ;; angle (/ (mod (/ (q/millis) 200) 360) 1)
-        radius 20
+  (->
+   (let [{:keys [spread]} @controls
+         cx (/ (q/width) 2)
+         cy (/ (q/height) 2)
+         ;; angle (/ (mod (/ (q/millis) 200) 360) 1)
+         radius 20
 
-        px (+ cx (* 50 (* (q/random-gaussian) spread)))
-        py (+ cy (* 50 (* (q/random-gaussian) spread)))
+         px (+ cx (* 50 (* (q/random-gaussian) spread)))
+         py (+ cy (* 50 (* (q/random-gaussian) spread)))
 
-        ;; px (+ cx (* radius (q/cos angle)))
-        ;; py (+ cy (* radius (q/sin angle)))
+         ;; px (+ cx (* radius (q/cos angle)))
+         ;; py (+ cy (* radius (q/sin angle)))
 
-        dx (- px cx)
-        dy (- py cy)
+         dx (- px cx)
+         dy (- py cy)
 
-        dist (/ (Math/sqrt (+ (* dx dx) (* dy dy))) 1.3)
-        ux (/ dx dist)
-        uy (/ dy dist)
-        spread-speed (:spread-spead @controls)]
-    {:color (rand-nth color-palatte)
-     :spawn-time (q/millis)
-     ;; :wobble 1
-     :transform
-     (->transform
-      [px py]
-      radius
-      radius
-      1.5)
-     ;; destination
-     ;;
-     :friction (/ 1 (- 40 (rand 10)))
-     :velocity [(* ux spread-speed) (* uy spread-speed)]
-     :lifetime (+ 100 (rand 20))}))
+         dist (/ (Math/sqrt (+ (* dx dx) (* dy dy))) 1.3)
+         ux (/ dx dist)
+         uy (/ dy dist)
+         spread-speed (:spread-spead @controls)]
+     {:color 100 ;; (rand-nth color-palatte)
+      :spawn-time (q/millis)
+      ;; :wobble 1
+      :transform
+      (->transform
+       [px py]
+       radius
+       radius
+       1.5)
+      ;; destination
+      ;;
+      :infected? (< (:infected-rate @controls) (q/random 1))
+      :friction (/ 1 (- 40 (rand 10)))
+      :velocity [(* ux spread-speed) (* uy spread-speed)]
+      :lifetime (+ 100 (rand 20))})
+   update-infected))
 
 (defn random-cirlces [state n]
   (update state :circles (fn [circles] (concat circles (repeatedly n #(rand-circle state))))))
@@ -156,7 +176,8 @@
 
 (defn setup []
   (q/frame-rate 30)
-  (q/color-mode :hsb)
+  (q/color-mode :hsb
+                )
   {:color-palatte (generate-palette (-> @controls :base-color) 8)}
   ;; (random-cirlces {:t 0} )
   )
