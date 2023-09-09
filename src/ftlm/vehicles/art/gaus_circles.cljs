@@ -18,17 +18,21 @@
 
 (defn ->entity [kind]
   {:kind kind})
-;; in ms
 
+(defn ->transform [pos width height scale]
+  {:pos pos :width width :height height :scale scale})
+
+;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
+
 ;; assume hsb
+
 
 (defn shine [entity _dt]
   (update entity
           :color
           (fn [c]
             (mod (+ c (/ (* 1 (@controls :speed)) 2)) 255))))
-
 
 (defn signum [x]
   (cond
@@ -78,23 +82,34 @@
 (defn update-infected [{:keys [infected?] :as entity}]
   (if infected? (assoc entity :color 0) entity))
 
-(defn infection-jump [{:keys [circles]}]
-  (let [non-infected
+
+(defn infection-jump [{:keys [entities] :as state}]
+  (let [ents (filter :infectable? entities)
+        non-infected
         (first
          (shuffle
-          (remove :infected? circles)))
+          (remove :infected? ents)))
         infected
         (first
-          (shuffle
-           (filter :infected? circles)))]
-    (when (and infected non-infected)
-      (let [infected-pos  (get-in infected [:transform :pos])
-            non-infected-pos (get-in non-infected [:transform :pos])]
-        {:line [infected-pos non-infected-pos]
-         :color (get infected :color)}))))
+         (shuffle
+          (filter :infected? ents)))]
+    ;; (println  [infected non-infected])
+    (if-not
+        (and infected non-infected)
+        state
+        (let [infected-pos (get-in infected [:transform :pos])
+              non-infected-pos (get-in non-infected [:transform :pos])]
+          (update
+           state
+           :entities
+           (fnil conj [])
+           (merge
+            (->entity :line)
+            {:color (get infected :color)
+             :end-pos non-infected-pos
+             :transform (->transform infected-pos 1 1 1)}))))))
 
-
-(defn update-circ [entity]
+(defn update-entities [entity]
   (-> entity
       ;; (shine dt)
       move
@@ -105,10 +120,7 @@
 
 (comment
   (update {:foo []} :foo conj :b :c)
-  (update-circ {:color 0}))
-
-(defn ->transform [pos width height scale]
-  {:pos pos :width width :height height :scale scale})
+  (update-entities {:color 0}))
 
 (defn rand-circle [{:keys [color-palatte]}]
   (->
@@ -131,30 +143,31 @@
          ux (/ dx dist)
          uy (/ dy dist)
          spread-speed (:spread-spead @controls)]
-     {:color 100 ;; (rand-nth color-palatte)
-      :spawn-time (q/millis)
-      ;; :wobble 1
-      :transform
-      (->transform
-       [px py]
-       radius
-       radius
-       1.5)
-      ;; destination
-      ;;
-      :infected? (< (:infected-rate @controls) (q/random 1))
-      :friction (/ 1 (- 40 (rand 10)))
-      :velocity [(* ux spread-speed) (* uy spread-speed)]
-      :lifetime (+ 100 (rand 20))})
+     (merge
+      (->entity :circle)
+      {:color 100 ;; (rand-nth color-palatte)
+       :spawn-time (q/millis)
+       ;; :wobble 1
+       :transform
+       (->transform
+        [px py]
+        radius
+        radius
+        1.5)
+       :infected? (< (:infected-rate @controls) (q/random 1))
+       :friction (/ 1 (- 40 (rand 10)))
+       :velocity [(* ux spread-speed) (* uy spread-speed)]
+       :lifetime (+ 100 (rand 20))
+       :infectable? true}))
    update-infected))
 
 (defn random-cirlces [state n]
-  (update state :circles (fn [circles] (concat circles (repeatedly n #(rand-circle state))))))
+  (update state :entities (fn [circles] (concat circles (repeatedly n #(rand-circle state))))))
 
 (defn update-lifetime [state]
   (update
    state
-   :circles
+   :entities
    (fn [circles]
      (into
       []
@@ -165,7 +178,8 @@
 
 (defn update-the-circles [state]
   (->  state
-       (update :circles #(map update-circ %))))
+       (update :entities #(map update-entities %))
+       infection-jump))
 
 (defn update-state [state]
   (-> state
@@ -182,14 +196,27 @@
   ;; (random-cirlces {:t 0} )
   )
 
+(defmulti draw-entity :kind)
+
+(defmethod draw-entity :circle [{:keys [transform]}]
+  (let [[x y] (:pos transform)
+        {:keys [width height scale]} transform]
+    (q/ellipse x y (* scale width) (* scale height))))
+
+(defmethod draw-entity :line [{:keys [transform end-pos]}]
+  (let [[x y] (:pos transform)
+        {:keys [_scale]} transform]
+    (q/stroke-weight 2)
+    (q/line [x y] end-pos)
+    ;; (q/ellipse x y (* scale width) (* scale height))
+    ))
+
 (defn draw-state [state]
   (q/background 255)
   ;; (q/specular 0 0 0)
-  (doseq [{:keys [color transform]} (:circles state)]
+  (doseq [{:keys [color] :as entity} (:entities state)]
     (q/fill color 255 255)
-    (let [[x y] (:pos transform)
-          {:keys [width height scale]} transform]
-      (q/ellipse x y (* scale width) (* scale height)))))
+    (draw-entity entity)))
 
 (defn sketch [host]
   (q/sketch
