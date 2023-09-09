@@ -6,7 +6,7 @@
 
 (enable-console-print!)
 
-(defonce controls (atom {:spread 1.5 :speed 2}))
+(defonce controls (atom {:spread 1.5 :speed 2 :spread-spead 3}))
 
 (defn ->entity [kind]
   {:kind kind})
@@ -21,8 +21,7 @@
              255))))
 
 (comment
-  (shine {:color 1} 1)
-  )
+  (shine {:color 1} 1))
 
 (defn move [{[xv yv] :velocity :as entity}]
   (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
@@ -70,10 +69,10 @@
         dist (Math/sqrt (+ (* dx dx) (* dy dy)))
         ux (/ dx dist)
         uy (/ dy dist)
-        spread-speed 1]
+        spread-speed (:spread-spead @controls)]
     {:color (rand 256)
      :spawn-time (q/millis)
-     :wobble 3
+     :wobble 2
      :transform
      (->transform
       [px py]
@@ -81,7 +80,7 @@
       radius
       1)
      :velocity [(* ux spread-speed) (* uy spread-speed)]
-     :lifetime (+ 100 (rand 100))}))
+     :lifetime (+ 20 (rand 20))}))
 
 
 (defn random-cirlces [state n]
@@ -114,7 +113,7 @@
 (defn setup []
   (q/frame-rate 30)
   (q/color-mode :hsb)
-  (random-cirlces {:t 0} (rand 20)))
+  (random-cirlces {:t 0} (+ 50 (rand 50))))
 
 (defn draw-state [state]
   (q/background 255)
@@ -141,5 +140,5 @@
   (sketch (:place opts)))
 
 (comment
-  (swap! controls assoc :spread 2)
+  (swap! controls assoc :spread 0.4)
   )
