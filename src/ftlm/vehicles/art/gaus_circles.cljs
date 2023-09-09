@@ -6,7 +6,7 @@
 
 (enable-console-print!)
 
-(defonce controls (atom {:spread 1.5 :speed 2 :spread-spead 3}))
+(defonce controls (atom {:spread 1.5 :speed 2 :spread-spead 5}))
 
 (defn ->entity [kind]
   {:kind kind})
@@ -20,11 +20,26 @@
              (+ c (/ (* 1 (@controls :speed)) 2))
              255))))
 
+(defn signum [x]
+  (cond
+    (< x 0) -1
+    (> x 0) 1
+    :else 0))
+
+
 (comment
   (shine {:color 1} 1))
 
 (defn move [{[xv yv] :velocity :as entity}]
   (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
+
+(defn friction [{:keys [velocity friction] fr :friction :as entity}]
+  (if (or (not velocity) (not friction))
+    entity
+    (update entity :velocity
+            (fn [[xv yv]]
+              [(* (signum xv) (max (abs (- (abs xv) fr)) 0))
+               (* (signum yv) (max (abs (- (abs yv) fr)) 0))]))))
 
 (defn wobble [{:keys [wobble spawn-time] :as entity}]
   (if-not wobble
@@ -41,7 +56,9 @@
   (-> entity
       (shine dt)
       move
-      wobble))
+      wobble
+      friction
+      ))
 
 (comment
   (update {:foo []} :foo conj :b :c)
@@ -54,7 +71,7 @@
   (let [{:keys [spread]} @controls
         cx (/ (q/width) 2)
         cy (/ (q/height) 2)
-        angle (/ (mod (/ (q/millis) 200) 360) (rand-nth [1 -1]))
+        ;; angle (/ (mod (/ (q/millis) 200) 360) (rand-nth [1 -1]))
         radius 20
 
         px (+ cx (* 50 (* (q/random-gaussian) spread)))
@@ -66,7 +83,7 @@
         dx (- px cx)
         dy (- py cy)
 
-        dist (Math/sqrt (+ (* dx dx) (* dy dy)))
+        dist (/ (Math/sqrt (+ (* dx dx) (* dy dy))) 1.3)
         ux (/ dx dist)
         uy (/ dy dist)
         spread-speed (:spread-spead @controls)]
@@ -79,8 +96,11 @@
       radius
       radius
       1)
+     ;; destination
+     ;;
+     :friction (/ 1  (+ 30 (rand 40)))
      :velocity [(* ux spread-speed) (* uy spread-speed)]
-     :lifetime (+ 20 (rand 20))}))
+     :lifetime (+ 100 (rand 20))}))
 
 
 (defn random-cirlces [state n]
@@ -140,5 +160,5 @@
   (sketch (:place opts)))
 
 (comment
-  (swap! controls assoc :spread 0.4)
+  (swap! controls assoc :spread 1)
   )
