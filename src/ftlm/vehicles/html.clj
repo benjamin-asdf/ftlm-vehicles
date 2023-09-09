@@ -10,7 +10,7 @@
       [:head
        [:link {:rel "preload" :as "script" :href "/js/main.js"}]
        [:link {:rel "stylesheet" :href "/css/ui.css"}]
-       [:title "ftl-vehicles"]]
+       [:title "ftlm-vehicles"]]
       [:body
        body
        [:script {:type "text/javascript" :src "/js/main.js" :defer true}]]))

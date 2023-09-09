@@ -9,7 +9,6 @@
    [shadow.graft :as graft]
    [shadow.css :refer [css]]
 
-
    [muuntaja.core :as m]
    [ring.middleware.gzip :refer [wrap-gzip]]
    [ring.middleware.defaults :as ring-defaults]
@@ -18,16 +17,24 @@
    [reitit.ring :as ring]
    [reitit.coercion.spec]
    [reitit.ring.middleware.defaults]
-   [reitit.dev.pretty :as pretty]))
+   [reitit.dev.pretty :as pretty]
+
+   ))
 
 (def graft (graft/start pr-str))
 
-(defn intro-page [req]
-  (page-resp
-   [:canvas {:class (css :w-2of3 :h-2of3) :id "main"}]))
+(defn art [req]
+  (let [piece (-> req :path-params :piece)]
+    (page-resp
+     [:div
+      [:div {:id "main"}]
+      (graft "art" :prev-sibling {:piece piece})])))
+
+;; seed wold be cool
 
 (defmethod ig/init-key :router/routes [_ _]
-  [["/" {:get {:handler intro-page}}]])
+  [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
+   ["/art/:piece" {:get {:handler (fn [req] (def req req) (art req))}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler
@@ -54,4 +61,10 @@
 (defmethod ig/halt-key! :adapter/jetty [_ server]
   (.stop server))
 
-(ftlm.vehicles.system/restart)
+(comment
+  ;; http://localhost:8095/art/foo
+
+  (-> req :path-params :piece)
+
+
+  )

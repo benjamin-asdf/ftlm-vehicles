@@ -7,7 +7,7 @@
 
 (def config
   {:adapter/jetty {:port 8095
-                   :handler (ig/ref :handler/handler)}
+                    :handler (ig/ref :handler/handler)}
    :handler/handler {:routes (ig/ref :router/routes)}
    :router/routes {}})
 
