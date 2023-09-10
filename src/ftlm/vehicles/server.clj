@@ -3,7 +3,6 @@
    [integrant.core :as ig]
 
    [ring.adapter.jetty :as jetty]
-   ;; [ring.util.response :as resp]
    [ftlm.vehicles.html :refer [page-resp]]
 
    [shadow.graft :as graft]
@@ -17,7 +16,9 @@
    [reitit.ring :as ring]
    [reitit.coercion.spec]
    [reitit.ring.middleware.defaults]
-   [reitit.dev.pretty :as pretty]))
+   [reitit.dev.pretty :as pretty]
+
+   [ftlm.vehicles.art.controls :as art-controls]))
 
 (def graft (graft/start pr-str))
 
@@ -29,13 +30,63 @@
       [:div {:id "main"}]
       (graft "art" :prev-sibling {:piece piece :version version})])))
 
+(defn art-gallery [req]
+  (let [piece (-> req :path-params :piece)
+        page (or (-> req :parameters :query :page) 0)]
+    (page-resp
+     (let
+         [all-pages (sort-by read-string compare (keys (get art-controls/versions piece)))
+          pages (into [] (partition-all 3) all-pages)
+          page (max 0 (min page (dec (count pages))))
+          versions (nth pages page)]
+         [:div
+          [:div
+           (map
+            (fn [version]
+              [:div {:class (css :m-16)}
+               [:div {:id (str piece "-" version)}]
+               (graft "art" :prev-sibling {:piece piece :version version})
+               [:h3 [:a {:href (str "/art/p/" piece "/" version)}
+                     [:strong "brownians #" version]]]])
+            versions)]
+          (let [$btn
+                (css
+                  :cursor-pointer
+                  :text-center
+                  :bg-gray-200
+                  :p-4
+                  :mx-2
+                  :my-8
+                  {:text-decoration "none"})
+                $btn-allowed (css :bg-orange-200 :rounded)
+                $btn-not-allowed (css :bg-gray-200 :cursor-not-allowed)]
+            [:div
+             {:class
+              (css
+                :flex :justify-center :w-full :mb-4
+                :items-center
+                :text-center)}
+             (let [enabled? (not (zero? page))]
+               [:div {:class (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
+                (when enabled?
+                  [:a {:href (str "/art/g/" piece "?page=" (dec page))} "previous page"])])
+             [:strong (str (inc page) "/" (count pages))]
+             (let [enabled? (not (= page (dec (count pages))))]
+               [:div
+                {:class
+                 (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
+                (when enabled?
+                  [:a
+                   {:href (str "/art/g/" piece "?page=" (inc page))} "next page"])])])]))))
+
 ;; seed wold be cool
 
 (defmethod ig/init-key :router/routes [_ _]
   [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
-   ["/art/:piece" {:get {:handler (fn [_] (page-resp [:div "piece"]))}}]
-   ;; ["/art/:piece" {:get {:handler art}}]
-   ["/art/:piece/:version" {:get {:handler art}}]])
+   ["/art/g/:piece" {:get {:handler art-gallery :parameters
+                           {:query [:map
+                                    [:page :int]]}}}]
+   ["/art/p/:piece/:version" {:get {:handler art}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler
@@ -63,11 +114,11 @@
   (.stop server))
 
 (comment
+
   (reitit.core/match-by-path
    (let [routes [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
-                 ["/art/:piece/:version" {:get {:handler art}}]
-                 ["/art/:piece" {:get {:handler art}}]]]
-
+   ["/art/g/:piece" {:get {:handler art-gallery}}]
+   ["/art/p/:piece/:version" {:get {:handler art}}]]]
      (ring/router
       routes
       {:exception pretty/exception
@@ -81,25 +132,6 @@
         (concat
          [{:wrap wrap-gzip}]
          reitit.ring.middleware.defaults/defaults-middleware)}}))
-   "/art/foo/#1")
-  (reitit.core/match-by-path
-   (let [routes [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
-                 ["/art/:piece/:version" {:get {:handler art}}]
-                 ["/art/:piece" {:get {:handler art}}]]]
-
-     (ring/router
-      routes
-      {:exception pretty/exception
-       :data
-       {:coercion reitit.coercion.malli/coercion
-        :muuntaja m/instance
-        :defaults
-        (-> ring-defaults/site-defaults
-            (assoc :exception pretty/exception))
-        :middleware
-        (concat
-         [{:wrap wrap-gzip}]
-         reitit.ring.middleware.defaults/defaults-middleware)}}))
-   "/art/foo")
+   "/art/g/brownians")
   ;; http://localhost:8095/art
   )
