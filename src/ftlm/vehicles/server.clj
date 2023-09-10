@@ -47,7 +47,7 @@
                [:div {:id (str piece "-" version)}]
                (graft "art" :prev-sibling {:piece piece :version version})
                [:h3 [:a {:href (str "/art/p/" piece "/" version)}
-                     [:strong "brownians #" version]]]])
+                     [:strong piece " #" version]]]])
             versions)]
           (let [$btn
                 (css
@@ -114,7 +114,6 @@
   (.stop server))
 
 (comment
-
   (reitit.core/match-by-path
    (let [routes [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
    ["/art/g/:piece" {:get {:handler art-gallery}}]
