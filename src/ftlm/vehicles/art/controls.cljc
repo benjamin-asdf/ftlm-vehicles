@@ -277,4 +277,17 @@
      :infected-color 0
      :circle-wobble 0.4
      :circle-shine 1
-     :spawn-rate {:base 1 :freq 1 :pow 1}}}})
+     :spawn-rate {:base 1 :freq 1 :pow 1}}
+    "22"
+    {:spread 1
+     :background 230
+     :base-color (rand 360)
+     :rand-color-count 8
+     :spread-speed 0
+     :brownian-factor 0
+     :infected-rate 0
+     :circle-wobble 0
+     :circle-shine 1
+     :change-palette? true
+     :circle-lifetime [180 40]
+     :spawn-rate {:base 4 :freq 0.8 :pow 1}}}})

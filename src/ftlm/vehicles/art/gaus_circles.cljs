@@ -24,6 +24,7 @@
    :spawn-rate {:base 1 :freq 2 :pow 1}
    :circle-shine 0
    :circle-scale 1.5
+   :circle-lifetime [110 10]
    :hide-lines? false})
 
 (defn controls []
@@ -80,7 +81,7 @@
   (max (Math/pow (sine-wave frequency time-in-millis) pow) 0))
 
 (defn generate-palette [base num-colors]
-  (into [] (map (fn [_] (mod (+ base (rand 50)) 360)) (range num-colors))))
+  (into [] (repeatedly num-colors #(mod (normal-distr base 50) 360))))
 
 (defn move [{[xv yv] :velocity :as entity}]
   (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
@@ -172,6 +173,7 @@
       update-infected
       (update-conn-line state)))
 
+
 (defn rand-circle []
   (->
    (let [{:keys [spread]} (controls)
@@ -198,7 +200,8 @@
                  spread-speed
                  circle-wobble
                  color-palatte
-                 infected-rate]} (controls)]
+                 infected-rate
+                 circle-lifetime]} (controls)]
      (merge
       (->entity :circle)
       {:color (rand-nth color-palatte)
@@ -207,7 +210,7 @@
        :infected? (< (q/random 1) infected-rate)
        :friction (apply normal-distr friction)
        :velocity [(* ux spread-speed) (* uy spread-speed)]
-       :lifetime (+ 100 (rand 20))
+       :lifetime (apply normal-distr circle-lifetime)
        :infectable? true
        :shine circle-shine}))
    update-infected))
@@ -237,8 +240,8 @@
         (fn [{:keys [infected? id] :as e}]
           (assoc e :infected? (boolean (or infected? (new-infected id)))))
         ents)))))
-(defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
 
+(defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
 (def dead? (complement alive?))
 
 (defn cleanup-connections [state]
@@ -263,6 +266,18 @@
        (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
       circles))))
 
+(defn change-color-palette! [{:keys [controls] :as state}]
+  (if-not (:change-palette? controls)
+    state
+    (if
+        (zero? (mod (q/seconds) 10))
+        (let [base-color (rand 360)]
+          (-> state
+              (assoc-in [:controls :base-color] base-color)
+              (assoc-in [:controls :color-palatte]
+                        (generate-palette base-color (:rand-color-count controls)))))
+        state)))
+
 (defn update-state [state]
   (let [state
         (-> state
@@ -275,7 +290,8 @@
         (-> state
             (update :entities #(map (fn [e] (update-entities e state)) %))
             update-lifetime
-            cleanup-connections)]
+            cleanup-connections
+            change-color-palette!)]
     state))
 
 (defn setup-controls [{:keys [rand-color-count base-color color-palatte] :as controls}]
@@ -290,7 +306,7 @@
 (defn setup [controls]
   (q/frame-rate 30)
   (q/color-mode :hsb)
-  {:controls controls})
+  {:controls (setup-controls controls)})
 
 (def draw-color (comp #(apply q/fill %) ->hsb))
 
@@ -330,7 +346,7 @@
 
 (defmethod art/view "brownians"
   [{:keys [place version]}]
-  (sketch place (setup-controls (merge default-controls (get-in versions ["brownians" version])))))
+  (sketch place (merge default-controls (get-in versions ["brownians" version]))))
 
 (comment
   (setup-controls default-controls))
