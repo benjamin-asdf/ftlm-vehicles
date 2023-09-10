@@ -21,9 +21,12 @@
    :infectiousness (/ 1 5)
    :infected-color 255
    :spawn-rate {:base 1 :freq 2 :pow 1}
-   :circle-shine 0})
+   :circle-shine 0
+   :circle-scale 1.5
+   :hide-lines? false})
 
-(defonce controls (atom default-controls))
+(defn controls []
+  (q/state :controls))
 
 (defn ->entity [kind]
   {:kind kind :id (random-uuid) :spawn-time (q/millis)})
@@ -31,9 +34,7 @@
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
 
-(def entities :entities
-  ;; (comp vals :entities)
-  )
+(def entities :entities)
 
 (def entities-by-id (comp #(into {} (map (juxt :id identity) %)) entities))
 
@@ -103,15 +104,25 @@
         (* wobble (/ (q/sin (* q/TWO-PI (/ (mod (- (q/millis) spawn-time) 1000) 1000))) 30)))))))
 
 (defn brownian-motion [entity]
-  (let [brownian-factor (:brownian-factor @controls)]
+  (let [brownian-factor (:brownian-factor (controls))]
     (update entity :velocity (fnil (fn [[x y]] [(+ x
                                                    (* brownian-factor (q/random-gaussian)))
                                                 (+ y
                                                    (* brownian-factor (q/random-gaussian)))])
                                    [0 0]))))
 
-(defn update-infected [{:keys [infected?] :as entity}]
-  (if infected? (assoc entity :color (-> @controls :infected-color)) entity))
+(defn *transform [t1 trsf]
+  (merge-with * t1 trsf))
+
+(defn update-infected [{:keys [infected? transformed?] :as entity}]
+  (if
+      (or (not infected?)
+          transformed?)
+      entity
+      (-> entity
+          (assoc :transformed? true)
+          (assoc :color (-> (controls) :infected-color))
+          (update :transform *transform (-> (controls) :infected-transform)))))
 
 (defn infection-jump [{:keys [entities] :as state}]
   (let [ents (filter :infectable? entities)
@@ -134,8 +145,11 @@
           (->connection-line
            (:id infected)
            (:id non-infected))
-          {:color (get infected :color) :transform (->transform nil nil 1 1)
-           :lifetime 20})))))
+          {:color (get infected :color)
+           :transform
+           (->transform nil 1 1 1)
+           :lifetime 20
+           :hidden? ((controls) :hide-lines?)})))))
 
 (defn entity-pos [state eid]
   (-> state entities-by-id (get eid) :transform :pos))
@@ -159,7 +173,7 @@
 
 (defn rand-circle []
   (->
-   (let [{:keys [spread]} @controls
+   (let [{:keys [spread]} (controls)
          cx (/ (q/width) 2)
          cy (/ (q/height) 2)
          ;; angle (/ (mod (/ (q/millis) 200) 360) 1)
@@ -177,12 +191,18 @@
 
          ux (/ dx dist)
          uy (/ dy dist)
-         {:keys [circle-shine friction spread-speed circle-wobble color-palatte infected-rate]} @controls]
+         {:keys [circle-scale
+                 circle-shine
+                 friction
+                 spread-speed
+                 circle-wobble
+                 color-palatte
+                 infected-rate]} (controls)]
      (merge
       (->entity :circle)
       {:color (rand-nth color-palatte)
        :wobble circle-wobble
-       :transform (->transform [px py] radius radius 1.5)
+       :transform (->transform [px py] radius radius circle-scale)
        :infected? (< (q/random 1) infected-rate)
        :friction (apply normal-distr friction)
        :velocity [(* ux spread-speed) (* uy spread-speed)]
@@ -198,7 +218,7 @@
   (< (/ (normal-distr 500 200) infectiousness) exposure-time))
 
 (defn infect-connected-sometimes [{:keys [entities] :as state}]
-  (let [infect? (let [i (-> @controls :infectiousness)]
+  (let [infect? (let [i (-> (controls) :infectiousness)]
                   #(infect? (age %) i))
         new-infected
         (into
@@ -246,7 +266,7 @@
   (let [state
         (-> state
             (random-cirlces
-             (let [{:keys [base freq pow]} (:spawn-rate @controls)]
+             (let [{:keys [base freq pow]} (:spawn-rate (controls))]
                (* base (spawn-rate-pow freq (q/millis) pow))))
             infection-jump
             infect-connected-sometimes)
@@ -266,10 +286,10 @@
          {:color-palatte
           (generate-palette base-color rand-color-count)}))))
 
-(defn setup []
+(defn setup [controls]
   (q/frame-rate 30)
   (q/color-mode :hsb)
-  {})
+  {:controls controls})
 
 (def draw-color (comp #(apply q/fill %) ->hsb))
 
@@ -289,19 +309,19 @@
     (q/stroke-weight 1)))
 
 (defn draw-state [state]
-  (q/background (-> @controls :background))
+  (q/background (-> (controls) :background))
   (q/stroke-weight 1)
   (q/stroke 0.3)
-  (doseq [{:keys [color] :as entity} (:entities state)]
-    (draw-color color)
-    ;; (q/fill 255)
-    (draw-entity entity)))
+  (doseq [{:keys [color hidden?] :as entity} (:entities state)]
+    (when-not hidden?
+      (draw-color color)
+      (draw-entity entity))))
 
-(defn sketch [host]
+(defn sketch [host controls]
   (q/sketch
    :host host
    :size [600 600]
-   :setup setup
+   :setup (partial setup controls)
    :update update-state
    :draw draw-state
    :features [:keep-on-top]
@@ -331,7 +351,7 @@
     :rand-color-count 8
     :spread-speed 1
     :brownian-factor 0.1
-    :infected-rate 0 ;; (/ 1 10)
+    :infected-rate 0
     :circle-wobble 1}
    "2"
    {:spread 1
@@ -428,16 +448,161 @@
     :infected-color white
     :circle-wobble 0.4
     :circle-shine 0.2
-    :spawn-rate {:base 1 :freq 1 :pow 1}}})
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "11"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.05
+    :infected-rate (/ 1 3)
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 0.8}
+    :friction [(/ 4 100) (/ 1 100)]
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "12"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.05
+    :infected-rate (/ 1 3)
+    :infected-color 15
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 1.8}
+    :friction [(/ 4 100) (/ 1 100)]
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "13"
+   {:spread 1.5
+    :background 80
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.1
+    :infected-rate (/ 1 3)
+    :infected-color 15
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 1.8}
+    :friction [(/ 4 100) (/ 1 100)]
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "14"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.1
+    :infected-rate (/ 1 3)
+    :color-palatte [white]
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 10}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.1
+    :spawn-rate {:base 2 :freq 1.4 :pow 1}}
+   "15"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :base-color 360
+    :spread-speed 1.4
+    :brownian-factor 0.4
+    :infected-rate (/ 1 10)
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 3}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}
+    :hide-lines? true}
+   "16"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :base-color 360
+    :spread-speed 1.4
+    :brownian-factor 0.4
+    :infected-rate 0
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 3}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}
+    :hide-lines? true}
+   "17"
+   {:spread 1
+    :background 0
+    :rand-color-count 1
+    :base-color 360
+    :spread-speed 0.8
+    :brownian-factor 0.3
+    :infected-rate 0
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :infected-transform {:scale 3}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}
+    :hide-lines? true}
+   "18"
+   {:spread 5
+    :background 0
+    :rand-color-count 8
+    :base-color 360
+    :spread-speed 0.3
+    :brownian-factor 0.3
+    :infected-rate 0
+    :infected-color white
+    :circle-wobble 2
+    :circle-shine 0.2
+    :infected-transform {:scale 3}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}
+    :hide-lines? true}
+   "19"
+   {:spread 5
+    :background 230
+    :rand-color-count 8
+    :base-color 360
+    :spread-speed 0.3
+    :brownian-factor 0.3
+    :infected-rate 0
+    :infected-color white
+    :circle-wobble 2
+    :circle-shine 0.2
+    :infected-transform {:scale 3}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}
+    :hide-lines? true}
+   "20"
+   {:spread 5
+    :background 230
+    :rand-color-count 8
+    :base-color 360
+    :spread-speed 0.3
+    :brownian-factor 0.3
+    :infected-rate (/ 1 6)
+    :infected-color (rand (inc 360))
+    :circle-wobble 2
+    :circle-shine 0.2
+    :infected-transform {:scale 1.1}
+    :friction [(/ 4 100) (/ 1 100)]
+    :circle-scale 0.2
+    :spawn-rate {:base 4 :freq 1.4 :pow 1}}})
 
 (defmethod art/view "brownians"
   [{:keys [place version]}]
-  (reset! controls (setup-controls (merge default-controls (get versions version))))
-  (sketch place))
+  (sketch place (setup-controls (merge default-controls (get versions version)))))
 
 (comment
   (setup-controls default-controls)
-  (swap! controls assoc :spread 1)
-  (swap! controls assoc :brownian-factor 0.2)
-  (swap! controls assoc :spread-speed 1)
-  (swap! controls assoc :base-color (rand 360)))
+  )
