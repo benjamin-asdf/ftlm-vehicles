@@ -1,4 +1,4 @@
-Visualize and play around with cybernetic ai concepts.
+Visualize and play around with cybernetic ai concepts. + Make gen art.
 
 * Art
 
