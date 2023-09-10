@@ -4,23 +4,32 @@
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]))
 
+(def default-controls
+  {:spread 1
+   :background 230
+   :base-color 7.790258368269614
+   :rand-color-count 8
+   :speed 2
+   :spread-spead 1
+   :brownian-factor 0.1
+   :infected-rate (/ 1 10)
+   :circle-wobble 1
+   :infectiousness (/ 1 5)
+   :infected-color 255})
 
-(defonce controls
-  (atom
-   {:spread 1
-    :base-color 7.790258368269614
-    :speed 2
-    :spread-spead 1
-    :brownian-factor 0.4
-    :infected-rate (/ 1 10)
-    ;; (/ 1 5)
-    }))
+(defonce controls (atom default-controls))
 
 (defn ->entity [kind]
   {:kind kind :id (random-uuid) :spawn-time (q/millis)})
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
+
+(def entities :entities
+  ;; (comp vals :entities)
+  )
+
+(def entities-by-id (comp #(into {} (map (juxt :id identity) %)) entities))
 
 (defn ->connection-line [entity-a entity-b]
   (merge
@@ -36,7 +45,6 @@
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
 ;; assume hsb
-
 (defn shine [entity _dt]
   (update entity
           :color
@@ -54,9 +62,6 @@
 
 (defn generate-palette [base num-colors]
   (into [] (map (fn [_] (mod (+ base (rand 50)) 360)) (range num-colors))))
-
-(comment
-  (shine {:color 1} 1))
 
 (defn move [{[xv yv] :velocity :as entity}]
   (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
@@ -89,7 +94,7 @@
                                    [0 0]))))
 
 (defn update-infected [{:keys [infected?] :as entity}]
-  (if infected? (assoc entity :color 0) entity))
+  (if infected? (assoc entity :color (-> @controls :infected-color)) entity))
 
 (defn infection-jump [{:keys [entities] :as state}]
   (let [ents (filter :infectable? entities)
@@ -101,7 +106,6 @@
         (first
          (shuffle
           (filter :infected? ents)))]
-    ;; (println  [infected non-infected])
     (if-not
         (and infected non-infected)
         state
@@ -117,7 +121,7 @@
            :lifetime 20})))))
 
 (defn entity-pos [state eid]
-  (-> state :entity-db (get eid) :transform :pos))
+  (-> state entities-by-id (get eid) :transform :pos))
 
 (defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
   (if-not connection-line?
@@ -125,7 +129,6 @@
     (-> entity
         (assoc-in [:transform :pos] (entity-pos state entity-a))
         (assoc :end-pos (entity-pos state entity-b)))))
-
 
 (defn update-entities [entity state]
   (-> entity
@@ -136,7 +139,7 @@
       update-infected
       (update-conn-line state)))
 
-(defn rand-circle [{:keys [color-palatte]}]
+(defn rand-circle []
   (->
    (let [{:keys [spread]} @controls
          cx (/ (q/width) 2)
@@ -149,25 +152,19 @@
 
          ;; px (+ cx (* radius (q/cos angle)))
          ;; py (+ cy (* radius (q/sin angle)))
-
          dx (- px cx)
          dy (- py cy)
-
          dist (/ (Math/sqrt (+ (* dx dx) (* dy dy))) 1.3)
          ux (/ dx dist)
          uy (/ dy dist)
-         spread-speed (:spread-spead @controls)]
+         {:keys [spread-speed circle-wobble color-palatte infected-rate]} @controls]
      (merge
       (->entity :circle)
-      {:color 100 ;; (rand-nth color-palatte)
-       ;; :wobble 1
+      {:color (rand-nth color-palatte)
+       :wobble circle-wobble
        :transform
-       (->transform
-        [px py]
-        radius
-        radius
-        1.5)
-       :infected? (< (q/random 1) (:infected-rate @controls))
+       (->transform [px py] radius radius 1.5)
+       :infected? (< (q/random 1) infected-rate)
        :friction (/ 1 (- 40 (rand 10)))
        :velocity [(* ux spread-speed) (* uy spread-speed)]
        :lifetime (+ 100 (rand 20))
@@ -175,18 +172,23 @@
    update-infected))
 
 (defn random-cirlces [state n]
-  (update state :entities (fn [ents] (concat ents (repeatedly n #(rand-circle state))))))
+  (update state :entities (fn [ents] (concat ents (repeatedly n rand-circle)))))
 
-;; i = amount * time * intrinsict-infectiousness
+(defn normal-distr [mean std-deviation]
+  (+ mean (* std-deviation (q/random-gaussian))))
+
+(defn infect? [exposure-time infectiousness]
+  (< (/ (normal-distr 500 200) infectiousness) exposure-time))
 
 (defn infect-connected-sometimes [{:keys [entities] :as state}]
-  (let [infectious? (comp #(< 500 %) age)
+  (let [infect? (let [i (-> @controls :infectiousness)]
+                  #(infect? (age %) i))
         new-infected
         (into
          #{}
          (comp
           (filter :connection-line?)
-          (filter infectious?)
+          (filter infect?)
           (map connection->non-infected))
          entities)]
     (update
@@ -198,7 +200,7 @@
           (assoc e :infected? (boolean (or infected? (new-infected id)))))
         ents)))))
 
-(defn alive? [{:keys [entity-db]} eid] (boolean (get entity-db eid false)))
+(defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
 (def dead? (complement alive?))
 
 (defn cleanup-connections [state]
@@ -214,9 +216,7 @@
       ents))))
 
 (defn update-lifetime [state]
-  (update
-   state
-   :entities
+  (update state :entities
    (fn [circles]
      (into
       []
@@ -225,34 +225,36 @@
        (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
       circles))))
 
-(defn track-ents [{:keys [entities] :as state}]
-  (let [current-ents (into {} (map (juxt :id identity) entities))]
-    (->
-     (update state :entity-db merge current-ents)
-     (update state :entity-db (fn [db] (into {} (filter (comp current-ents key) db)))))))
-
 (defn update-state [state]
   (let [state
         (-> state
-            (random-cirlces  (max (sine-wave 2 (q/millis)) 0))
-            track-ents
+            (random-cirlces (max (sine-wave 2 (q/millis)) 0))
             infection-jump
             infect-connected-sometimes)
-        ;; state (update state :entities (fn [ents] (map #(assoc % :infected? true) ents)))
         state
         (-> state
             (update :entities #(map (fn [e] (update-entities e state)) %))
             update-lifetime
-            track-ents
             cleanup-connections)]
     state))
+
+(defn setup-controls [{:keys [rand-color-count base-color color-palatte] :as controls}]
+  (merge
+   controls
+   (when-not color-palatte
+     (when
+         rand-color-count
+         {:color-palatte
+          (generate-palette base-color rand-color-count)}))))
 
 (defn setup []
   (q/frame-rate 30)
   (q/color-mode :hsb)
-  {:color-palatte
-   (generate-palette (-> @controls :base-color) 8)
-   :entity-db {}})
+  {})
+
+(defn ->hsb [color] (if (sequential? color) color [color 255 255]))
+
+(def draw-color (comp #(apply q/fill %) ->hsb))
 
 (defmulti draw-entity :kind)
 
@@ -270,11 +272,12 @@
     (q/stroke-weight 1)))
 
 (defn draw-state [state]
-  (q/background 255)
+  (q/background (-> @controls :background))
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:keys [color] :as entity} (:entities state)]
-    (q/fill color 255 255)
+    (draw-color color)
+    ;; (q/fill 255)
     (draw-entity entity)))
 
 (defn sketch [host]
@@ -287,10 +290,37 @@
    :features [:keep-on-top]
    :middleware [m/fun-mode]))
 
-(defmethod art/view "foo"
-  [opts]
-  (sketch (:place opts)))
+(def versions
+  {"1"
+   {:spread 1
+    :background 230
+    :base-color 7.790258368269614
+    :rand-color-count 8
+    :speed 2
+    :spread-spead 1
+    :brownian-factor 0.1
+    :infected-rate 0 ;; (/ 1 10)
+    :circle-wobble 1}
+   "2"
+   {:spread 1
+    :background 0
+    ;; :color-palatte [120 150]
+    :base-color 100
+    :rand-color-count 4
+    :speed 2
+    :spread-spead 1
+    :brownian-factor 0.1
+    :infected-rate 0.5
+    :infected-color 255
+    :circle-wobble 1}})
+
+(defmethod art/view "brownians"
+  [{:keys [place version]}]
+  (reset! controls (setup-controls (merge default-controls (get versions version))))
+  (sketch place))
+
 (comment
+  (setup-controls default-controls)
   (swap! controls assoc :spread 1)
   (swap! controls assoc :brownian-factor 0.2)
   (swap! controls assoc :spread-spead 1)

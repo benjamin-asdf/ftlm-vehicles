@@ -9,6 +9,6 @@
 
 (comment
   (ftlm.vehicles.system/restart)
-  ;; http://localhost:8095/
-
+  ;; http://localhost:8095/art/foo
+  ;; http://localhost:8095/art/foo/1
   )

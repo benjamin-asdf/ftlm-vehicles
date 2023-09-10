@@ -11,7 +11,6 @@
   (js-await [res (js/fetch href (clj->js opts))]
             (.text res)))
 
-
 (defmethod graft/scion "art" [opts place]
   (art/view (assoc opts :place place)))
 

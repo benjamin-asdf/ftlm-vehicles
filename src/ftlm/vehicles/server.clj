@@ -17,24 +17,25 @@
    [reitit.ring :as ring]
    [reitit.coercion.spec]
    [reitit.ring.middleware.defaults]
-   [reitit.dev.pretty :as pretty]
-
-   ))
+   [reitit.dev.pretty :as pretty]))
 
 (def graft (graft/start pr-str))
 
 (defn art [req]
-  (let [piece (-> req :path-params :piece)]
+  (let [piece (-> req :path-params :piece)
+        version (-> req :path-params :version)]
     (page-resp
      [:div
       [:div {:id "main"}]
-      (graft "art" :prev-sibling {:piece piece})])))
+      (graft "art" :prev-sibling {:piece piece :version version})])))
 
 ;; seed wold be cool
 
 (defmethod ig/init-key :router/routes [_ _]
   [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
-   ["/art/:piece" {:get {:handler (fn [req] (def req req) (art req))}}]])
+   ["/art/:piece" {:get {:handler (fn [_] (page-resp [:div "piece"]))}}]
+   ;; ["/art/:piece" {:get {:handler art}}]
+   ["/art/:piece/:version" {:get {:handler art}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler
@@ -62,9 +63,43 @@
   (.stop server))
 
 (comment
-  ;; http://localhost:8095/art/foo
+  (reitit.core/match-by-path
+   (let [routes [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
+                 ["/art/:piece/:version" {:get {:handler art}}]
+                 ["/art/:piece" {:get {:handler art}}]]]
 
-  (-> req :path-params :piece)
+     (ring/router
+      routes
+      {:exception pretty/exception
+       :data
+       {:coercion reitit.coercion.malli/coercion
+        :muuntaja m/instance
+        :defaults
+        (-> ring-defaults/site-defaults
+            (assoc :exception pretty/exception))
+        :middleware
+        (concat
+         [{:wrap wrap-gzip}]
+         reitit.ring.middleware.defaults/defaults-middleware)}}))
+   "/art/foo/#1")
+  (reitit.core/match-by-path
+   (let [routes [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
+                 ["/art/:piece/:version" {:get {:handler art}}]
+                 ["/art/:piece" {:get {:handler art}}]]]
 
-
+     (ring/router
+      routes
+      {:exception pretty/exception
+       :data
+       {:coercion reitit.coercion.malli/coercion
+        :muuntaja m/instance
+        :defaults
+        (-> ring-defaults/site-defaults
+            (assoc :exception pretty/exception))
+        :middleware
+        (concat
+         [{:wrap wrap-gzip}]
+         reitit.ring.middleware.defaults/defaults-middleware)}}))
+   "/art/foo")
+  ;; http://localhost:8095/art
   )
