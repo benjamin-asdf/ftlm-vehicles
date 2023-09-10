@@ -4,18 +4,24 @@
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]))
 
+(defn normal-distr [mean std-deviation]
+  (+ mean (* std-deviation (q/random-gaussian))))
+
 (def default-controls
   {:spread 1
    :background 230
    :base-color 7.790258368269614
    :rand-color-count 8
    :speed 2
-   :spread-spead 1
+   :spread-speed 0
    :brownian-factor 0.1
    :infected-rate (/ 1 10)
    :circle-wobble 1
+   :friction [(/ 1 43) (/ 1 50)]
    :infectiousness (/ 1 5)
-   :infected-color 255})
+   :infected-color 255
+   :spawn-rate {:base 1 :freq 2 :pow 1}
+   :circle-shine 0})
 
 (defonce controls (atom default-controls))
 
@@ -44,12 +50,20 @@
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
-;; assume hsb
-(defn shine [entity _dt]
-  (update entity
-          :color
-          (fn [c]
-            (mod (+ c (/ (* 1 (@controls :speed)) 2)) 255))))
+(defn ->hsb [color]
+  (cond
+    (map? color) [(:h color) (:s color) (:b color)]
+    (sequential? color) color
+    :else [color 255 255]))
+
+(defn shine [{:keys [shine] :as entity}]
+  (if-not
+      shine entity
+      (update
+       entity
+       :color
+       (fn [c]
+         (update-in (->hsb c) [0] (comp #(mod % 255) (partial + shine)))))))
 
 (defn signum [x]
   (cond
@@ -59,6 +73,9 @@
 
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
+
+(defn spawn-rate-pow [frequency time-in-millis pow]
+  (max (Math/pow (sine-wave frequency time-in-millis) pow) 0))
 
 (defn generate-palette [base num-colors]
   (into [] (map (fn [_] (mod (+ base (rand 50)) 360)) (range num-colors))))
@@ -133,6 +150,7 @@
 (defn update-entities [entity state]
   (-> entity
       move
+      shine
       wobble
       friction
       brownian-motion
@@ -154,28 +172,27 @@
          ;; py (+ cy (* radius (q/sin angle)))
          dx (- px cx)
          dy (- py cy)
+
          dist (/ (Math/sqrt (+ (* dx dx) (* dy dy))) 1.3)
+
          ux (/ dx dist)
          uy (/ dy dist)
-         {:keys [spread-speed circle-wobble color-palatte infected-rate]} @controls]
+         {:keys [circle-shine friction spread-speed circle-wobble color-palatte infected-rate]} @controls]
      (merge
       (->entity :circle)
       {:color (rand-nth color-palatte)
        :wobble circle-wobble
-       :transform
-       (->transform [px py] radius radius 1.5)
+       :transform (->transform [px py] radius radius 1.5)
        :infected? (< (q/random 1) infected-rate)
-       :friction (/ 1 (- 40 (rand 10)))
+       :friction (apply normal-distr friction)
        :velocity [(* ux spread-speed) (* uy spread-speed)]
        :lifetime (+ 100 (rand 20))
-       :infectable? true}))
+       :infectable? true
+       :shine circle-shine}))
    update-infected))
 
 (defn random-cirlces [state n]
   (update state :entities (fn [ents] (concat ents (repeatedly n rand-circle)))))
-
-(defn normal-distr [mean std-deviation]
-  (+ mean (* std-deviation (q/random-gaussian))))
 
 (defn infect? [exposure-time infectiousness]
   (< (/ (normal-distr 500 200) infectiousness) exposure-time))
@@ -199,8 +216,8 @@
         (fn [{:keys [infected? id] :as e}]
           (assoc e :infected? (boolean (or infected? (new-infected id)))))
         ents)))))
-
 (defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
+
 (def dead? (complement alive?))
 
 (defn cleanup-connections [state]
@@ -228,7 +245,9 @@
 (defn update-state [state]
   (let [state
         (-> state
-            (random-cirlces (max (sine-wave 2 (q/millis)) 0))
+            (random-cirlces
+             (let [{:keys [base freq pow]} (:spawn-rate @controls)]
+               (* base (spawn-rate-pow freq (q/millis) pow))))
             infection-jump
             infect-connected-sometimes)
         state
@@ -252,8 +271,6 @@
   (q/color-mode :hsb)
   {})
 
-(defn ->hsb [color] (if (sequential? color) color [color 255 255]))
-
 (def draw-color (comp #(apply q/fill %) ->hsb))
 
 (defmulti draw-entity :kind)
@@ -263,11 +280,11 @@
         {:keys [width height scale]} transform]
     (q/ellipse x y (* scale width) (* scale height))))
 
-(defmethod draw-entity :line [{:keys [transform end-pos]}]
+(defmethod draw-entity :line [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
-        {:keys [_scale color]} transform]
+        {:keys [_scale]} transform]
     (q/stroke-weight 2)
-    (q/with-stroke [color 255 255]
+    (q/with-stroke (->hsb color) ;; (->hsb color)
       (q/line [x y] end-pos))
     (q/stroke-weight 1)))
 
@@ -290,29 +307,128 @@
    :features [:keep-on-top]
    :middleware [m/fun-mode]))
 
+(def
+  cyberpunk-palette-hsb
+  [{:h 180 :s 255 :b 255}
+   ;; Neon Blue
+   {:h -20 :s 255 :b 255}
+   ;; Hot Pink
+   {:h -53 :s 255 :b 255}
+   ;; Vibrant Purple
+   {:h 117 :s 191.25 :b 204}
+   ;; Acid Green
+   {:h 0 :s 255 :b 139}
+   ;; Deep Red
+   ])
+
+(def white [0 0 255])
+
 (def versions
   {"1"
    {:spread 1
     :background 230
     :base-color 7.790258368269614
     :rand-color-count 8
-    :speed 2
-    :spread-spead 1
+    :spread-speed 1
     :brownian-factor 0.1
     :infected-rate 0 ;; (/ 1 10)
     :circle-wobble 1}
    "2"
    {:spread 1
-    :background 0
-    ;; :color-palatte [120 150]
-    :base-color 100
+    :background 230
+    :base-color 150
     :rand-color-count 4
-    :speed 2
-    :spread-spead 1
+    :spread-speed 1
     :brownian-factor 0.1
-    :infected-rate 0.5
-    :infected-color 255
-    :circle-wobble 1}})
+    :infected-rate (/ 1 10)
+    :infected-color white
+    :circle-wobble 1}
+   "3"
+   {:spread 1
+    :background 0
+    :base-color 30
+    :rand-color-count 8
+    :spread-speed 1
+    :brownian-factor 0.1
+    :infected-rate (/ 1 10)
+    :infected-color (->hsb white)
+    :circle-wobble 1}
+   "4"
+   {:spread 2
+    :background 130
+    :base-color 30
+    :rand-color-count 8
+    :spread-speed 1
+    :brownian-factor 0.1
+    :infected-rate (/ 1 10)
+    :infected-color 0
+    :circle-wobble 0}
+   "5"
+   {:spread 0.4
+    :background 230
+    :rand-color-count 8
+    :spread-speed 10
+    :brownian-factor 0.2
+    :infected-rate 0
+    :infected-color 0
+    :circle-wobble 0
+    :friction [(/ 1 100) (/ 1 50)] }
+   "6"
+   {:spread 0.4
+    :background 230
+    :rand-color-count 8
+    :spread-speed 3
+    :brownian-factor 0
+    :infected-rate 0
+    :infected-color 0
+    :circle-wobble 0
+    :friction [0 0]
+    :spawn-rate {:base 1 :freq 0.4 :pow 5}}
+   "7"
+   {:spread 1
+    :background 230
+    :rand-color-count 8
+    :spread-speed 0
+    :brownian-factor 0.05
+    :infected-rate 0
+    :infected-color 0
+    :circle-wobble 0.4
+    :circle-shine 2
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "8"
+   {:spread 1
+    :background 0
+    :rand-color-count 8
+    :speed 2
+    :spread-speed 0
+    :brownian-factor 0.05
+    :infected-rate 0
+    :infected-color 0
+    :circle-wobble 0.4
+    :circle-shine 2
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "9"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.05
+    :infected-rate 0
+    :infected-color 0
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :spawn-rate {:base 1 :freq 1 :pow 1}}
+   "10"
+   {:spread 1.5
+    :background 0
+    :rand-color-count 2
+    :spread-speed 1
+    :brownian-factor 0.05
+    :infected-rate (/ 1 3)
+    :infected-color white
+    :circle-wobble 0.4
+    :circle-shine 0.2
+    :spawn-rate {:base 1 :freq 1 :pow 1}}})
 
 (defmethod art/view "brownians"
   [{:keys [place version]}]
@@ -323,5 +439,5 @@
   (setup-controls default-controls)
   (swap! controls assoc :spread 1)
   (swap! controls assoc :brownian-factor 0.2)
-  (swap! controls assoc :spread-spead 1)
+  (swap! controls assoc :spread-speed 1)
   (swap! controls assoc :base-color (rand 360)))
