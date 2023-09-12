@@ -10,6 +10,15 @@
    {:h 117 :s 191.25 :b 204}
    {:h 0 :s 255 :b 139}])
 
+
+(def strawberry-mix
+  [{:h 0 :s 217 :b 230}
+   {:h 30 :s 255 :b 242}
+   {:h 54 :s 248 :b 255}
+   {:h 75 :s 204 :b 179}
+   {:h 240 :s 191 :b 166}
+   {:h 290 :s 179 :b 153}])
+
 (def versions
   {"brownians"
    {"0" {}
@@ -308,4 +317,33 @@
     "24"
     {:infected-rate (/ 1 10)
      :spread 2
-     :circle-wobble 1}}})
+     :circle-wobble 1}
+    "25"
+    {:color-palatte strawberry-mix
+     :infected-rate 0
+     :spread 1
+     :brownian-factor 0.1
+     :spread-speed 4
+     :friction [0 0]
+     :infected-color 200
+     :spawn-rate {:base 20 :freq 10 :pow 3}
+     :circle-wobble 2
+     :circle-shine 1}
+    "26"
+    {:infected-rate 0
+     :spread 1
+     :brownian-factor 0.1
+     :friction [(/ 1 100) (/ 1 30)]
+     :infected-color 200
+     ;; :spawn-rate {:base 20 :freq 10 :pow 3}
+     :circle-wobble 2
+     :circle-shine 1}
+    "27"
+    {:infected-rate (/ 1 10)
+     :spread 1
+     :brownian-factor 0.2
+     :friction [(/ 1 100) (/ 1 30)]
+     :infected-color 160
+     ;; :spawn-rate {:base 20 :freq 10 :pow 3}
+     :circle-wobble 2
+     :circle-shine 1}}})
