@@ -126,6 +126,7 @@
           (assoc :color (-> (controls) :infected-color))
           (update :transform *transform (-> (controls) :infected-transform)))))
 
+
 (defn infection-jump [{:keys [entities] :as state}]
   (let [ents (filter :infectable? entities)
         non-infected
@@ -302,6 +303,7 @@
          rand-color-count
          {:color-palatte
           (generate-palette base-color rand-color-count)}))))
+
 
 (defn setup [controls]
   (q/frame-rate 30)

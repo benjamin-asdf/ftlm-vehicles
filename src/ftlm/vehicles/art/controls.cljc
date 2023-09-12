@@ -12,14 +12,16 @@
 
 (def versions
   {"brownians"
-   {"1"
+   {"0" {}
+    "1"
     {:spread 1
      :background 230
      :base-color 7.790258368269614
      :rand-color-count 8
      :spread-speed 1
      :brownian-factor 0.1
-     :infected-rate 0
+     :infected-rate (/ 1 3)
+     :infected-color (rand-int (inc 360))
      :circle-wobble 1}
     "2"
     {:spread 1
@@ -306,5 +308,4 @@
     "24"
     {:infected-rate (/ 1 10)
      :spread 2
-     :
      :circle-wobble 1}}})
