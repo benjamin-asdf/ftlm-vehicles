@@ -290,4 +290,21 @@
      :circle-shine 1
      :change-palette? true
      :circle-lifetime [180 40]
-     :spawn-rate {:base 4 :freq 0.8 :pow 1}}}})
+     :spawn-rate {:base 4 :freq 0.8 :pow 1}}
+    "23"
+    {:spread 1.8
+     :background 230
+     :base-color 7
+     :rand-color-count 8
+     :spread-speed 0
+     :brownian-factor 0.25
+     :infected-rate 0
+     :circle-wobble 0
+     :circle-shine 1
+     :circle-lifetime [180 40]
+     :spawn-rate {:base 3 :freq 0.8 :pow 1}}
+    "24"
+    {:infected-rate (/ 1 10)
+     :spread 2
+     :
+     :circle-wobble 1}}})
