@@ -2,5 +2,8 @@ Visualize and play around with cybernetic ai concepts. + Make gen art.
 
 * Art
 
+
+
 ** Brownians
-[[https://vehicles.faster-than-light-memes.xyz/art/g/brownians?page=0][First attempts at generative art]]
+- [[https://vehicles.faster-than-light-memes.xyz/art/g/brownians?page=0][First attempts at generative art]]
+- [[https://faster-than-light-memes.xyz/generative-art.html][Blog post]]
