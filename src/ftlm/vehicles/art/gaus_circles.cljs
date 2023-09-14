@@ -3,29 +3,14 @@
    [ftlm.vehicles.art :as art]
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]
-   [ftlm.vehicles.art.controls :refer [versions]]))
+   [ftlm.vehicles.art.controls :refer [versions]]
+   [ftlm.vehicles.art.user-controls :as user-controls]))
 
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
 (def default-controls
-  {:spread 1
-   :background 230
-   :base-color 7.790258368269614
-   :rand-color-count 8
-   :speed 2
-   :spread-speed 0
-   :brownian-factor 0.1
-   :infected-rate (/ 1 10)
-   :circle-wobble 1
-   :friction [(/ 1 43) (/ 1 50)]
-   :infectiousness (/ 1 5)
-   :infected-color 255
-   :spawn-rate {:base 1 :freq 2 :pow 1}
-   :circle-shine 0
-   :circle-scale 1.5
-   :circle-lifetime [110 10]
-   :hide-lines? false})
+  (ftlm.vehicles.art.controls/default-versions "brownians"))
 
 (defn controls []
   (q/state :controls))
@@ -279,8 +264,10 @@
                         (generate-palette base-color (:rand-color-count controls)))))
         state)))
 
+
 (defn update-state [state]
-  (let [state
+  (let [state (update state :controls merge @user-controls/!app)
+        state
         (-> state
             (random-cirlces
              (let [{:keys [base freq pow]} (:spawn-rate (controls))]
@@ -348,7 +335,11 @@
 
 (defmethod art/view "brownians"
   [{:keys [place version]}]
-  (sketch place (merge default-controls (get-in versions ["brownians" version]))))
+  (sketch
+   place
+   (merge
+    default-controls
+    (get-in versions ["brownians" version]))))
 
 (comment
   (setup-controls default-controls))

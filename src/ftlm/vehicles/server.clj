@@ -22,13 +22,21 @@
 
 (def graft (graft/start pr-str))
 
+;; controls
+
 (defn art [req]
   (let [piece (-> req :path-params :piece)
-        version (-> req :path-params :version)]
+        version (-> req :path-params :version)
+        controls? (boolean (-> req :parameters :query :controls))]
     (page-resp
      [:div
       [:div {:id "main"}]
-      (graft "art" :prev-sibling {:piece piece :version version})])))
+      (graft "art" :prev-sibling {:piece piece :version version})
+      (when
+          controls?
+          [:div (graft
+                 "controls-app"
+                 :parent {:piece piece :version version})])])))
 
 (defn art-gallery [req]
   (let [piece (-> req :path-params :piece)
@@ -83,10 +91,15 @@
 
 (defmethod ig/init-key :router/routes [_ _]
   [["/" {:get {:handler (fn [_] (page-resp [:div "hi"]))}}]
-   ["/art/g/:piece" {:get {:handler art-gallery :parameters
+   ["/art/g/:piece" {:get {:handler art-gallery
+                           :parameters
                            {:query [:map
                                     [:page :int]]}}}]
-   ["/art/p/:piece/:version" {:get {:handler art}}]])
+   ["/art/p/:piece/:version" {:get {:handler art
+                                    :parameters
+                                    {:query
+                                     [:map
+                                      [:controls {:optional true} :boolean]]}}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler

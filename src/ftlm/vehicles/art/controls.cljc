@@ -19,6 +19,27 @@
    {:h 240 :s 191 :b 166}
    {:h 290 :s 179 :b 153}])
 
+(def default-versions
+  {"brownians"
+   {:spread 1
+    :change-palette? false
+    :background 230
+    :base-color 7.790258368269614
+    :rand-color-count 8
+    :speed 2
+    :spread-speed 0
+    :brownian-factor 0.1
+    :infected-rate (/ 1 10)
+    :circle-wobble 1
+    :friction [(/ 1 43) (/ 1 50)]
+    :infectiousness (/ 1 5)
+    :infected-color 255
+    :spawn-rate {:base 1 :freq 2 :pow 1}
+    :circle-shine 0
+    :circle-scale 1.5
+    :circle-lifetime [110 10]
+    :hide-lines? false}})
+
 (def versions
   {"brownians"
    {"0" {}
@@ -98,7 +119,6 @@
     {:spread 1
      :background 0
      :rand-color-count 8
-     :speed 2
      :spread-speed 0
      :brownian-factor 0.05
      :infected-rate 0
@@ -346,4 +366,22 @@
      :infected-color 160
      ;; :spawn-rate {:base 20 :freq 10 :pow 3}
      :circle-wobble 2
-     :circle-shine 1}}})
+     :circle-shine 1}
+    "28"
+    {:background 0
+     :base-color 300
+     :brownian-factor 0.1
+     :change-palette? true
+     :circle-lifetime [110 10]
+     :circle-scale 3
+     :circle-shine 0
+     :circle-wobble 1
+     :friction [0.023255813953488372 0.02]
+     :hide-lines? false
+     :infected-color 255
+     :infected-rate 0.1
+     :infectiousness 0.2
+     :rand-color-count 8
+     :spawn-rate {:base 1 :freq 2 :pow 1}
+     :spread 1.5
+     :spread-speed 1}}})
