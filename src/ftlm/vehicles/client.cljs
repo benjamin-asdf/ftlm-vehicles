@@ -6,6 +6,7 @@
    [ftlm.vehicles.art :as art]
 
    [ftlm.vehicles.art.gaus-circles]
+   ftlm.vehicles.art.vehicles.getting-around
    [ftlm.vehicles.art.user-controls :as user-controls]))
 
 ;; (defn req [href opts]

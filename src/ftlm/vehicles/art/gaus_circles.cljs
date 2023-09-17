@@ -111,7 +111,6 @@
           (assoc :color (-> (controls) :infected-color))
           (update :transform *transform (-> (controls) :infected-transform)))))
 
-
 (defn infection-jump [{:keys [entities] :as state}]
   (let [ents (filter :infectable? entities)
         non-infected
@@ -158,7 +157,6 @@
       brownian-motion
       update-infected
       (update-conn-line state)))
-
 
 (defn rand-circle []
   (->
@@ -242,15 +240,16 @@
             (some #(dead? state %) [(connection->non-infected e) (connection->infected e)])))
       ents))))
 
-(defn update-lifetime [state]
-  (update state :entities
-   (fn [circles]
-     (into
-      []
-      (comp
-       (map (fn [{:keys [lifetime] :as e}] (if lifetime (update e :lifetime dec) e)))
-       (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
-      circles))))
+(defn update-lifetime
+  [state]
+  (update state
+          :entities
+          (fn [circles]
+            (into []
+                  (comp (map (fn [{:as e :keys [lifetime]}]
+                               (if lifetime (update e :lifetime dec) e)))
+                        (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
+                  circles))))
 
 (defn change-color-palette! [{:keys [controls] :as state}]
   (if-not (:change-palette? controls)
