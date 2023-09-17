@@ -136,5 +136,5 @@
   (let [[x y] (:pos transform)
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
-      (q/rotate (* rotation (q/radians 360)))
+      (q/rotate (q/radians rotation))
       (q/rect 0 0 width height 0.4))))

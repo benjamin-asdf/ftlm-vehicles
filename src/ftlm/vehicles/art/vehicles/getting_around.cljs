@@ -1,6 +1,5 @@
 (ns ftlm.vehicles.art.vehicles.getting-around
   (:require
-
    [ftlm.vehicles.art.lib :as lib]
    [ftlm.vehicles.art :as art]
    [quil.core :as q :include-macros true]
@@ -21,19 +20,21 @@
       (lib/draw-color color)
       (lib/draw-entity entity))))
 
+;; (def ->rotation (comp :tra/))
+
 (defn ->cart
   []
-  (merge (lib/->entity :rect)
-         {:acceleration 0
-          :angular-acceleration 0
-          :angular-vlocity 0
-          :cart? true
-          :color 100
-          :mass 1
-          :motors {:left {:force 0 :pos :left} :right {:force 0 :pos :right}}
-          :rotation 0
-          :transform (lib/->transform [200 200] 40 80 1)
-          :velocity 0}))
+  (merge
+   (lib/->entity :rect)
+   {:acceleration 0
+    :angular-acceleration 0
+    :angular-velocity 100
+    :cart? true
+    :color 100
+    :mass 1
+    :motors {:left {:force 0 :pos :left} :right {:force 0 :pos :right}}
+    :transform (assoc (lib/->transform [200 200] 40 80 1) :rotation 0)
+    :velocity 0}))
 
 (defn zero-force [e] (assoc e :force 0))
 
@@ -59,10 +60,14 @@
            :angular-acceleration (/ force moment-of-inertia)
            :angular-velocity (+ (:angular-velocity cart) (* (:angular-acceleration cart) *dt*)))))
 
+(defn update-rotation [entity]
+  (-> entity
+      (update-in [:transform :rotation] #(+ % (* (:angular-velocity entity) *dt*)))))
+
 (defn update-position
   [entity]
   (let [velocity (:velocity entity)
-        rotation (:rotation entity)
+        rotation (-> entity :transform :rotation)
         x (* *dt* velocity (Math/cos rotation))
         y (* *dt* velocity (Math/sin rotation))]
     (-> entity
@@ -75,7 +80,8 @@
   (-> entity
       update-force
       update-angular-force
-      update-position))
+      update-position
+      update-rotation))
 
 (defn update-state
   [state]
