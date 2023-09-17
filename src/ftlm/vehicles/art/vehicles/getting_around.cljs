@@ -1,5 +1,7 @@
 (ns ftlm.vehicles.art.vehicles.getting-around
   (:require
+
+
    [ftlm.vehicles.art.lib :as lib]
    [ftlm.vehicles.art :as art]
    [quil.core :as q :include-macros true]
@@ -18,20 +20,47 @@
       (lib/draw-color color)
       (lib/draw-entity entity))))
 
-(defn setup [controls]
-  {})
+(defn ->cart
+  []
+  (merge
+   (lib/->entity :rect)
+   {:color 100 :transform (lib/->transform [200 200] 40 80 1)
+    :cart? true}))
 
-(defn update-state [state] state)
+(defn setup
+  [controls]
+  (q/rect-mode :center)
+  {:entities [(->cart)] :last-tick (q/millis)})
 
-(defn sketch [host controls]
-  (q/sketch
-   :host host
-   :size [600 600]
-   :setup (partial setup controls)
-   :update update-state
-   :draw draw-state
-   :features [:keep-on-top]
-   :middleware [m/fun-mode]))
+(defn update-entity [entity dt]
+  (-> entity
+      (update-in
+       [:transform :rotation] (fnil (fn [r] (+ r (* 1 dt))) 0))))
+
+(defn update-state
+  [state]
+  (let [current-tick (q/millis)
+        dt (/ (- current-tick (:last-tick state)) 1000)]
+    (-> state
+        (assoc :last-tick current-tick)
+        (update :entities #(map (fn [e] (update-entity e dt)) %)))))
+
+
+(defn window-dimensions []
+  (let [w (.-innerWidth js/window)
+        h (.-innerHeight js/window)]
+    {:width w :height h}))
+
+(defn sketch
+  [host controls]
+  (let [{:keys [width height]} (window-dimensions)]
+    (q/sketch :host host
+              :size [width height]
+              :setup (partial setup controls)
+              :update update-state
+              :draw draw-state
+              :features [:keep-on-top]
+              :middleware [m/fun-mode])))
 
 (defmethod art/view "getting-around"
   [{:keys [place version]}]

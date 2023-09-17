@@ -13,7 +13,14 @@
   {:kind kind :id (random-uuid) :spawn-time (q/millis)})
 
 (defn ->transform [pos width height scale]
-  {:pos pos :width width :height height :scale scale})
+  {:pos pos :width width :height height :scale scale :anchor :center})
+
+(defn ->pivot
+  [{:keys [anchor pos width height]}]
+  (case anchor
+    :center [(+ (first pos) (/ width 2)) (+ (second pos) (/ height 2))]
+    :top-left pos
+    :bottom-right [(+ (first pos) width) (+ (second pos) height)]))
 
 (def entities :entities)
 
@@ -124,3 +131,10 @@
     (q/with-stroke (->hsb color) ;; (->hsb color)
       (q/line [x y] end-pos))
     (q/stroke-weight 1)))
+
+(defmethod draw-entity :rect [{:keys [transform]}]
+  (let [[x y] (:pos transform)
+        {:keys [width height scale rotation]} transform]
+    (q/with-translation [x y]
+      (q/rotate (* rotation (q/radians 360)))
+      (q/rect 0 0 width height 0.4))))
