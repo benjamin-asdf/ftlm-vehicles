@@ -79,12 +79,13 @@
     (v* m [(/ width 2) (/ height 2)])))
 
 (defn ->sensor [anchor]
-  (assoc (lib/->entity :circle)
-         :transform (lib/->transform [0 0] 20 20 1)
-         :anchor anchor
-         :modality :temp
-         :sensor? true
-         :color 30))
+  (assoc
+   (lib/->entity :circle)
+   :transform (lib/->transform [0 0] 20 20 1)
+   :anchor anchor
+   :modality :temp
+   :sensor? true
+   :color 100))
 
 (defn ->motor [pos vigor]
   (merge
@@ -93,7 +94,8 @@
     :pos pos
     :activation vigor
     :transform (lib/->transform [0 0] 20 35 1)
-    :anchor :bottom-middle}))
+    :anchor :bottom-middle
+    :color 0}))
 
 ;; synonyms
 (def signal-strengh :activation)
@@ -106,9 +108,7 @@
 
 ;; dummy, dinstance from origin
 (defn ->temp [pos env]
-  (mod (Math/sqrt (+ (Math/pow (first pos) 2)
-                     (Math/pow (second pos) 2)))
-       10))
+  (mod (Math/sqrt (+ (Math/pow (first pos) 2) (Math/pow (second pos) 2))) 10))
 
 (defmethod update-sensor :temp
   [sensor env]
@@ -116,10 +116,15 @@
         sensitivity 1]
     (assoc sensor signal-strengh (* sensitivity temp))))
 
-(defn ->connection
-  ([a b] (->connection a b identity))
-  ([a b f]
-   {:a a :b b :f f}))
+(defn ->connection-model
+  ([a b] (->connection-model a b identity))
+  ([a b f] {:a a :b b :f f}))
+
+(defn ->connection [entity-a entity-b]
+  (merge
+   (lib/->connection-line entity-a entity-b)
+   {:connection-model (->connection-model entity-a entity-b)
+    :connection? true}))
 
 (defn transduce-signal [entity-a entity-b {:keys [f]}]
   (update entity-b :activation + (f (:activation entity-a))))
@@ -131,9 +136,11 @@
       (assoc entity :activation activation))
     entity))
 
-(defn transduce-signals
-  [state connections]
-  (let [connection-by-a (into {} (juxt :a identity) connections)
+(defn transduce-signals [state]
+  (let [connection-by-a
+        (into {}
+              (juxt :a identity)
+              (filter :connection? (lib/entities state)))
         ent-lut (lib/entities-by-id state)]
     (update
      state
@@ -146,31 +153,14 @@
             ents)))))
 
 (defn ->brain [& connections] connections)
-
 (defn ->body [])
-
-;; (defn ->cart [spawn-point]
-;;   (let [sensors
-;;         [(assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-right)
-;;          (assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-left)]]
-;;     (into
-;;      sensors
-;;      [(merge
-;;        (lib/->entity :rect)
-;;        {:angular-velocity 0
-;;         :cart? true
-;;         :color 100
-;;         :transform (assoc (lib/->transform spawn-point 40 80 1) :rotation 0)
-;;         :velocity 0
-;;         :components (into [] (map :id sensors))}
-;;        (cart-1))])))
 
 (defn ->cart [spawn-point]
   (merge
    (lib/->entity :rect)
    {:angular-velocity 0
     :cart? true
-    :color 100
+    :color 30
     :transform (assoc (lib/->transform spawn-point 30 80 1) :rotation 0)
     :velocity 0}))
 
@@ -178,11 +168,11 @@
   []
   (let [sensor (->sensor :top-middle)
         motor (->motor :middle 0)
-        line (assoc (lib/->connection-line sensor motor) :color :red)
+        line (->connection sensor motor)
         body (assoc (->cart [200 200])
-               :components (map :id [motor sensor])
-               :motors [motor]
-               :sensors [sensor])]
+                    :components (map :id [motor sensor])
+                    :motors [motor]
+                    :sensors [sensor])]
     [body sensor motor line]))
 
 ;; say motor vigor makes more velocity
@@ -254,10 +244,13 @@
                               ents)))))))
 
 
-(defn actication-shine [{:keys [activation] :as entity}]
-  (if activation
-    (assoc entity :color (min 0 (max (* 100 activation) 360)))
-    entity))
+(defn actication-shine
+  [{:as entity :keys [activation]}]
+  entity
+  ;; (if activation
+  ;;   (assoc entity :color (min 0 (max (* 100 activation) 360)))
+  ;;   entity)
+  )
 
 (defn update-sensors [entity]
   (if (:sensor? entity) (update-sensor entity) entity))
@@ -293,6 +286,7 @@
 (defn setup
   [_controls]
   (q/rect-mode :center)
+  (q/color-mode :hsb)
   {:entities (cart-1) :last-tick (q/millis)})
 
 (defn sketch
