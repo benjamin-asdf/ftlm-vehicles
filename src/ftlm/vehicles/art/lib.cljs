@@ -135,7 +135,6 @@
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
-    (println 200 x y)
     (q/stroke-weight 2)
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))

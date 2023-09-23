@@ -25,10 +25,16 @@
 (def body identity)
 (def sensors :sensors)
 (def brain :brain)
-(def effectors :motors)
+
+(defn effectors
+  [entity state]
+  (->> entity
+       :components
+       (map (lib/entities-by-id state))
+       (filter :motor?)))
 
 ;; I try a cartoon physics,
-;; vigor makes your velocity go up, friction removes it
+;; :activation makes your velocity go up, friction removes it
 
 (defn draw-state [state]
   (q/background 230)
@@ -87,34 +93,40 @@
    :sensor? true
    :color 100))
 
-(defn ->motor [pos vigor]
+(defn ->motor [pos activation]
   (merge
    (lib/->entity :rect)
    {:motor? true
     :pos pos
-    :activation vigor
+    :activation activation
     :transform (lib/->transform [0 0] 20 35 1)
     :anchor :bottom-middle
     :color 0}))
-
-;; synonyms
-(def signal-strengh :activation)
-(def vigor :activation)
-(def activation :activation)
 
 (defn temperature-zone [])
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
-;; dummy, dinstance from origin
-(defn ->temp [pos env]
-  (mod (Math/sqrt (+ (Math/pow (first pos) 2) (Math/pow (second pos) 2))) 10))
+(defn distance
+  [[x1 y1] [x2 y2]]
+  (Math/sqrt (+ (Math/pow (- x2 x1) 2) (Math/pow (- y2 y1) 2))))
+
+(defn normalize-value
+  [min max value]
+  (let [range (- max min)]
+    (+ min (mod (/ (- value min) range) 1))))
+
+(defn ->temp
+  [sensor-pos env]
+  (let [env-pos [400 400]
+        dist (distance sensor-pos env-pos)]
+    (normalize-value 0 1 dist)))
 
 (defmethod update-sensor :temp
   [sensor env]
   (let [temp (->temp (position sensor) env)
         sensitivity 1]
-    (assoc sensor signal-strengh (* sensitivity temp))))
+    (assoc sensor :activation (* sensitivity (- 1 temp)))))
 
 (defn ->connection-model
   ([a b] (->connection-model a b identity))
@@ -123,34 +135,39 @@
 (defn ->connection [entity-a entity-b]
   (merge
    (lib/->connection-line entity-a entity-b)
-   {:connection-model (->connection-model entity-a entity-b)
+   {:connection-model (->connection-model (:id entity-a) (:id entity-b))
     :connection? true}))
 
-(defn transduce-signal [entity-a entity-b {:keys [f]}]
-  (update entity-b :activation + (f (:activation entity-a))))
+(def connection->source (comp :a :connection-model))
+(def connection->destination (comp :b :connection-model))
+
+(defn transduce-signal [destination source {:keys [f]}]
+  (update destination :activation + (f (:activation source))))
 
 (defn activation-decay [{:keys [activation] :as entity}]
   (if activation
     (let [sign (lib/signum activation)
-          activation (* sign (- (abs activation) 0.1))]
+          activation (* sign (- (abs activation) 0.2) 0.8)]
       (assoc entity :activation activation))
     entity))
 
-(defn transduce-signals [state]
-  (let [connection-by-a
-        (into {}
-              (juxt :a identity)
-              (filter :connection? (lib/entities state)))
+(defn transduce-signals
+  [state]
+  (let [connection-by-destination (into {}
+                                        (comp (filter :connection?)
+                                              (map (juxt connection->destination
+                                                         identity)))
+                                        (lib/entities state))
         ent-lut (lib/entities-by-id state)]
-    (update
-     state
-     :entities
-     (fn [ents]
-       (map (fn [e]
-              (if-let [conn (connection-by-a (:id e))]
-                (transduce-signal e (ent-lut (:b conn)) conn)
-                e))
-            ents)))))
+    (update state
+            :entities
+            (fn [ents]
+              (map (fn [e]
+                     (if-let [conn-e (connection-by-destination (:id e))]
+                       (let [source (ent-lut (connection->source conn-e))]
+                         (transduce-signal e source (:connection-model conn-e)))
+                       e))
+                ents)))))
 
 (defn ->brain [& connections] connections)
 (defn ->body [])
@@ -171,32 +188,37 @@
         line (->connection sensor motor)
         body (assoc (->cart [200 200])
                     :components (map :id [motor sensor])
-                    :motors [motor]
-                    :sensors [sensor])]
+                    :motors (map :id [motor])
+                    :sensors (map :id [sensor]))]
     [body sensor motor line]))
 
-;; say motor vigor makes more velocity
+;; say motor :activation makes more velocity
 ;; velocity goes down with friction
 
 (def pos->angular-velocity-sign {:left 1 :right -1 :middle 0})
 
 (defn update-body
-  [cart]
-  (let [effectors (effectors cart)]
-    (-> cart
-        (update :velocity + (reduce + (map vigor effectors)))
-        (update :angular-velocity
-                +
-                (reduce +
-                  (map (fn [{:keys [pos] :as e}]
-                         (* (vigor e) (pos->angular-velocity-sign pos)))
-                       effectors))))))
+  [cart state]
+  (if-not
+      (:cart? cart) cart
+      (let [effectors (effectors cart state)]
+        (-> cart
+            (update :velocity + (reduce + (map :activation effectors)))
+            (update :angular-velocity
+                    +
+                    (reduce +
+                            (map (fn [{:keys [pos] :as e}]
+                                   (* (:activation e) (pos->angular-velocity-sign pos)))
+                                 effectors)))))))
 
 (defn brownian-motion
   [cart]
-  (-> cart
-      (update :velocity + (q/random-gaussian))
-      (update :angular-velocity + (q/random-gaussian))))
+  (if-not
+      (:cart? cart)
+    cart
+      (-> cart
+          (update :velocity + (* 0.3 (q/random-gaussian)))
+          (update :angular-velocity + (* 0.3 (q/random-gaussian))))))
 
 (defn update-rotation [entity]
   (-> entity
@@ -246,21 +268,19 @@
 
 (defn actication-shine
   [{:as entity :keys [activation]}]
-  entity
-  ;; (if activation
-  ;;   (assoc entity :color (min 0 (max (* 100 activation) 360)))
-  ;;   entity)
-  )
+  (if activation
+    (assoc entity :color (mod (* 15 activation) 360))
+    entity))
 
 (defn update-sensors [entity]
   (if (:sensor? entity) (update-sensor entity) entity))
 
 (defn update-entity [entity state]
   (-> entity
-      update-body
+      (update-body state)
       velocity-friction
       ;; print-it-every-ms
-      ;; brownian-motion
+      brownian-motion
       update-rotation
       update-position
       (lib/update-conn-line state)
@@ -276,6 +296,7 @@
       (-> state
           (assoc :last-tick current-tick)
           (update :entities (fn [ents] (doall (map #(update-entity % state) ents))))
+          transduce-signals
           track-components))))
 
 (defn window-dimensions []
@@ -287,7 +308,11 @@
   [_controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  {:entities (cart-1) :last-tick (q/millis)})
+  {:entities (concat (cart-1)
+                   [(assoc (lib/->entity :circle)
+                      :color 0
+                      :transform (lib/->transform [400 400] 20 20 1))])
+   :last-tick (q/millis)})
 
 (defn sketch
   [host controls]
