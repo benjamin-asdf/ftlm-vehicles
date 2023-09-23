@@ -67,7 +67,7 @@
   {:pos pos :vigor vigor})
 
 (defn cart-1 []
-  {:motors [(->motor :left 4)]})
+  {:motors [(->motor :left 0)]})
 
 (defn env [] {})
 (def body identity)
@@ -75,27 +75,43 @@
 (def brain :brain)
 (def effectors :motors)
 
+(defn transform [e] (:transform e))
+
+(defn v* [[a b] [a' b']]
+  [(* a a')
+   (* b b')])
+
+(def anchor->trans-matrix
+  {:top-right [1 -1]
+   :top-left [-1 -1]
+   :bottom-left [-1 1]
+   :bottom-right [1 1]})
+
+;; parent is always a rect with draw mode :center right now
+(defn relative-position [parent ent]
+  (let [{:keys [width height]} (transform parent)
+        m (anchor->trans-matrix (:anchor ent))]
+    (v* m [(/ width 2) (/ height 2)])))
+
 (defn ->cart []
-  (let [sensor
-        (assoc
-         (lib/->entity :circle)
-         :transform
-         (lib/->transform [0 0] 20 20 1)
-         :relative-position [0 40])]
-      [(merge
-        (lib/->entity :rect)
-        {:acceleration 0
-         :angular-acceleration 0
-         :angular-velocity 0
-         :angular-force 0
-         :cart? true
-         :color 100
-         :mass 1
-         :transform (assoc (lib/->transform [200 200] 40 80 1) :rotation q/PI)
-         :velocity 0
-         :components (into [] (map :id [sensor]))}
-        (cart-1))
-       sensor]))
+  (let [sensors
+        [(assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-right)
+         (assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-left)]]
+    (into
+     sensors
+     [(merge
+       (lib/->entity :rect)
+       {:acceleration 0
+        :angular-acceleration 0
+        :angular-velocity 0
+        :angular-force 0
+        :cart? true
+        :color 100
+        :mass 1
+        :transform (assoc (lib/->transform [200 200] 40 80 1) :rotation 0)
+        :velocity 0
+        :components (into [] (map :id sensors))}
+       (cart-1))])))
 
 ;; say motor vigor makes more velocity
 ;; velocity goes down with friction
@@ -150,7 +166,7 @@
                 (fn [ents]
                   (doall (map (fn [{:as ent :keys [id]}]
                                 (if-let [parent (parent-by-id id)]
-                                  (let [{:keys [relative-position]} ent
+                                  (let [relative-position(relative-position parent ent)
                                         parent-rotation (-> parent :transform :rotation)]
                                     (assoc-in ent
                                               [:transform :pos]
