@@ -21,6 +21,12 @@
 ;; effectors
 ;; brain (connections)
 
+(defn env [] {})
+(def body identity)
+(def sensors :sensors)
+(def brain :brain)
+(def effectors :motors)
+
 ;; I try a cartoon physics,
 ;; vigor makes your velocity go up, friction removes it
 
@@ -43,16 +49,6 @@
 (defn scale-point [[x y] scale]
   [(x * scale) (y * scale)])
 
-(defn sensor-pos-absolute [cart sensor]
-  (let [{:keys [pos rotation]} (cart :transform)
-        rel-pos [0 0] ;; (sensor :pos)
-        scale (cart :scale)
-        rot-pos (rotate-point rotation rel-pos)
-        abs-pos (translate-point (first rot-pos) (second rot-pos) (first pos) (second pos))
-        final-pos (scale-point abs-pos scale)]
-    final-pos))
-
-
 (defn friction [velocity] (max 0 (- velocity 0.1)))
 
 (defn velocity-friction [cart]
@@ -60,22 +56,8 @@
       (update :velocity friction)
       (update :angular-velocity friction)))
 
-;; (defn motor-friction [cart]
-;;   (update cart :motors update-vals #(update % :vigor friction)))
-
-(defn ->motor [pos vigor]
-  {:pos pos :vigor vigor})
-
-(defn cart-1 []
-  {:motors [(->motor :left 0)]})
-
-(defn env [] {})
-(def body identity)
-(def sensors :sensors)
-(def brain :brain)
-(def effectors :motors)
-
 (defn transform [e] (:transform e))
+(defn position [e] (-> e transform :pos))
 
 (defn v* [[a b] [a' b']]
   [(* a a')
@@ -84,34 +66,124 @@
 (def anchor->trans-matrix
   {:top-right [1 -1]
    :top-left [-1 -1]
+   :top-middle [0 -1.3]
    :bottom-left [-1 1]
-   :bottom-right [1 1]})
+   :bottom-right [1 1]
+   :bottom-middle [0 1]})
 
 ;; parent is always a rect with draw mode :center right now
+
 (defn relative-position [parent ent]
   (let [{:keys [width height]} (transform parent)
         m (anchor->trans-matrix (:anchor ent))]
     (v* m [(/ width 2) (/ height 2)])))
 
-(defn ->cart []
-  (let [sensors
-        [(assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-right)
-         (assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-left)]]
-    (into
-     sensors
-     [(merge
-       (lib/->entity :rect)
-       {:acceleration 0
-        :angular-acceleration 0
-        :angular-velocity 0
-        :angular-force 0
-        :cart? true
-        :color 100
-        :mass 1
-        :transform (assoc (lib/->transform [200 200] 40 80 1) :rotation 0)
-        :velocity 0
-        :components (into [] (map :id sensors))}
-       (cart-1))])))
+(defn ->sensor [anchor]
+  (assoc (lib/->entity :circle)
+         :transform (lib/->transform [0 0] 20 20 1)
+         :anchor anchor
+         :modality :temp
+         :sensor? true
+         :color 30))
+
+(defn ->motor [pos vigor]
+  (merge
+   (lib/->entity :rect)
+   {:motor? true
+    :pos pos
+    :activation vigor
+    :transform (lib/->transform [0 0] 20 35 1)
+    :anchor :bottom-middle}))
+
+;; synonyms
+(def signal-strengh :activation)
+(def vigor :activation)
+(def activation :activation)
+
+(defn temperature-zone [])
+
+(defmulti update-sensor (fn [sensor _env] (:modality sensor)))
+
+;; dummy, dinstance from origin
+(defn ->temp [pos env]
+  (mod (Math/sqrt (+ (Math/pow (first pos) 2)
+                     (Math/pow (second pos) 2)))
+       10))
+
+(defmethod update-sensor :temp
+  [sensor env]
+  (let [temp (->temp (position sensor) env)
+        sensitivity 1]
+    (assoc sensor signal-strengh (* sensitivity temp))))
+
+(defn ->connection
+  ([a b] (->connection a b identity))
+  ([a b f]
+   {:a a :b b :f f}))
+
+(defn transduce-signal [entity-a entity-b {:keys [f]}]
+  (update entity-b :activation + (f (:activation entity-a))))
+
+(defn activation-decay [{:keys [activation] :as entity}]
+  (if activation
+    (let [sign (lib/signum activation)
+          activation (* sign (- (abs activation) 0.1))]
+      (assoc entity :activation activation))
+    entity))
+
+(defn transduce-signals
+  [state connections]
+  (let [connection-by-a (into {} (juxt :a identity) connections)
+        ent-lut (lib/entities-by-id state)]
+    (update
+     state
+     :entities
+     (fn [ents]
+       (map (fn [e]
+              (if-let [conn (connection-by-a (:id e))]
+                (transduce-signal e (ent-lut (:b conn)) conn)
+                e))
+            ents)))))
+
+(defn ->brain [& connections] connections)
+
+(defn ->body [])
+
+;; (defn ->cart [spawn-point]
+;;   (let [sensors
+;;         [(assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-right)
+;;          (assoc (lib/->entity :circle) :transform (lib/->transform [0 0] 20 20 1) :anchor :top-left)]]
+;;     (into
+;;      sensors
+;;      [(merge
+;;        (lib/->entity :rect)
+;;        {:angular-velocity 0
+;;         :cart? true
+;;         :color 100
+;;         :transform (assoc (lib/->transform spawn-point 40 80 1) :rotation 0)
+;;         :velocity 0
+;;         :components (into [] (map :id sensors))}
+;;        (cart-1))])))
+
+(defn ->cart [spawn-point]
+  (merge
+   (lib/->entity :rect)
+   {:angular-velocity 0
+    :cart? true
+    :color 100
+    :transform (assoc (lib/->transform spawn-point 30 80 1) :rotation 0)
+    :velocity 0}))
+
+(defn cart-1
+  []
+  (let [sensor (->sensor :top-middle)
+        motor (->motor :middle 0)
+        line (assoc (lib/->connection-line sensor motor) :color :red)
+        body (assoc (->cart [200 200])
+               :components (map :id [motor sensor])
+               :motors [motor]
+               :sensors [sensor])]
+    [body sensor motor line]))
 
 ;; say motor vigor makes more velocity
 ;; velocity goes down with friction
@@ -122,13 +194,13 @@
   [cart]
   (let [effectors (effectors cart)]
     (-> cart
-        (update :velocity + (reduce + (map :vigor effectors)))
+        (update :velocity + (reduce + (map vigor effectors)))
         (update :angular-velocity
                 +
                 (reduce +
-                  (map (fn [{:keys [vigor pos]}]
-                         (* vigor (pos->angular-velocity-sign pos)))
-                    effectors))))))
+                  (map (fn [{:keys [pos] :as e}]
+                         (* (vigor e) (pos->angular-velocity-sign pos)))
+                       effectors))))))
 
 (defn brownian-motion
   [cart]
@@ -166,7 +238,7 @@
                 (fn [ents]
                   (doall (map (fn [{:as ent :keys [id]}]
                                 (if-let [parent (parent-by-id id)]
-                                  (let [relative-position(relative-position parent ent)
+                                  (let [relative-position (relative-position parent ent)
                                         parent-rotation (-> parent :transform :rotation)]
                                     (assoc-in ent
                                               [:transform :pos]
@@ -182,14 +254,26 @@
                               ents)))))))
 
 
-(defn update-entity [entity]
+(defn actication-shine [{:keys [activation] :as entity}]
+  (if activation
+    (assoc entity :color (min 0 (max (* 100 activation) 360)))
+    entity))
+
+(defn update-sensors [entity]
+  (if (:sensor? entity) (update-sensor entity) entity))
+
+(defn update-entity [entity state]
   (-> entity
       update-body
       velocity-friction
       ;; print-it-every-ms
       ;; brownian-motion
       update-rotation
-      update-position))
+      update-position
+      (lib/update-conn-line state)
+      update-sensors
+      activation-decay
+      actication-shine))
 
 (defn update-state
   [state]
@@ -198,7 +282,7 @@
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
-          (update :entities (fn [ents] (doall (map update-entity ents))))
+          (update :entities (fn [ents] (doall (map #(update-entity % state) ents))))
           track-components))))
 
 (defn window-dimensions []
@@ -209,7 +293,7 @@
 (defn setup
   [_controls]
   (q/rect-mode :center)
-  {:entities (->cart) :last-tick (q/millis)})
+  {:entities (cart-1) :last-tick (q/millis)})
 
 (defn sketch
   [host controls]
@@ -231,8 +315,4 @@
     default-controls
     (get-in versions ["getting-around" version]))))
 
-(comment
-
-
-
-  )
+(comment)

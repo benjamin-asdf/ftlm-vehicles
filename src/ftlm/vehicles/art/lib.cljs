@@ -16,15 +16,20 @@
   {:pos pos :width width :height height :scale scale})
 
 (def entities :entities)
-
 (def entities-by-id (comp #(into {} (map (juxt :id identity) %)) entities))
+
+(defn transform [e] (:transform e))
+(defn position [e] (-> e transform :pos))
 
 (defn ->connection-line [entity-a entity-b]
   (merge
    (->entity :line)
    {:connection-line? true
-    :entity-a entity-a
-    :entity-b entity-b}))
+    :entity-a (:id entity-a)
+    :entity-b (:id entity-b)
+    :transform (->transform (position entity-a) 1 1 1)
+    :color (:color entity-a)
+    :end-pos (position entity-b)}))
 
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
@@ -95,8 +100,6 @@
 (defn *transform [t1 trsf]
   (merge-with * t1 trsf))
 
-
-
 (defn update-lifetime
   [state]
   (update state
@@ -108,6 +111,17 @@
                         (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
                   circles))))
 
+(defn entity-pos [state eid]
+  (-> state entities-by-id (get eid) position))
+
+(defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
+  (if-not connection-line?
+    entity
+    (-> entity
+        (assoc-in [:transform :pos] (entity-pos state entity-a))
+        (assoc :end-pos (entity-pos state entity-b)))))
+
+
 (def draw-color (comp #(apply q/fill %) ->hsb))
 
 (defmulti draw-entity :kind)
@@ -117,11 +131,13 @@
         {:keys [width height scale]} transform]
     (q/ellipse x y (* scale width) (* scale height))))
 
-(defmethod draw-entity :line [{:keys [transform end-pos color]}]
+(defmethod draw-entity :line
+  [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
+    (println 200 x y)
     (q/stroke-weight 2)
-    (q/with-stroke (->hsb color) ;; (->hsb color)
+    (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))
     (q/stroke-weight 1)))
 
