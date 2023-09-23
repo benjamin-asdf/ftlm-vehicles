@@ -13,14 +13,7 @@
   {:kind kind :id (random-uuid) :spawn-time (q/millis)})
 
 (defn ->transform [pos width height scale]
-  {:pos pos :width width :height height :scale scale :anchor :center})
-
-(defn ->pivot
-  [{:keys [anchor pos width height]}]
-  (case anchor
-    :center [(+ (first pos) (/ width 2)) (+ (second pos) (/ height 2))]
-    :top-left pos
-    :bottom-right [(+ (first pos) width) (+ (second pos) height)]))
+  {:pos pos :width width :height height :scale scale})
 
 (def entities :entities)
 
@@ -136,5 +129,5 @@
   (let [[x y] (:pos transform)
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
-      (q/rotate (q/radians rotation))
+      (q/rotate rotation)
       (q/rect 0 0 width height 0.4))))
