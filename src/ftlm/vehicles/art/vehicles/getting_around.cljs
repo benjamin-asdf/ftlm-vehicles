@@ -9,7 +9,7 @@
 
 (def default-controls {})
 
-(defn print-it-every-ms [entity]
+(defn print-it-every-ms [& entity]
   (q/print-every-n-millisec 200 entity)
   entity)
 
@@ -37,15 +37,12 @@
       (lib/draw-color color)
       (lib/draw-entity entity))))
 
-;; (def ->rotation (comp :tra/))
-
-    ;; :motors {:left {:vigor 0 :pos :left} :right {:vigor 0 :pos :right}}
-
-;; (defn friction [force] (* force 0.9))
-
 (defn friction [velocity] (* velocity 0.9))
 
-(defn velocity-friction [cart] (update cart :velocity friction))
+(defn velocity-friction [cart]
+  (-> cart
+      (update :velocity friction)
+      (update :angular-velocity friction)))
 
 ;; (defn motor-friction [cart]
 ;;   (update cart :motors update-vals #(update % :vigor friction)))
@@ -54,7 +51,7 @@
   {:pos :middle :vigor vigor})
 
 (defn cart-1 []
-  {:motors {:middle (->motor :middle 20)}})
+  {:motors {:middle (->motor :left 20)}})
 
 (defn effectors [m] (-> m :motors vals))
 (defn env [] {})
@@ -65,8 +62,7 @@
 (comment
   (motor-friction (cart-1)))
 
-(defn ->cart
-  []
+(defn ->cart []
   (merge
    (lib/->entity :rect)
    {:acceleration 0
@@ -83,47 +79,32 @@
 ;; say motor vigor makes more velocity
 ;; velocity goes down with friction
 
-(defn update-body [cart]
+(def pos->angular-velocity-sign {:left 1 :right -1 :middle 0})
+
+(defn update-body
+  [cart]
   (let [effectors (effectors cart)]
     (-> cart
-        (update :velocity + (reduce + (map :vigor effectors))))))
+        (update :velocity + (reduce + (map :vigor effectors)))
+        (update :angular-velocity
+                +
+                (reduce +
+                  (map (fn [{:keys [vigor pos]}]
+
+                         (print-it-every-ms (* vigor (pos->angular-velocity-sign pos)))
+                         (* vigor (pos->angular-velocity-sign pos)))
+                    effectors))))))
 
 
-(defn apply-motor-forces [cart]
-  (let [motors (:motors cart)]
-    (update cart :vigor + (reduce + (map :vigor (vals motors))))))
+
 
 (defn brownian-motion
   [cart]
-  ;; (q/print-every-n-millisec 200
-  ;;                         (-> cart
-  ;;                             (update :vigor + (q/random-gaussian))
-  ;;                             (update :angular-force + (q/random-gaussian))))
   (-> cart
-      (update :vigor + (* 1000 (q/random-gaussian)))
-      (update :angular-force + (q/random-gaussian))))
-
-;; (defn friction [entity]
-;;   (->
-;;    entity
-;;    (update :vigor (comp #(max 0 %) #(- % 0.1)))
-;;    (update :angular-force (comp #(max 0 %) #(- % 0.1)))))
+      (update :velocity + (q/random-gaussian))
+      (update :angular-velocity + (q/random-gaussian))))
 
 (defn zero-force [e] (assoc e :vigor 0))
-
-;; (defn update-force [{:keys [motors acceleration] :as cart}]
-;; (let [force (reduce + (map :vigor (vals motors)))]
-;;     )
-;;   (let [acceleration (/ force mass)]
-
-;; (print-it-every-ms acceleration)
-;;     (-> cart
-
-;;         (assoc :acceleration acceleration
-;;                :velocity (+ (:velocity cart) (* acceleration *dt*)))
-;;         )
-
-;;     ))
 
 (defmulti ->moment-of-inertia :kind)
 
@@ -131,17 +112,6 @@
   [{:keys [transform mass]}]
   (let [{:keys [width height]} transform]
     (* mass (+ (* width width) (* height height)) 12)))
-
-(defn update-angular-force
-  [cart]
-  (let [moment-of-inertia (->moment-of-inertia cart)
-        angular-force (:angular-force cart)
-        angular-acceleration (/ angular-force moment-of-inertia)]
-    (assoc cart
-      :angular-acceleration angular-acceleration
-      :angular-velocity (+ (:angular-velocity cart)
-                           (* angular-acceleration *dt*))
-      :angular-force 0)))
 
 (defn update-rotation [entity]
   (-> entity
@@ -161,13 +131,10 @@
 
 (defn update-entity [entity]
   (-> entity
-      apply-motor-forces
       update-body
       velocity-friction
       ;; brownian-motion
       ;; update-force
-      ;; print-it-every-ms
-      update-angular-force
       update-position
       update-rotation))
 
