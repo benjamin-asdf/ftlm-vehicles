@@ -41,7 +41,8 @@
   (cond
     (map? color) [(:h color) (:s color) (:b color)]
     (sequential? color) color
-    :else [color 255 255]))
+    (number? color) [color 255 255]
+    :else [(q/color color)]))
 
 (defn shine [{:keys [shine] :as entity}]
   (if-not
@@ -110,16 +111,16 @@
                         (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
                   circles))))
 
-(defn entity-pos [state eid]
-  (-> state entities-by-id (get eid) position))
-
 (defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
   (if-not connection-line?
     entity
-    (-> entity
-        (assoc-in [:transform :pos] (entity-pos state entity-a))
-        (assoc :end-pos (entity-pos state entity-b)))))
-
+    (let [e-lut (entities-by-id state)
+          dest (e-lut entity-b)
+          source (e-lut entity-a)]
+      (-> entity
+          (assoc-in [:transform :pos] (position source))
+          (assoc :end-pos (position dest) )
+          (assoc :color (:color source))))))
 
 (def draw-color (comp #(apply q/fill %) ->hsb))
 

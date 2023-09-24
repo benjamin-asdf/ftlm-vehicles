@@ -22,7 +22,10 @@
 ;; effectors
 ;; brain (connections)
 
-(defn env [state] (:env state))
+(defn env [state]
+  {:temperature-zones
+   (->> state lib/entities (filter :temp-zone?))})
+
 (def body identity)
 (def sensors :sensors)
 (def brain :brain)
@@ -35,11 +38,14 @@
 
 (defn draw-state
   [state]
-  (q/background 230)
+  (q/background 230 ;; (q/color 330 100 100 255)
+                )
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (:entities state)]
-    (when-not hidden? (lib/draw-color color) (lib/draw-entity entity))))
+    (when-not hidden?
+      (lib/draw-color color)
+      (lib/draw-entity entity))))
 
 (defn rotate-point [rotation [x y]]
   [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
@@ -70,7 +76,7 @@
 (def anchor->trans-matrix
   {:top-right [1 -1]
    :top-left [-1 -1]
-   :top-middle [0 -1.3]
+   :top-middle [0 -1.2]
    :bottom-left [-1 1]
    :bottom-right [1 1]
    :bottom-middle [0 1]})
@@ -116,13 +122,17 @@
     (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
 
 (defn temperature-zone
-  [pos r temp]
-  (assoc (lib/->entity :circle)
-    :transform (lib/->transform pos r r 1)
-    :color (q/lerp-color
-            (q/color 240 100 100 25)
-            (q/color 0 255 255 25)
-            (normalize-value-1 -1 1 temp))))
+  [pos d temp]
+  (assoc
+   (lib/->entity :circle)
+   :transform (lib/->transform pos d d 1)
+   :color (q/lerp-color
+           (q/color 240 100 100 25)
+           (q/color 0 255 255 25)
+           (normalize-value-1 -1 1 temp))
+   :temp-zone? true
+   :d d
+   :temp temp))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -135,17 +145,32 @@
   (let [range (- max min)]
     (+ min (mod (/ (- value min) range) 1))))
 
-(defn ->temp
-  [sensor-pos _env]
-  (let [env-pos [400 400]
-        dist (distance sensor-pos env-pos)]
-    (normalize-value 0 1 dist)))
+;; (defn point-inside-circle? [[x y] origin radius])
+
+(defn point-inside-circle?
+  [[x y] [ox oy] d]
+  (let [radius (/ d 2)]
+    (<= (+ (Math/pow (- x ox) 2)
+           (Math/pow (- y oy) 2))
+        (Math/pow radius 2))))
+
+(defn ->temp [sensor-pos env]
+  (->> env
+       :temperature-zones
+       (filter
+        (fn [{:keys [temp d] :as e}]
+          (let
+              [origin (position e)]
+              (point-inside-circle? sensor-pos origin d))))
+       (map :temp)
+       (reduce +)))
 
 (defmethod update-sensor :temp
   [sensor env]
   (let [temp (->temp (position sensor) env)
-        sensitivity 1]
-    (assoc sensor :activation (* sensitivity (- 1 temp)))))
+        sensitivity 1
+        activation (* sensitivity (max 0 temp))]
+    (assoc sensor :activation activation)))
 
 (defn ->connection-model
   ([a b] (->connection-model a b identity))
@@ -192,23 +217,18 @@
 (defn ->body [])
 
 (defn ->cart [spawn-point]
-  (merge
-   (lib/->entity :rect)
-   {:cart? true
-    :color 30
-    :transform
-    (assoc
-     (lib/->transform spawn-point 30 80 1)
-     :rotation q/HALF-PI  ;; (- q/HALF-PI q/QUARTER-PI)
-     )
-    :velocity 0}))
+  (merge (lib/->entity :rect)
+         {:cart? true
+          :color 30
+          :transform (assoc (lib/->transform spawn-point 30 80 1)
+                       :rotation q/HALF-PI)
+          :velocity 0}))
 
-(defn cart-1
-  []
+(defn cart-1 [pos]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
-        body (assoc (->cart [200 200])
+        body (assoc (->cart pos)
                     :components (map :id [motor sensor])
                     :motors (map :id [motor])
                     :sensors (map :id [sensor]))]
@@ -244,8 +264,8 @@
       (:cart? cart)
       cart
       (-> cart
-          (update :velocity + (* 1 (q/random-gaussian)))
-          (update :angular-acceleration + (* 0.1 (q/random-gaussian))))))
+          (update :velocity + (* 30 (q/random-gaussian)))
+          (update :angular-acceleration + (* 0.3 (q/random-gaussian))))))
 
 (defn update-rotation [entity]
   (let [velocity
@@ -303,41 +323,51 @@
   (update state :entities (fn [ents] (map #(lib/update-conn-line % state) ents))))
 
 (defn actication-shine
-  [{:as entity :keys [activation]}]
+  [{:as entity :keys [activation shine]}]
   (if activation
-    (assoc entity :color (mod (* 15 activation) 360))
+    (let [shine (+ shine (* *dt* activation))]
+      (assoc entity
+             :shine shine
+             :color
+             (q/lerp-color
+              (q/color 40 96 255 255)
+              (q/color 100 255 255)
+              (normalize-value-1 0 1 (Math/sin shine)))))
     entity))
 
-(defn update-sensors [entity]
-  (if (:sensor? entity) (update-sensor entity) entity))
+(defn update-sensors [entity state]
+  (if (:sensor? entity) (update-sensor entity (env state)) entity))
 
 (defn clamp-velocity [entity] (update entity :velocity #(max % 0)))
 
+(defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
+
 (defn random-temp-zone []
   (temperature-zone
-   [(rand-int (q/width)) (rand-int (q/height))]
-   (lib/normal-distr 200 80)
+   (rand-on-canvas)
+   (lib/normal-distr 300 80)
    (+ -1 (rand 2))))
 
 (defn update-entity [entity state]
+  ;; (when (:sensor? entity)
+  ;;   (print-it-every-ms (:activation entity)))
   (-> entity
       (update-body state)
       friction
       ;; print-it-every-ms
       brownian-motion
 
-      clamp-velocity
-
       update-rotation
       update-position
-      update-sensors
+
+      (update-sensors state)
       activation-decay
       actication-shine))
 
 (defn update-state
   [state]
   (let [current-tick (q/millis)
-        dt (/ (- current-tick (:last-tick state)) 1000.0)]
+        dt (* 3 (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
@@ -358,15 +388,14 @@
   (q/color-mode :hsb)
   (-> {:entities
        (concat
-        [(random-temp-zone)
-         (random-temp-zone)
-         (random-temp-zone)
-         (random-temp-zone)
-         (random-temp-zone)]
-        (cart-1)
-        [(assoc (lib/->entity :circle)
-                :color 0
-                :transform (lib/->transform [400 400] 20 20 1))])
+        (repeatedly 10 random-temp-zone)
+        (mapcat identity (repeatedly 10 #(cart-1 (rand-on-canvas))))
+
+
+        ;; [(assoc (lib/->entity :circle)
+        ;;         :color 0
+        ;;         :transform (lib/->transform [400 400] 20 20 1))]
+        )
        :last-tick (q/millis)}
       track-components
       track-conn-lines))
