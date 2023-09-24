@@ -5,7 +5,8 @@
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]
    [ftlm.vehicles.art.controls :refer [versions]]
-   [ftlm.vehicles.art.user-controls :as user-controls]))
+   ;; [ftlm.vehicles.art.user-controls :as user-controls]
+   ))
 
 (def default-controls {})
 
@@ -26,12 +27,8 @@
 (def sensors :sensors)
 (def brain :brain)
 
-(defn effectors
-  [entity state]
-  (->> entity
-       :components
-       (map (lib/entities-by-id state))
-       (filter :motor?)))
+(defn effectors [entity state]
+  (->> entity :motors (map (lib/entities-by-id state))))
 
 ;; I try a cartoon physics,
 ;; :activation makes your velocity go up, friction removes it
@@ -117,7 +114,7 @@
     (+ min (mod (/ (- value min) range) 1))))
 
 (defn ->temp
-  [sensor-pos env]
+  [sensor-pos _env]
   (let [env-pos [400 400]
         dist (distance sensor-pos env-pos)]
     (normalize-value 0 1 dist)))
@@ -178,7 +175,7 @@
    {:angular-velocity 0
     :cart? true
     :color 30
-    :transform (assoc (lib/->transform spawn-point 30 80 1) :rotation 0)
+    :transform (assoc (lib/->transform spawn-point 30 80 1) :rotation (- q/HALF-PI q/QUARTER-PI))
     :velocity 0}))
 
 (defn cart-1
@@ -202,14 +199,16 @@
   (if-not
       (:cart? cart) cart
       (let [effectors (effectors cart state)]
+        (print-it-every-ms effectors)
         (-> cart
             (update :velocity + (reduce + (map :activation effectors)))
-            (update :angular-velocity
-                    +
-                    (reduce +
-                            (map (fn [{:keys [pos] :as e}]
-                                   (* (:activation e) (pos->angular-velocity-sign pos)))
-                                 effectors)))))))
+            ;; (update :angular-velocity
+            ;;         +
+            ;;         (reduce +
+            ;;                 (map (fn [{:keys [pos] :as e}]
+            ;;                        (* (:activation e) (pos->angular-velocity-sign pos)))
+            ;;                      effectors)))
+            ))))
 
 (defn brownian-motion
   [cart]
@@ -217,21 +216,21 @@
       (:cart? cart)
     cart
       (-> cart
-          (update :velocity + (* 0.3 (q/random-gaussian)))
-          (update :angular-velocity + (* 0.3 (q/random-gaussian))))))
+          (update :velocity + (* 1 (q/random-gaussian)))
+          (update :angular-velocity + (* 0.1 (q/random-gaussian))))))
 
 (defn update-rotation [entity]
   (-> entity
       (update-in
        [:transform :rotation]
-       #(+ % (* (:angular-velocity entity) *dt*)))))
+       #(+ % (:angular-velocity entity)))))
 
 (defn update-position
   [entity]
   (let [velocity (:velocity entity)
         rotation (-> entity :transform :rotation)
-        x (* *dt* velocity (Math/cos rotation))
-        y (* *dt* velocity (Math/sin rotation))]
+        x (* *dt* velocity (Math/sin rotation))
+        y (* *dt* velocity (- (Math/cos rotation)))]
     (-> entity
         (update-in [:transform :pos]
                    (fn [position]
@@ -252,19 +251,26 @@
                                 (if-let [parent (parent-by-id id)]
                                   (let [relative-position (relative-position parent ent)
                                         parent-rotation (-> parent :transform :rotation)]
-                                    (assoc-in ent
-                                              [:transform :pos]
-                                              [(+ (first (rotate-point parent-rotation relative-position))
-                                                  (first (-> parent
-                                                             :transform
-                                                             :pos)))
-                                               (+ (second (rotate-point parent-rotation relative-position))
-                                                  (second (-> parent
+                                    (->
+                                     ent
+                                     (assoc-in
+                                               [:transform :pos]
+                                               [(+ (first (rotate-point parent-rotation relative-position))
+                                                   (first (-> parent
                                                               :transform
-                                                              :pos)))]))
+                                                              :pos)))
+                                                (+ (second (rotate-point parent-rotation relative-position))
+                                                   (second (-> parent
+                                                               :transform
+                                                               :pos)))])
+                                     (assoc-in
+                                               [:transform :rotation]
+                                               (-> parent :transform :rotation))))
                                   ent))
                               ents)))))))
 
+(defn track-conn-lines [state]
+  (update state :entities (fn [ents] (map #(lib/update-conn-line % state) ents))))
 
 (defn actication-shine
   [{:as entity :keys [activation]}]
@@ -283,7 +289,6 @@
       brownian-motion
       update-rotation
       update-position
-      (lib/update-conn-line state)
       update-sensors
       activation-decay
       actication-shine))
@@ -297,7 +302,8 @@
           (assoc :last-tick current-tick)
           (update :entities (fn [ents] (doall (map #(update-entity % state) ents))))
           transduce-signals
-          track-components))))
+          track-components
+          track-conn-lines))))
 
 (defn window-dimensions []
   (let [w (.-innerWidth js/window)
@@ -308,11 +314,15 @@
   [_controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  {:entities (concat (cart-1)
-                   [(assoc (lib/->entity :circle)
-                      :color 0
-                      :transform (lib/->transform [400 400] 20 20 1))])
-   :last-tick (q/millis)})
+  (-> {:entities
+       (concat
+        (cart-1)
+        [(assoc (lib/->entity :circle)
+                :color 0
+                :transform (lib/->transform [400 400] 20 20 1))])
+       :last-tick (q/millis)}
+      track-components
+      track-conn-lines))
 
 (defn sketch
   [host controls]
@@ -324,7 +334,7 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
-              :frame-rate 49)))
+              :frame-rate 30)))
 
 (defmethod art/view "getting-around"
   [{:keys [place version]}]
