@@ -54,9 +54,8 @@
 
 (defn signum [x]
   (cond
-    (< x 0) -1
-    (> x 0) 1
-    :else 0))
+    (<= x 0) -1
+    (> x 0) 1))
 
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))

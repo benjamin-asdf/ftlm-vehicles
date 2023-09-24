@@ -22,7 +22,7 @@
 ;; effectors
 ;; brain (connections)
 
-(defn env [] {})
+(defn env [state] (:env state))
 (def body identity)
 (def sensors :sensors)
 (def brain :brain)
@@ -31,16 +31,15 @@
   (->> entity :motors (map (lib/entities-by-id state))))
 
 ;; I try a cartoon physics,
-;; :activation makes your velocity go up, friction removes it
+;; :activation makes your velocity go up, friction-1 removes it
 
-(defn draw-state [state]
+(defn draw-state
+  [state]
   (q/background 230)
   (q/stroke-weight 1)
   (q/stroke 0.3)
-  (doseq [{:keys [color hidden?] :as entity} (:entities state)]
-    (when-not hidden?
-      (lib/draw-color color)
-      (lib/draw-entity entity))))
+  (doseq [{:as entity :keys [color hidden?]} (:entities state)]
+    (when-not hidden? (lib/draw-color color) (lib/draw-entity entity))))
 
 (defn rotate-point [rotation [x y]]
   [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
@@ -52,12 +51,14 @@
 (defn scale-point [[x y] scale]
   [(x * scale) (y * scale)])
 
-(defn friction [velocity] (max 0 (- velocity 0.1)))
+(defn friction-1 [velocity]
+  (* velocity 0.9))
 
-(defn velocity-friction [cart]
+(defn friction [cart]
   (-> cart
-      (update :velocity friction)
-      (update :angular-velocity friction)))
+      (update :velocity friction-1)
+      (update :angular-velocity friction-1)
+      (update :angular-acceleration friction-1)))
 
 (defn transform [e] (:transform e))
 (defn position [e] (-> e transform :pos))
@@ -73,6 +74,14 @@
    :bottom-left [-1 1]
    :bottom-right [1 1]
    :bottom-middle [0 1]})
+
+(def anchor->rot-influence
+  {;; :top-right -1
+   ;; :top-left 1
+   ;; :top-middle 0
+   :bottom-left 1
+   :bottom-right -1
+   :bottom-middle 0})
 
 ;; parent is always a rect with draw mode :center right now
 
@@ -90,17 +99,30 @@
    :sensor? true
    :color 100))
 
-(defn ->motor [pos activation]
+(defn ->motor [anchor]
   (merge
    (lib/->entity :rect)
    {:motor? true
-    :pos pos
-    :activation activation
     :transform (lib/->transform [0 0] 20 35 1)
-    :anchor :bottom-middle
+    :anchor anchor
     :color 0}))
 
-(defn temperature-zone [])
+(defn normalize-value-1
+  [min max value]
+  (let [old-min min
+        old-max max
+        new-min 0
+        new-max 1]
+    (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
+
+(defn temperature-zone
+  [pos r temp]
+  (assoc (lib/->entity :circle)
+    :transform (lib/->transform pos r r 1)
+    :color (q/lerp-color
+            (q/color 240 100 100 25)
+            (q/color 0 255 255 25)
+            (normalize-value-1 -1 1 temp))))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -172,16 +194,19 @@
 (defn ->cart [spawn-point]
   (merge
    (lib/->entity :rect)
-   {:angular-velocity 0
-    :cart? true
+   {:cart? true
     :color 30
-    :transform (assoc (lib/->transform spawn-point 30 80 1) :rotation (- q/HALF-PI q/QUARTER-PI))
+    :transform
+    (assoc
+     (lib/->transform spawn-point 30 80 1)
+     :rotation q/HALF-PI  ;; (- q/HALF-PI q/QUARTER-PI)
+     )
     :velocity 0}))
 
 (defn cart-1
   []
   (let [sensor (->sensor :top-middle)
-        motor (->motor :middle 0)
+        motor (->motor :bottom-middle)
         line (->connection sensor motor)
         body (assoc (->cart [200 200])
                     :components (map :id [motor sensor])
@@ -190,40 +215,45 @@
     [body sensor motor line]))
 
 ;; say motor :activation makes more velocity
-;; velocity goes down with friction
-
-(def pos->angular-velocity-sign {:left 1 :right -1 :middle 0})
+;; velocity goes down with friction-1
+;;
+;; angular-accelartion is something like max 5 and below 0.1 it does nothing
+;; 5 is fast
+;; positive is clockwise
 
 (defn update-body
   [cart state]
   (if-not
       (:cart? cart) cart
-      (let [effectors (effectors cart state)]
-        (print-it-every-ms effectors)
+      (let [effectors (effectors cart state)
+            ;; [{:activation 3 :anchor :bottom-right}
+            ;;  {:activation 4 :anchor :bottom-left}]
+            ]
         (-> cart
             (update :velocity + (reduce + (map :activation effectors)))
-            ;; (update :angular-velocity
-            ;;         +
-            ;;         (reduce +
-            ;;                 (map (fn [{:keys [pos] :as e}]
-            ;;                        (* (:activation e) (pos->angular-velocity-sign pos)))
-            ;;                      effectors)))
-            ))))
+            (assoc
+             :angular-acceleration
+             (reduce +
+                     (map (fn [{:keys [anchor] :as e}]
+                            (* 0.2 (:activation e) (anchor->rot-influence anchor)))
+                          effectors)))))))
 
 (defn brownian-motion
   [cart]
   (if-not
       (:cart? cart)
-    cart
+      cart
       (-> cart
           (update :velocity + (* 1 (q/random-gaussian)))
-          (update :angular-velocity + (* 0.1 (q/random-gaussian))))))
+          (update :angular-acceleration + (* 0.1 (q/random-gaussian))))))
 
 (defn update-rotation [entity]
-  (-> entity
-      (update-in
-       [:transform :rotation]
-       #(+ % (:angular-velocity entity)))))
+  (let [velocity
+        (+ (:angular-velocity entity 0)
+           (* *dt* (:angular-acceleration entity 0)))]
+    (-> entity
+        (update-in [:transform :rotation] #(+ % velocity))
+        (assoc :angular-velocity velocity))))
 
 (defn update-position
   [entity]
@@ -281,12 +311,23 @@
 (defn update-sensors [entity]
   (if (:sensor? entity) (update-sensor entity) entity))
 
+(defn clamp-velocity [entity] (update entity :velocity #(max % 0)))
+
+(defn random-temp-zone []
+  (temperature-zone
+   [(rand-int (q/width)) (rand-int (q/height))]
+   (lib/normal-distr 200 80)
+   (+ -1 (rand 2))))
+
 (defn update-entity [entity state]
   (-> entity
       (update-body state)
-      velocity-friction
+      friction
       ;; print-it-every-ms
       brownian-motion
+
+      clamp-velocity
+
       update-rotation
       update-position
       update-sensors
@@ -312,10 +353,16 @@
 
 (defn setup
   [_controls]
+
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (-> {:entities
        (concat
+        [(random-temp-zone)
+         (random-temp-zone)
+         (random-temp-zone)
+         (random-temp-zone)
+         (random-temp-zone)]
         (cart-1)
         [(assoc (lib/->entity :circle)
                 :color 0
