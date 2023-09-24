@@ -63,6 +63,7 @@
 (defn friction [cart]
   (-> cart
       (update :velocity friction-1)
+      (update :acceleration friction-1)
       (update :angular-velocity friction-1)
       (update :angular-acceleration friction-1)))
 
@@ -220,9 +221,10 @@
   (merge (lib/->entity :rect)
          {:cart? true
           :color 30
-          :transform (assoc (lib/->transform spawn-point 30 80 1)
-                       :rotation q/HALF-PI)
-          :velocity 0}))
+          :transform
+          (assoc
+           (lib/->transform spawn-point 30 80 0.4)
+           :rotation q/HALF-PI)}))
 
 (defn cart-1 [pos]
   (let [sensor (->sensor :top-middle)
@@ -250,7 +252,7 @@
             ;;  {:activation 4 :anchor :bottom-left}]
             ]
         (-> cart
-            (update :velocity + (reduce + (map :activation effectors)))
+            (update :acceleration + (reduce + (map :activation effectors)))
             (assoc
              :angular-acceleration
              (reduce +
@@ -264,7 +266,7 @@
       (:cart? cart)
       cart
       (-> cart
-          (update :velocity + (* 30 (q/random-gaussian)))
+          (update :acceleration + (* 30 (q/random-gaussian)))
           (update :angular-acceleration + (* 0.3 (q/random-gaussian))))))
 
 (defn update-rotation [entity]
@@ -276,12 +278,13 @@
         (assoc :angular-velocity velocity))))
 
 (defn update-position
-  [entity]
-  (let [velocity (:velocity entity)
+  [{:keys [velocity acceleration] :as entity}]
+  (let [velocity (+ velocity (* *dt* acceleration))
         rotation (-> entity :transform :rotation)
         x (* *dt* velocity (Math/sin rotation))
         y (* *dt* velocity (- (Math/cos rotation)))]
     (-> entity
+        (assoc :velocity velocity)
         (update-in [:transform :pos]
                    (fn [position]
                      (vector (+ (first position) x)
@@ -300,22 +303,24 @@
                   (doall (map (fn [{:as ent :keys [id]}]
                                 (if-let [parent (parent-by-id id)]
                                   (let [relative-position (relative-position parent ent)
-                                        parent-rotation (-> parent :transform :rotation)]
+                                        parent-rotation (-> parent :transform :rotation)
+                                        scale (-> parent :transform :scale)]
                                     (->
                                      ent
                                      (assoc-in
-                                               [:transform :pos]
-                                               [(+ (first (rotate-point parent-rotation relative-position))
-                                                   (first (-> parent
-                                                              :transform
-                                                              :pos)))
-                                                (+ (second (rotate-point parent-rotation relative-position))
-                                                   (second (-> parent
-                                                               :transform
-                                                               :pos)))])
+                                      [:transform :pos]
+                                      [(+ (first
+                                           (v* [scale scale]
+                                              (rotate-point parent-rotation relative-position)))
+                                          (first (-> parent :transform :pos)))
+                                       (+
+                                        (second
+                                         (v* [scale scale] (rotate-point parent-rotation relative-position)))
+                                        (second (-> parent :transform :pos)))])
                                      (assoc-in
-                                               [:transform :rotation]
-                                               (-> parent :transform :rotation))))
+                                      [:transform :rotation]
+                                      (-> parent :transform :rotation))
+                                     (assoc-in [:transform :scale] scale)))
                                   ent))
                               ents)))))))
 
@@ -338,7 +343,7 @@
 (defn update-sensors [entity state]
   (if (:sensor? entity) (update-sensor entity (env state)) entity))
 
-(defn clamp-velocity [entity] (update entity :velocity #(max % 0)))
+(defn clamp-velocity [entity] (update entity :acceleration #(max % 0)))
 
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
 
@@ -389,9 +394,7 @@
   (-> {:entities
        (concat
         (repeatedly 10 random-temp-zone)
-        (mapcat identity (repeatedly 10 #(cart-1 (rand-on-canvas))))
-
-
+        (mapcat identity (repeatedly 20 #(cart-1 (rand-on-canvas))))
         ;; [(assoc (lib/->entity :circle)
         ;;         :color 0
         ;;         :transform (lib/->transform [400 400] 20 20 1))]

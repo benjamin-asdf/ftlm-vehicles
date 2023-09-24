@@ -145,4 +145,4 @@
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
       (q/rotate rotation)
-      (q/rect 0 0 width height 0.4))))
+      (q/rect 0 0 (* width scale) (* height scale) 0.4))))
