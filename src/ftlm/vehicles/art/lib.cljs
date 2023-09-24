@@ -104,12 +104,41 @@
   [state]
   (update state
           :entities
-          (fn [circles]
-            (into []
-                  (comp (map (fn [{:as e :keys [lifetime]}]
-                               (if lifetime (update e :lifetime dec) e)))
-                        (remove (comp (fn [lf] (when lf (< lf 1))) :lifetime)))
-                  circles))))
+          (fn [entities]
+            (let [entities (map (fn [{:as e :keys [lifetime]}]
+                                  (if lifetime (update e :lifetime dec) e))
+                                entities)
+                  dead-entities (into #{}
+                                      (filter #(some-> % :lifetime (< 1)))
+                                      entities)
+                  dead? (into #{} (map :id) dead-entities)
+                  components-of-dead (into #{}
+                                           (mapcat :components dead-entities))]
+              (println components-of-dead)
+              (into []
+                    (comp
+                     ;; (map (fn [e]
+                     ;;        (if (components-of-dead (:id e))
+                     ;;          (assoc e :lifetime 10)
+                     ;;          e)))
+                     (remove (comp dead? :id))
+                     (remove (comp components-of-dead :id)))
+                    entities)))))
+
+(defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
+(def dead? (complement alive?))
+
+(defn cleanup-connections [state]
+  (update
+   state
+   :entities
+   (fn [ents]
+     (remove
+      (fn [{:keys [connection-line?] :as e}]
+        (when
+            connection-line?
+            (some #(dead? state %) [(connection->non-infected e) (connection->infected e)])))
+      ents))))
 
 (defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
   (if-not connection-line?
@@ -145,4 +174,4 @@
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
       (q/rotate rotation)
-      (q/rect 0 0 (* width scale) (* height scale) 0.4))))
+      (q/rect 0 0 (* width scale) (* height scale) 25))))

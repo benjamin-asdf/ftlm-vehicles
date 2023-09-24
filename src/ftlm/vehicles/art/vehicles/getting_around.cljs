@@ -8,13 +8,15 @@
    ;; [ftlm.vehicles.art.user-controls :as user-controls]
    ))
 
-(def default-controls {})
+(def default-controls
+  {:brownian-factor 0.8 :cart-1 {:scale 1} :max-temp 1 :spawn-amount 50})
 
 (defn print-it-every-ms [entity]
   (q/print-every-n-millisec 200 entity)
   entity)
 
 (def ^:dynamic *dt* nil)
+(def ^:dynamic *controls* nil)
 
 ;; env
 ;; body
@@ -123,17 +125,18 @@
     (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
 
 (defn temperature-zone
-  [pos d temp]
+  [pos d temp max-temp]
   (assoc
    (lib/->entity :circle)
    :transform (lib/->transform pos d d 1)
    :color (q/lerp-color
-           (q/color 240 100 100 25)
-           (q/color 0 255 255 25)
-           (normalize-value-1 -1 1 temp))
+           (q/color 255 255 255 20)
+           (q/color 255 255 255 255)
+           (normalize-value-1 0 max-temp temp))
    :temp-zone? true
    :d d
-   :temp temp))
+   :temp temp
+   :particle? true))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -145,8 +148,6 @@
   [min max value]
   (let [range (- max min)]
     (+ min (mod (/ (- value min) range) 1))))
-
-;; (defn point-inside-circle? [[x y] origin radius])
 
 (defn point-inside-circle?
   [[x y] [ox oy] d]
@@ -169,7 +170,7 @@
 (defmethod update-sensor :temp
   [sensor env]
   (let [temp (->temp (position sensor) env)
-        sensitivity 1
+        sensitivity 10
         activation (* sensitivity (max 0 temp))]
     (assoc sensor :activation activation)))
 
@@ -212,28 +213,31 @@
                        (let [source (ent-lut (connection->source conn-e))]
                          (transduce-signal e source (:connection-model conn-e)))
                        e))
-                ents)))))
+                   ents)))))
 
 (defn ->brain [& connections] connections)
 (defn ->body [])
 
-(defn ->cart [spawn-point]
+(defn ->cart [spawn-point scale]
   (merge (lib/->entity :rect)
          {:cart? true
-          :color 30
+          :color (q/color 266 255 255 255)
           :transform
           (assoc
-           (lib/->transform spawn-point 30 80 0.4)
+           (lib/->transform spawn-point 30 80 scale)
            :rotation q/HALF-PI)}))
 
-(defn cart-1 [pos]
+(defn cart-1 [pos scale]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
-        body (assoc (->cart pos)
+        body (assoc (->cart pos scale)
                     :components (map :id [motor sensor])
                     :motors (map :id [motor])
-                    :sensors (map :id [sensor]))]
+                    :sensors (map :id [sensor])
+                    :particle? true
+                    ;; :lifetime 500
+                    )]
     [body sensor motor line]))
 
 ;; say motor :activation makes more velocity
@@ -259,15 +263,17 @@
                      (map (fn [{:keys [anchor] :as e}]
                             (* 0.2 (:activation e) (anchor->rot-influence anchor)))
                           effectors)))))))
-
 (defn brownian-motion
-  [cart]
+  [e]
   (if-not
-      (:cart? cart)
-      cart
-      (-> cart
-          (update :acceleration + (* 30 (q/random-gaussian)))
-          (update :angular-acceleration + (* 0.3 (q/random-gaussian))))))
+      (:particle? e)
+      e
+      (-> e
+          (update :acceleration + (* 30 (q/random-gaussian)
+                                     (:brownian-factor (lib/controls))))
+          (update :angular-acceleration +
+                  (* 0.3 (q/random-gaussian)
+                     (:brownian-factor (lib/controls)))))))
 
 (defn update-rotation [entity]
   (let [velocity
@@ -346,16 +352,19 @@
 (defn clamp-velocity [entity] (update entity :acceleration #(max % 0)))
 
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
+(defn rand-on-canvas-gauss
+  [distr]
+  [(lib/normal-distr (/ (q/width) 2) (* distr (/ (q/width) 2)))
+   (lib/normal-distr (/ (q/height) 2) (* distr (/ (q/height) 2)))])
 
-(defn random-temp-zone []
+(defn random-temp-zone [controls]
   (temperature-zone
    (rand-on-canvas)
    (lib/normal-distr 300 80)
-   (+ -1 (rand 2))))
+   (rand (:max-temp controls))
+   (:max-temp controls )))
 
 (defn update-entity [entity state]
-  ;; (when (:sensor? entity)
-  ;;   (print-it-every-ms (:activation entity)))
   (-> entity
       (update-body state)
       friction
@@ -372,14 +381,22 @@
 (defn update-state
   [state]
   (let [current-tick (q/millis)
-        dt (* 3 (/ (- current-tick (:last-tick state)) 1000.0))]
+        dt (* 2 (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
-          (update :entities (fn [ents] (doall (map #(update-entity % state) ents))))
+          ;; (update :entities
+          ;;         concat
+          ;;         (mapcat identity
+          ;;           (repeatedly (if (< 0.8 (rand)) 1 0)
+          ;;                       #(cart-1 (rand-on-canvas-gauss 0.4)))))
+          (update :entities
+                  (fn [ents] (doall (map #(update-entity % state) ents))))
           transduce-signals
           track-components
-          track-conn-lines))))
+          track-conn-lines
+          lib/update-lifetime
+          lib/cleanup-connections))))
 
 (defn window-dimensions []
   (let [w (.-innerWidth js/window)
@@ -387,18 +404,19 @@
     {:width w :height h}))
 
 (defn setup
-  [_controls]
-
+  [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (-> {:entities
-       (concat
-        (repeatedly 10 random-temp-zone)
-        (mapcat identity (repeatedly 20 #(cart-1 (rand-on-canvas))))
-        ;; [(assoc (lib/->entity :circle)
-        ;;         :color 0
-        ;;         :transform (lib/->transform [400 400] 20 20 1))]
-        )
+  (-> {:controls controls
+       :entities (concat (repeatedly 10 #(random-temp-zone controls))
+                         (mapcat identity
+                                 (repeatedly 50 #(cart-1 (rand-on-canvas-gauss 0.4)
+                                                         (-> controls :cart-1 :scale))))
+                         ;; [(assoc (lib/->entity :circle)
+                         ;;         :color 0
+                         ;;         :transform (lib/->transform [400 400] 20 20
+                         ;;         1))]
+                 )
        :last-tick (q/millis)}
       track-components
       track-conn-lines))
