@@ -7,16 +7,6 @@
             [ftlm.vehicles.art.user-controls :as user-controls]
             [ftlm.vehicles.art.controls :as controls]))
 
-(def default-controls
-  {:brownian-factor 0.8
-   :cart-1 {:color-palatte [[0 0 255]] :scale 1}
-   :max-temp 1
-   :middle-temp-zone {:diameter 300}
-   :middle-temp-zone? true
-   :spawn-amount 50
-   :spawn-spread 0.1
-   :temp-zone-count 10})
-
 (defn print-it-every-ms [entity]
   (q/print-every-n-millisec 200 entity)
   entity)
@@ -223,26 +213,26 @@
 (defn ->brain [& connections] connections)
 (defn ->body [])
 
-(defn ->cart [spawn-point scale rot]
+(defn ->cart
+  [spawn-point scale rot]
   (merge (lib/->entity :rect)
          {:cart? true
           :color (q/color 266 255 255 255)
-          :transform
-          (assoc
-           (lib/->transform spawn-point 30 80 scale)
-           :rotation rot)}))
+          :transform (assoc (lib/->transform spawn-point 30 80 scale)
+                       :rotation rot)}))
 
-(defn cart-1 [pos scale rot]
+(defn cart-1
+  [pos scale rot]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
         body (assoc (->cart pos scale rot)
-                    :components (map :id [motor sensor])
-                    :motors (map :id [motor])
-                    :sensors (map :id [sensor])
-                    :particle? true
-                    ;; :lifetime 500
-                    )]
+               :components (map :id [motor sensor])
+               :motors (map :id [motor])
+               :sensors (map :id [sensor])
+               :particle? true
+               ;; :lifetime 500
+             )]
     [body sensor motor line]))
 
 ;; say motor :activation makes more velocity
@@ -254,44 +244,48 @@
 
 (defn update-body
   [cart state]
-  (if-not
-      (:cart? cart) cart
-      (let [effectors (effectors cart state)
-            ;; [{:activation 3 :anchor :bottom-right}
-            ;;  {:activation 4 :anchor :bottom-left}]
-            ]
-        (-> cart
-            (update :acceleration + (reduce + (map :activation effectors)))
-            (assoc
-             :angular-acceleration
-             (reduce +
-                     (map (fn [{:keys [anchor] :as e}]
-                            (* 0.2 (:activation e) (anchor->rot-influence anchor)))
-                          effectors)))))))
+  (if-not (:cart? cart)
+    cart
+    (let [effectors (effectors cart state)
+          ;; [{:activation 3 :anchor :bottom-right}
+          ;;  {:activation 4 :anchor :bottom-left}]
+         ]
+      (-> cart
+          (update :acceleration + (reduce + (map :activation effectors)))
+          (assoc :angular-acceleration (reduce +
+                                         (map (fn [{:as e :keys [anchor]}]
+                                                (* 0.2
+                                                   (:activation e)
+                                                   (anchor->rot-influence
+                                                     anchor)))
+                                           effectors)))))))
 (defn brownian-motion
   [e]
-  (if-not
-      (:particle? e)
-      e
-      (-> e
-          (update :acceleration + (* 30 (q/random-gaussian)
-                                     (:brownian-factor (lib/controls))))
-          (update :angular-acceleration +
-                  (* 0.3 (q/random-gaussian)
-                     (:brownian-factor (lib/controls)))))))
+  (if-not (:particle? e)
+    e
+    (-> e
+        (update :acceleration
+                +
+                (* 30 (q/random-gaussian) (:brownian-factor (lib/controls))))
+        (update
+          :angular-acceleration
+          +
+          (* 0.3 (q/random-gaussian) (:brownian-factor (lib/controls)))))))
 
-(defn update-rotation [entity]
-  (let [velocity
-        (+ (:angular-velocity entity 0)
-           (* *dt* (:angular-acceleration entity 0)))]
+(defn update-rotation
+  [entity]
+  (let [velocity (+ (:angular-velocity entity 0)
+                    (* *dt* (:angular-acceleration entity 0)))]
     (-> entity
         (update-in [:transform :rotation] #(+ % velocity))
         (assoc :angular-velocity velocity))))
 
 (defn update-position
-  [{:keys [velocity acceleration] :as entity}]
+  [{:as entity :keys [velocity acceleration]}]
   (let [velocity (+ velocity (* *dt* acceleration))
-        rotation (-> entity :transform :rotation)
+        rotation (-> entity
+                     :transform
+                     :rotation)
         x (* *dt* velocity (Math/sin rotation))
         y (* *dt* velocity (- (Math/cos rotation)))]
     (-> entity
@@ -306,55 +300,66 @@
   (let [parent-by-id (into {}
                            (mapcat (fn [ent]
                                      (map (juxt identity (constantly ent))
-                                          (:components ent)))
-                                   (filter :components (lib/entities state))))]
-    (-> state
-        (update :entities
-                (fn [ents]
-                  (doall (map (fn [{:as ent :keys [id]}]
-                                (if-let [parent (parent-by-id id)]
-                                  (let [relative-position (relative-position parent ent)
-                                        parent-rotation (-> parent :transform :rotation)
-                                        scale (-> parent :transform :scale)]
-                                    (->
-                                     ent
-                                     (assoc-in
-                                      [:transform :pos]
-                                      [(+ (first
-                                           (v* [scale scale]
-                                              (rotate-point parent-rotation relative-position)))
-                                          (first (-> parent :transform :pos)))
-                                       (+
-                                        (second
-                                         (v* [scale scale] (rotate-point parent-rotation relative-position)))
-                                        (second (-> parent :transform :pos)))])
-                                     (assoc-in
-                                      [:transform :rotation]
-                                      (-> parent :transform :rotation))
-                                     (assoc-in [:transform :scale] scale)))
-                                  ent))
-                              ents)))))))
+                                       (:components ent)))
+                             (filter :components (lib/entities state))))]
+    (->
+      state
+      (update
+        :entities
+        (fn [ents]
+          (doall
+            (map (fn [{:as ent :keys [id]}]
+                   (if-let [parent (parent-by-id id)]
+                     (let [relative-position (relative-position parent ent)
+                           parent-rotation (-> parent
+                                               :transform
+                                               :rotation)
+                           scale (-> parent
+                                     :transform
+                                     :scale)]
+                       (-> ent
+                           (assoc-in
+                             [:transform :pos]
+                             [(+ (first (v* [scale scale]
+                                            (rotate-point parent-rotation
+                                                          relative-position)))
+                                 (first (-> parent
+                                            :transform
+                                            :pos)))
+                              (+ (second (v* [scale scale]
+                                             (rotate-point parent-rotation
+                                                           relative-position)))
+                                 (second (-> parent
+                                             :transform
+                                             :pos)))])
+                           (assoc-in [:transform :rotation]
+                                     (-> parent
+                                         :transform
+                                         :rotation))
+                           (assoc-in [:transform :scale] scale)))
+                     ent))
+                 ents)))))))
 
-(defn track-conn-lines [state]
-  (update state :entities (fn [ents] (map #(lib/update-conn-line % state) ents))))
+(defn track-conn-lines
+  [state]
+  (update state
+          :entities
+          (fn [ents] (map #(lib/update-conn-line % state) ents))))
 
 (defn actication-shine
   [{:as entity :keys [activation shine]}]
   (if activation
     (let [shine (+ shine (* *dt* activation))]
       (assoc entity
-             :shine shine
-             :color
-             (q/lerp-color
-              (q/color 40 96 255 255)
-              (q/color 100 255 255)
-              (normalize-value-1 0 1 (Math/sin shine)))))
+        :shine shine
+        :color (q/lerp-color (q/color 40 96 255 255)
+                             (q/color 100 255 255)
+                             (normalize-value-1 0 1 (Math/sin shine)))))
     entity))
 
-(defn update-sensors [entity state]
+(defn update-sensors
+  [entity state]
   (if (:sensor? entity) (update-sensor entity (env state)) entity))
-
-(defn clamp-velocity [entity] (update entity :acceleration #(max % 0)))
 
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
 (defn rand-on-canvas-gauss
@@ -386,9 +391,10 @@
 (defn update-state
   [state]
   (let [current-tick (q/millis)
-        dt (* 2 (/ (- current-tick (:last-tick state)) 1000.0))]
+        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (-> state
+          (update :controls merge @user-controls/!app)
           (assoc :last-tick current-tick)
           (update :entities
                   (fn [ents] (doall (map #(update-entity % state) ents))))
@@ -454,7 +460,7 @@
       (reset! user-controls/restart-fn f)
       (f)))
 
-
 (comment
+
 
   )

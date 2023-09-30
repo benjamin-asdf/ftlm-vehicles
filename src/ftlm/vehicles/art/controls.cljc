@@ -37,14 +37,14 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "getting-around" {:brownian-factor 0.8
-                     :cart-1 {:color-palatte [[0 0 255]] :scale 1}
-                     :max-temp 1
-                     :middle-temp-zone {:diameter 300}
-                     :middle-temp-zone? true
-                     :spawn-amount 50
-                     :spawn-spread 0.1
-                     :temp-zone-count 10}})
+   "getting-around"
+   {:brownian-factor 0.8
+    :cart-1 {:color-palatte [[0 0 255]] :scale 1}
+    :max-temp 1
+    :spawn-amount 50
+    :spawn-spread 0.4
+    :temp-zone-count 10
+    :time-speed 2}})
 
 (def versions
   {"brownians" {"0" {}
