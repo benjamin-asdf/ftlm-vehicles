@@ -385,11 +385,6 @@
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
-          ;; (update :entities
-          ;;         concat
-          ;;         (mapcat identity
-          ;;           (repeatedly (if (< 0.8 (rand)) 1 0)
-          ;;                       #(cart-1 (rand-on-canvas-gauss 0.4)))))
           (update :entities
                   (fn [ents] (doall (map #(update-entity % state) ents))))
           transduce-signals
@@ -410,13 +405,11 @@
   (-> {:controls controls
        :entities (concat (repeatedly 10 #(random-temp-zone controls))
                          (mapcat identity
-                                 (repeatedly 50 #(cart-1 (rand-on-canvas-gauss 0.4)
-                                                         (-> controls :cart-1 :scale))))
-                         ;; [(assoc (lib/->entity :circle)
-                         ;;         :color 0
-                         ;;         :transform (lib/->transform [400 400] 20 20
-                         ;;         1))]
-                 )
+                           (repeatedly 50
+                                       #(cart-1 (rand-on-canvas-gauss 0.4)
+                                                (-> controls
+                                                    :cart-1
+                                                    :scale)))))
        :last-tick (q/millis)}
       track-components
       track-conn-lines))
