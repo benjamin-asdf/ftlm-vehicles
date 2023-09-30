@@ -443,11 +443,17 @@
 
 (defmethod art/view "getting-around"
   [{:keys [place version]}]
-  (sketch
-   place
-   (merge
-    (controls/default-versions "getting-around")
-    (get-in versions ["getting-around" version]))))
+  (let
+      [f (fn []
+           (sketch
+            place
+            (merge
+             (controls/default-versions "getting-around")
+             (get-in versions ["getting-around" version])
+             @user-controls/!app)))]
+      (reset! user-controls/restart-fn f)
+      (f)))
+
 
 (comment
 
