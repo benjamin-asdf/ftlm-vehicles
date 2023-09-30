@@ -37,13 +37,15 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "getting-around" {:brownian-factor 0.8
-                     :cart-scale 1
-                     :max-temp 1
-                     :spawn-amount 50
-                     :spawn-spread 0.4
-                     :temp-zone-count 10
-                     :time-speed 2}})
+   "getting-around"
+   {:brownian-factor 0.8
+    :cart-scale 1
+    :color-palatte [[266 255 255 255]]
+    :max-temp 1
+    :spawn-amount 50
+    :spawn-spread 0.4
+    :temp-zone-count 10
+    :time-speed 2}})
 
 (def versions
   {"brownians" {"0" {}
@@ -361,10 +363,21 @@
                      :spread-speed 1}}
    "getting-around"
    {"0" {:brownian-factor 0.8
-         :cart-1 {:color-palatte [[0 0 255]] :scale 1}
+         :color-palatte [50 40 60]
+         ;; nil
          :max-temp 1
+         ;; :palette-base-color
+         :num-random-colors 8
          :middle-temp-zone {:diameter 300}
          :middle-temp-zone? true
          :spawn-amount 50
          :spawn-spread 0.1
+         :temp-zone-count 10}
+    "1" {:brownian-factor 0.8
+         :color-palatte [50 40 60]
+         :max-temp 1
+         :middle-temp-zone {:diameter 300}
+         :middle-temp-zone? false
+         :spawn-amount 50
+         :spawn-spread 0.2
          :temp-zone-count 10}}})

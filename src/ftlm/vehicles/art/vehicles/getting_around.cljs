@@ -208,19 +208,19 @@
 (defn ->body [])
 
 (defn ->cart
-  [spawn-point scale rot]
+  [spawn-point scale rot color]
   (merge (lib/->entity :rect)
          {:cart? true
-          :color (q/color 266 255 255 255)
+          :color color
           :transform (assoc (lib/->transform spawn-point 30 80 scale)
                        :rotation rot)}))
 
 (defn cart-1
-  [pos scale rot]
+  [pos scale rot color]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
-        body (assoc (->cart pos scale rot)
+        body (assoc (->cart pos scale rot color)
                :components (map :id [motor sensor])
                :motors (map :id [motor])
                :sensors (map :id [sensor])
@@ -407,26 +407,35 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (-> {:controls controls
-       :entities (concat [(when (controls :middle-temp-zone?)
-                            (temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                              (-> controls
-                                                  :middle-temp-zone
-                                                  :diameter)
-                                              (:max-temp controls)
-                                              (:max-temp controls)))]
-                         (repeatedly (:temp-zone-count controls)
-                                     #(random-temp-zone controls))
-                         (mapcat identity
-                           (repeatedly
-                                       (:spawn-amount controls)
-                                       #(cart-1 (rand-on-canvas-gauss
-                                                 (:spawn-spread controls))
-                                                (-> controls :cart-scale)
-                                                (* q/TWO-PI (rand))))))
-       :last-tick (q/millis)}
-      track-components
-      track-conn-lines))
+  (let [controls (if-not (:color-palatte controls)
+                   (assoc controls
+                     :color-palatte (lib/generate-palette
+                                      (:palette-base-color controls)
+                                      (:num-random-colors controls)))
+                   controls)]
+    (-> {:controls controls
+         :entities (concat
+                     (when (controls :middle-temp-zone?)
+                       [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                          (-> controls
+                                              :middle-temp-zone
+                                              :diameter)
+                                          (:max-temp controls)
+                                          (:max-temp controls))])
+                     (repeatedly (:temp-zone-count controls)
+                                 #(random-temp-zone controls))
+                     (mapcat identity
+                       (repeatedly (:spawn-amount controls)
+                                   #(cart-1 (rand-on-canvas-gauss (:spawn-spread
+                                                                    controls))
+                                            (-> controls
+                                                :cart-scale)
+                                            (* q/TWO-PI (rand))
+                                            (rand-nth (-> controls
+                                                          :color-palatte))))))
+         :last-tick (q/millis)}
+        track-components
+        track-conn-lines)))
 
 (defn sketch
   [host controls]
@@ -454,6 +463,6 @@
       (f)))
 
 (comment
-
-
+  (concat [nil] [2])
+  (concat nil [2])
   )

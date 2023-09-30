@@ -5,7 +5,7 @@
    [reagent.core :as r]
    [reagent.dom :as rdom]))
 
-(defonce !app (r/atom nil))
+(defonce  !app (r/atom nil))
 (def restart-fn (atom nil))
 
 (defn ui [{:keys [version piece]}]

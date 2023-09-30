@@ -114,7 +114,6 @@
                   dead? (into #{} (map :id) dead-entities)
                   components-of-dead (into #{}
                                            (mapcat :components dead-entities))]
-              (println components-of-dead)
               (into []
                     (comp
                      ;; (map (fn [e]
