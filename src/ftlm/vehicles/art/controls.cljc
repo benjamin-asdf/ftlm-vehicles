@@ -52,7 +52,10 @@
 (def leva-controls
   {"getting-around"
    {:schema
-    {:restart [:leva/button :ftlm.vehicles.art.vehicles.getting-around/restart]}}})
+    {:restart
+     [:leva/button :ftlm.vehicles.art.vehicles.getting-around/restart]
+     :dart!
+     [:leva/button :ftlm.vehicles.art.vehicles.getting-around/dart!]}}})
 
 (def versions
   {"2" {:brownian-factor 0.8

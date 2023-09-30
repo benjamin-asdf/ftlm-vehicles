@@ -13,6 +13,8 @@
 
 (def ^:dynamic *dt* nil)
 
+(def event-queue (atom []))
+
 ;; env
 ;; body
 ;; sensors
@@ -226,6 +228,7 @@
                :motors (map :id [motor])
                :sensors (map :id [sensor])
                :particle? true
+               :darts? true
                ;; :lifetime 500
              )]
     [body sensor motor line]))
@@ -377,12 +380,44 @@
    (:max-temp controls)
    controls))
 
+(defn dart-one [entity]
+  (-> entity
+      (update :angular-velocity + (rand-nth [-1 1]))
+      (update :acceleration + 3000)))
+
+(defn dart-a-few
+  [state]
+  (let [rands (into #{}
+                    (take 5
+                          (shuffle (sequence (comp (filter :darts?) (map :id))
+                                             (lib/entities state)))))]
+    (update state
+            :entities
+            (fn [ents]
+              (doall (map (fn [e] (if (rands (:id e)) (dart-one e) e))
+                       ents))))))
+
+
+(defmulti event! (fn [e _] e))
+
+(defmethod event! :dart
+  [_ state]
+  (dart-a-few state))
+
+(defn apply-events
+  [state]
+  (reduce (fn [s e] (event! e s))
+    state
+    (let [r @event-queue]
+      (reset! event-queue [])
+      r)))
+
 (defn update-entity [entity state]
   (-> entity
-      (update-body state)
+      ;; (update-body state)
       friction
       ;; print-it-every-ms
-      brownian-motion
+      ;; brownian-motion
 
       move-dragged
       update-rotation
@@ -396,17 +431,20 @@
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge @user-controls/!app)
-        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
+        dt (* (:time-speed (lib/controls))
+              (/ (- current-tick (:last-tick state)) 1000.0))
+        ]
     (binding [*dt* dt]
-      (-> state
-          (assoc :last-tick current-tick)
-          (update :entities
-                  (fn [ents] (doall (map #(update-entity % state) ents))))
-          transduce-signals
-          track-components
-          track-conn-lines
-          lib/update-lifetime
-          lib/cleanup-connections))))
+      (let [state (apply-events state)]
+        (-> state
+            (assoc :last-tick current-tick)
+            (update :entities
+                    (fn [ents] (doall (map #(update-entity % state) ents))))
+            transduce-signals
+            track-components
+            track-conn-lines
+            lib/update-lifetime
+            lib/cleanup-connections)))))
 
 (defn window-dimensions []
   (let [w (.-innerWidth js/window)
@@ -438,13 +476,14 @@
                     (repeatedly (:temp-zone-count controls)
                                 #(random-temp-zone controls))
                     (mapcat identity
-                            (repeatedly (:spawn-amount controls)
-                                        #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
-                                                 (-> controls
-                                                     :cart-scale)
-                                                 (* q/TWO-PI (rand))
-                                                 (rand-nth (-> controls
-                                                               :color-palatte))))))
+                            (repeatedly
+                             (:spawn-amount controls)
+                             #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
+                                      (-> controls
+                                          :cart-scale)
+                                      (* q/TWO-PI (rand))
+                                      (rand-nth (-> controls
+                                                    :color-palatte))))))
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))
@@ -500,25 +539,26 @@
               :mouse-released mouse-released
               :frame-rate 30)))
 
-(def restart-fn (atom nil))
-
-(defmethod art/view "getting-around"
-  [{:keys [place version]}]
-  (let
-      [f (fn []
-           (sketch
-            place
-            (merge
-             (controls/default-versions "getting-around")
-             (get-in versions ["getting-around" version])
-             @user-controls/!app)))]
-      (reset! restart-fn f)
-      (f)))
-
-(defmethod user-controls/action-button ::restart
-  [_]
-  (some-> @restart-fn (apply nil)))
-
-(comment
-
+(let [restart-fn (atom nil)]
+  (defmethod art/view "getting-around"
+    [{:keys [place version]}]
+    (let
+        [f (fn []
+             (sketch
+              place
+              (merge
+               (controls/default-versions "getting-around")
+               (get-in versions ["getting-around" version])
+               @user-controls/!app)))]
+        (reset! restart-fn f)
+        (f)))
+  (defmethod user-controls/action-button ::restart
+    [_]
+    (some-> @restart-fn (apply nil)))
   )
+
+(defmethod user-controls/action-button ::dart!
+  [_]
+  (swap! event-queue conj :dart))
+
+(comment)
