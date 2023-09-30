@@ -1,22 +1,27 @@
 (ns ftlm.vehicles.art.vehicles.getting-around
-  (:require
-   [ftlm.vehicles.art.lib :as lib]
-   [ftlm.vehicles.art :as art]
-   [quil.core :as q :include-macros true]
-   [quil.middleware :as m]
-   [ftlm.vehicles.art.controls :refer [versions]]
-   ;; [ftlm.vehicles.art.user-controls :as user-controls]
-   ))
+  (:require [ftlm.vehicles.art.lib :as lib]
+            [ftlm.vehicles.art :as art]
+            [quil.core :as q :include-macros true]
+            [quil.middleware :as m]
+            [ftlm.vehicles.art.controls :refer [versions]]
+            [ftlm.vehicles.art.user-controls :as user-controls]
+            [ftlm.vehicles.art.controls :as controls]))
 
 (def default-controls
-  {:brownian-factor 0.8 :cart-1 {:scale 1} :max-temp 1 :spawn-amount 50})
+  {:brownian-factor 0.8
+   :cart-1 {:color-palatte [[0 0 255]] :scale 1}
+   :max-temp 1
+   :middle-temp-zone {:diameter 300}
+   :middle-temp-zone? true
+   :spawn-amount 50
+   :spawn-spread 0.1
+   :temp-zone-count 10})
 
 (defn print-it-every-ms [entity]
   (q/print-every-n-millisec 200 entity)
   entity)
 
 (def ^:dynamic *dt* nil)
-(def ^:dynamic *controls* nil)
 
 ;; env
 ;; body
@@ -218,20 +223,20 @@
 (defn ->brain [& connections] connections)
 (defn ->body [])
 
-(defn ->cart [spawn-point scale]
+(defn ->cart [spawn-point scale rot]
   (merge (lib/->entity :rect)
          {:cart? true
           :color (q/color 266 255 255 255)
           :transform
           (assoc
            (lib/->transform spawn-point 30 80 scale)
-           :rotation q/HALF-PI)}))
+           :rotation rot)}))
 
-(defn cart-1 [pos scale]
+(defn cart-1 [pos scale rot]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
-        body (assoc (->cart pos scale)
+        body (assoc (->cart pos scale rot)
                     :components (map :id [motor sensor])
                     :motors (map :id [motor])
                     :sensors (map :id [sensor])
@@ -403,13 +408,23 @@
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (-> {:controls controls
-       :entities (concat (repeatedly 10 #(random-temp-zone controls))
+       :entities (concat [(when (controls :middle-temp-zone?)
+                            (temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                              (-> controls
+                                                  :middle-temp-zone
+                                                  :diameter)
+                                              (:max-temp controls)
+                                              (:max-temp controls)))]
+                         (repeatedly (:temp-zone-count controls)
+                                     #(random-temp-zone controls))
                          (mapcat identity
                            (repeatedly 50
-                                       #(cart-1 (rand-on-canvas-gauss 0.4)
+                                       #(cart-1 (rand-on-canvas-gauss
+                                                  (:spawn-spread controls))
                                                 (-> controls
                                                     :cart-1
-                                                    :scale)))))
+                                                    :scale)
+                                                (* q/TWO-PI (rand))))))
        :last-tick (q/millis)}
       track-components
       track-conn-lines))
@@ -431,7 +446,9 @@
   (sketch
    place
    (merge
-    default-controls
+    (controls/default-versions "getting-around")
     (get-in versions ["getting-around" version]))))
 
-(comment)
+(comment
+
+  )
