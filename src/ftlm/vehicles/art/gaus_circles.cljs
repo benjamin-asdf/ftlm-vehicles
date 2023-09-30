@@ -330,7 +330,8 @@
    :update update-state
    :draw draw-state
    :features [:keep-on-top]
-   :middleware [m/fun-mode]))
+   :middleware [m/fun-mode]
+   ))
 
 (defmethod art/view "brownians"
   [{:keys [place version]}]

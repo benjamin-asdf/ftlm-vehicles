@@ -32,7 +32,7 @@
 
 (defn draw-state
   [state]
-  (q/background 230)
+  (q/background (-> state :controls :background-colour))
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (:entities state)]
@@ -88,22 +88,22 @@
         m (anchor->trans-matrix (:anchor ent))]
     (v* m [(/ width 2) (/ height 2)])))
 
-(defn ->sensor [anchor]
-  (assoc
-   (lib/->entity :circle)
-   :transform (lib/->transform [0 0] 20 20 1)
-   :anchor anchor
-   :modality :temp
-   :sensor? true
-   :color 100))
-
-(defn ->motor [anchor]
-  (merge
-   (lib/->entity :rect)
-   {:motor? true
-    :transform (lib/->transform [0 0] 20 35 1)
+(defn ->sensor
+  [anchor]
+  (assoc (lib/->entity :circle)
+    :transform (lib/->transform [0 0] 20 20 1)
     :anchor anchor
-    :color 0}))
+    :modality :temp
+    :sensor? true
+    :color (q/color 40 96 255 255)))
+
+(defn ->motor
+  [anchor]
+  (merge (lib/->entity :rect)
+         {:anchor anchor
+          :color (q/color 40 96 255 255)
+          :motor? true
+          :transform (lib/->transform [0 0] 20 35 1)}))
 
 (defn normalize-value-1
   [min max value]
@@ -114,18 +114,23 @@
     (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
 
 (defn temperature-zone
-  [pos d temp max-temp]
+  [pos d temp max-temp controls]
   (assoc
    (lib/->entity :circle)
    :transform (lib/->transform pos d d 1)
-   :color (q/lerp-color
-           (q/color 255 255 255 20)
-           (q/color 255 255 255 255)
+   :color  (q/lerp-color
+            (apply q/color
+                    (-> controls :temperature-colors first)
+                   )
+            (apply q/color (-> controls :temperature-colors first)
+                  )
+           ;; (apply q/color (-> controls :temperature-colors second))
            (normalize-value-1 0 max-temp temp))
    :temp-zone? true
    :d d
    :temp temp
-   :particle? true))
+   :particle? true
+   :draggable? true))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -274,6 +279,12 @@
         (update-in [:transform :rotation] #(+ % velocity))
         (assoc :angular-velocity velocity))))
 
+(defn move-dragged
+  [entity]
+  (if (:dragged? entity)
+    (assoc-in entity [:transform :pos] [(q/mouse-x) (q/mouse-y)])
+    entity))
+
 (defn update-position
   [{:as entity :keys [velocity acceleration]}]
   (let [velocity (+ velocity (* *dt* acceleration))
@@ -294,45 +305,45 @@
   (let [parent-by-id (into {}
                            (mapcat (fn [ent]
                                      (map (juxt identity (constantly ent))
-                                       (:components ent)))
-                             (filter :components (lib/entities state))))]
+                                          (:components ent)))
+                                   (filter :components (lib/entities state))))]
     (->
-      state
-      (update
-        :entities
-        (fn [ents]
-          (doall
-            (map (fn [{:as ent :keys [id]}]
-                   (if-let [parent (parent-by-id id)]
-                     (let [relative-position (relative-position parent ent)
-                           parent-rotation (-> parent
-                                               :transform
-                                               :rotation)
-                           scale (-> parent
-                                     :transform
-                                     :scale)]
-                       (-> ent
-                           (assoc-in
-                             [:transform :pos]
-                             [(+ (first (v* [scale scale]
-                                            (rotate-point parent-rotation
-                                                          relative-position)))
-                                 (first (-> parent
+     state
+     (update
+      :entities
+      (fn [ents]
+        (doall
+         (map (fn [{:as ent :keys [id]}]
+                (if-let [parent (parent-by-id id)]
+                  (let [relative-position (relative-position parent ent)
+                        parent-rotation (-> parent
                                             :transform
-                                            :pos)))
-                              (+ (second (v* [scale scale]
-                                             (rotate-point parent-rotation
-                                                           relative-position)))
-                                 (second (-> parent
-                                             :transform
-                                             :pos)))])
-                           (assoc-in [:transform :rotation]
-                                     (-> parent
+                                            :rotation)
+                        scale (-> parent
+                                  :transform
+                                  :scale)]
+                    (-> ent
+                        (assoc-in
+                         [:transform :pos]
+                         [(+ (first (v* [scale scale]
+                                        (rotate-point parent-rotation
+                                                      relative-position)))
+                             (first (-> parent
+                                        :transform
+                                        :pos)))
+                          (+ (second (v* [scale scale]
+                                         (rotate-point parent-rotation
+                                                       relative-position)))
+                             (second (-> parent
                                          :transform
-                                         :rotation))
-                           (assoc-in [:transform :scale] scale)))
-                     ent))
-                 ents)))))))
+                                         :pos)))])
+                        (assoc-in [:transform :rotation]
+                                  (-> parent
+                                      :transform
+                                      :rotation))
+                        (assoc-in [:transform :scale] scale)))
+                  ent))
+              ents)))))))
 
 (defn track-conn-lines
   [state]
@@ -361,12 +372,14 @@
   [(lib/normal-distr (/ (q/width) 2) (* distr (/ (q/width) 2)))
    (lib/normal-distr (/ (q/height) 2) (* distr (/ (q/height) 2)))])
 
+
 (defn random-temp-zone [controls]
   (temperature-zone
    (rand-on-canvas)
    (lib/normal-distr 300 80)
    (rand (:max-temp controls))
-   (:max-temp controls )))
+   (:max-temp controls)
+   controls))
 
 (defn update-entity [entity state]
   (-> entity
@@ -375,6 +388,7 @@
       ;; print-it-every-ms
       brownian-motion
 
+      move-dragged
       update-rotation
       update-position
 
@@ -403,6 +417,7 @@
         h (.-innerHeight js/window)]
     {:width w :height h}))
 
+
 (defn setup
   [controls]
   (q/rect-mode :center)
@@ -421,13 +436,13 @@
                                               :middle-temp-zone
                                               :diameter)
                                           (:max-temp controls)
-                                          (:max-temp controls))])
+                                          (:max-temp controls)
+                                          controls)])
                      (repeatedly (:temp-zone-count controls)
                                  #(random-temp-zone controls))
                      (mapcat identity
                        (repeatedly (:spawn-amount controls)
-                                   #(cart-1 (rand-on-canvas-gauss (:spawn-spread
-                                                                    controls))
+                                   #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
                                             (-> controls
                                                 :cart-scale)
                                             (* q/TWO-PI (rand))
@@ -436,6 +451,43 @@
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))
+
+
+(defn find-closest-draggable
+  [state]
+  (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
+    (->> state
+         lib/entities
+         (filter :draggable?)
+         (sort-by (comp (fn [b] (distance mouse-position b)) lib/position))
+         (first))))
+
+
+(defn mouse-pressed
+  [state]
+  (let [draggable (find-closest-draggable state)]
+    (-> state
+        (assoc :pressed true)
+        (update :entities
+                (fn [ents]
+                  (doall
+                   (map
+                    (fn [e]
+                      (if (= draggable e) (assoc e :dragged? true) e))
+                    ents)))))))
+
+(defn mouse-released
+  [state]
+  (let [draggable (find-closest-draggable state)]
+    (-> state
+        (assoc :pressed false)
+        (update :entities
+                (fn [ents]
+                  (doall
+                   (map
+                    (fn [e]
+                      (dissoc e :dragged?))
+                    ents)))))))
 
 (defn sketch
   [host controls]
@@ -447,6 +499,8 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
+              :mouse-pressed mouse-pressed
+              :mouse-released mouse-released
               :frame-rate 30)))
 
 (defmethod art/view "getting-around"
@@ -463,6 +517,5 @@
       (f)))
 
 (comment
-  (concat [nil] [2])
-  (concat nil [2])
+
   )
