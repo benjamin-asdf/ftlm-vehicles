@@ -34,7 +34,7 @@
 
 (defn draw-state
   [state]
-  (q/background (-> state :controls :background-colour))
+  (q/background (-> state :controls :background-color))
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (:entities state)]
@@ -207,6 +207,15 @@
                        e))
                    ents)))))
 
+(defn ->trail [pos size color]
+  (assoc
+   (lib/->entity :circle)
+   :transform (lib/->transform pos size size 0.2)
+   :trail? true
+   :particle? true
+   :lifetime 20
+   :color color))
+
 (defn ->brain [& connections] connections)
 (defn ->body [])
 
@@ -224,13 +233,14 @@
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
         body (assoc (->cart pos scale rot color)
-               :components (map :id [motor sensor])
-               :motors (map :id [motor])
-               :sensors (map :id [sensor])
-               :particle? true
-               :darts? true
-               ;; :lifetime 500
-             )]
+                    :components (map :id [motor sensor])
+                    :motors (map :id [motor])
+                    :sensors (map :id [sensor])
+                    :particle? true
+                    :darts? true
+                    :makes-trail? true
+                    ;; :lifetime 500
+                    )]
     [body sensor motor line]))
 
 ;; say motor :activation makes more velocity
@@ -272,11 +282,11 @@
 
 (defn update-rotation
   [entity]
-  (let [velocity (+ (:angular-velocity entity 0)
+  (let [angular-velocity (+ (:angular-velocity entity 0)
                     (* *dt* (:angular-acceleration entity 0)))]
     (-> entity
-        (update-in [:transform :rotation] #(+ % velocity))
-        (assoc :angular-velocity velocity))))
+        (update-in [:transform :rotation] #(+ % angular-velocity))
+        (assoc :angular-velocity angular-velocity))))
 
 (defn move-dragged
   [entity]
@@ -412,13 +422,55 @@
       (reset! event-queue [])
       r)))
 
+(defn mid-point [] [(/ (q/width) 2)
+                    (/ (q/height) 2)])
+
+
+(defn angle-between
+  [[x1 y1] [x2 y2]]
+  (Math/atan2 (- y1 y2)
+              (- x1 x2)))
+
+(defn orient-towards
+  [entity target]
+  (let [desired-angle (angle-between (position entity) target)]
+    (assoc-in entity [:transform :rotation] (- desired-angle q/HALF-PI))))
+
+(defn dart-to-middle
+  [{:as entity :keys [darts?]}]
+  (if (and darts?
+           (:everbody-darts? (q/state :controls))
+           (< 0 (q/random-gaussian))
+           (< 1000 (- (q/millis) (get entity :last-darted -500))))
+    (-> entity
+        (orient-towards (mid-point))
+        (assoc :acceleration 1000)
+        (assoc :last-darted (q/millis)))
+    entity))
+
+(defn dart-everyboy
+  [{:as entity :keys [darts?]}]
+  (if (and darts?
+           (:everbody-darts? (q/state :controls))
+           (< 1000
+              (- (q/millis)
+                 (get entity :last-darted -500))))
+    (-> ;; (dart-one entity)
+     entity
+     (orient-towards (mid-point))
+     (assoc :acceleration (lib/normal-distr 1000 1))
+     (assoc :last-darted (q/millis)))
+    entity))
+
 (defn update-entity [entity state]
   (-> entity
-      ;; (update-body state)
+      (update-body state)
       friction
       ;; print-it-every-ms
-      ;; brownian-motion
+      brownian-motion
 
+      ;; dart-everyboy
+      dart-to-middle
       move-dragged
       update-rotation
       update-position
@@ -427,13 +479,41 @@
       activation-decay
       activation-shine))
 
+(defn make-trails
+  [state]
+  (let [make-trail
+        (into
+         {}
+         (comp
+          (filter :makes-trail?)
+          (filter (fn [e] (< 500 (- (q/millis) (:made-trail e)))))
+          (map (juxt :id identity)))
+         (lib/entities state))
+        new-trial
+        (map
+         (fn [e]
+           (->trail (position e)
+                    (-> state
+                        :controls
+                        :trail-size)
+                    (-> state
+                        :controls
+                        :trail-color)))
+         (vals make-trail))]
+    (->
+     state
+     (lib/append-ents new-trial)
+     (lib/update-ents (fn [e]
+                        (if (make-trail (:id e))
+                          (assoc e :made-trail (q/millis))
+                          e))))))
+
 (defn update-state
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge @user-controls/!app)
         dt (* (:time-speed (lib/controls))
-              (/ (- current-tick (:last-tick state)) 1000.0))
-        ]
+              (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (let [state (apply-events state)]
         (-> state
@@ -443,6 +523,7 @@
             transduce-signals
             track-components
             track-conn-lines
+            make-trails
             lib/update-lifetime
             lib/cleanup-connections)))))
 
@@ -451,12 +532,11 @@
         h (.-innerHeight js/window)]
     {:width w :height h}))
 
-
 (defn setup
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (-> controls :background-colour))
+  (q/background (-> controls :background-color))
   (let [controls (if-not (:color-palatte controls)
                    (assoc controls
                           :color-palatte (lib/generate-palette
@@ -478,6 +558,7 @@
                     (mapcat identity
                             (repeatedly
                              (:spawn-amount controls)
+
                              #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
                                       (-> controls
                                           :cart-scale)
@@ -488,7 +569,6 @@
         track-components
         track-conn-lines)))
 
-
 (defn find-closest-draggable
   [state]
   (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
@@ -497,7 +577,6 @@
          (filter :draggable?)
          (sort-by (comp (fn [b] (distance mouse-position b)) lib/position))
          (first))))
-
 
 (defn mouse-pressed
   [state]

@@ -38,7 +38,7 @@
                 :spread 1
                 :spread-speed 0}
    "getting-around"
-   {:background-colour 230
+   {:background-color 230
     :brownian-factor 0.8
     :cart-scale 1
     :color-palatte [50 40 60]
@@ -47,7 +47,10 @@
     :spawn-spread 0.4
     :temp-zone-count 10
     :temperature-colors [[255 255 255 20] [255 255 255 255]]
-    :time-speed 2}})
+    :time-speed 2
+    :distance-when-darting 0
+    :trail-color [50 255 255 255]
+    :trail-size 20}})
 
 (def leva-controls
   {"getting-around"
@@ -400,7 +403,7 @@
                           :spawn-amount 40
                           :spawn-spread 0.4
                           :temp-zone-count 10}
-                     "3" {:background-colour 0
+                     "3" {:background-color 0
                           :brownian-factor 0.8
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
@@ -412,13 +415,46 @@
                           :temp-zone-count 10
                           :temperature-colors [[100 100 255 250]
                                                [0 0 255 250]]}
-                     "4" {:background-colour 0
-                          :brownian-factor 0.8
+                     "4" {:background-color 0
+                          :dart-distance 0
+                          :brownian-factor 0.1
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
                           :max-temp 1
-                          :middle-temp-zone {:diameter 300}
-                          :middle-temp-zone? true
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10
+                          :everbody-darts? true
+                          :temperature-colors [[100 100 255 250]
+                                               [0 0 255 250]]}
+                     "5" {:background-color 0
+                          :distance-when-darting 500
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10
+                          :temperature-colors [[100 100 255 250]
+                                               [0 0 255 250]]}
+                     "6" {:background-color 0
+                          :distance-when-darting 500
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10
+                          :temperature-colors [[100 100 255 250]
+                                               [0 0 255 250]]}
+                     "7" {:background-color 0
+                          :distance-when-darting 500
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :max-temp 1
                           :spawn-amount 40
                           :spawn-spread 0.4
                           :temp-zone-count 10

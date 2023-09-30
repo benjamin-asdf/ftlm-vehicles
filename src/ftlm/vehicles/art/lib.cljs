@@ -18,6 +18,12 @@
 (def entities :entities)
 (def entities-by-id (comp #(into {} (map (juxt :id identity) %)) entities))
 
+(defn update-ents [state f]
+  (update state :entities (fn [ents] (doall (map f ents)))))
+
+(defn append-ents [state ents]
+  (update state :entities concat ents))
+
 (defn transform [e] (:transform e))
 (defn position [e] (-> e transform :pos))
 
