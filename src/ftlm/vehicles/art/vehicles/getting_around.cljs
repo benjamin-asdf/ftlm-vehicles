@@ -30,19 +30,13 @@
 (defn effectors [entity state]
   (->> entity :motors (map (lib/entities-by-id state))))
 
-;; I try a cartoon physics,
-;; :activation makes your velocity go up, friction-1 removes it
-
 (defn draw-state
   [state]
-  (q/background 230 ;; (q/color 330 100 100 255)
-                )
+  (q/background 230)
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (:entities state)]
-    (when-not hidden?
-      (lib/draw-color color)
-      (lib/draw-entity entity))))
+    (when-not hidden? (lib/draw-color color) (lib/draw-entity entity))))
 
 (defn rotate-point [rotation [x y]]
   [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
@@ -258,7 +252,7 @@
                                                    (:activation e)
                                                    (anchor->rot-influence
                                                      anchor)))
-                                           effectors)))))))
+                                              effectors)))))))
 (defn brownian-motion
   [e]
   (if-not (:particle? e)
@@ -346,7 +340,7 @@
           :entities
           (fn [ents] (map #(lib/update-conn-line % state) ents))))
 
-(defn actication-shine
+(defn activation-shine
   [{:as entity :keys [activation shine]}]
   (if activation
     (let [shine (+ shine (* *dt* activation))]
@@ -386,15 +380,15 @@
 
       (update-sensors state)
       activation-decay
-      actication-shine))
+      activation-shine))
 
 (defn update-state
   [state]
   (let [current-tick (q/millis)
+        state (update state :controls merge @user-controls/!app)
         dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (-> state
-          (update :controls merge @user-controls/!app)
           (assoc :last-tick current-tick)
           (update :entities
                   (fn [ents] (doall (map #(update-entity % state) ents))))
@@ -424,12 +418,11 @@
                          (repeatedly (:temp-zone-count controls)
                                      #(random-temp-zone controls))
                          (mapcat identity
-                           (repeatedly 50
+                           (repeatedly
+                                       (:spawn-amount controls)
                                        #(cart-1 (rand-on-canvas-gauss
-                                                  (:spawn-spread controls))
-                                                (-> controls
-                                                    :cart-1
-                                                    :scale)
+                                                 (:spawn-spread controls))
+                                                (-> controls :cart-scale)
                                                 (* q/TWO-PI (rand))))))
        :last-tick (q/millis)}
       track-components
