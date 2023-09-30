@@ -119,13 +119,9 @@
    (lib/->entity :circle)
    :transform (lib/->transform pos d d 1)
    :color  (q/lerp-color
-            (apply q/color
-                    (-> controls :temperature-colors first)
-                   )
-            (apply q/color (-> controls :temperature-colors first)
-                  )
-           ;; (apply q/color (-> controls :temperature-colors second))
-           (normalize-value-1 0 max-temp temp))
+            (apply q/color (-> controls :temperature-colors first))
+            (apply q/color (-> controls :temperature-colors first))
+            (normalize-value-1 0 max-temp temp))
    :temp-zone? true
    :d d
    :temp temp
@@ -422,32 +418,33 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
+  (q/background (-> controls :background-colour))
   (let [controls (if-not (:color-palatte controls)
                    (assoc controls
-                     :color-palatte (lib/generate-palette
-                                      (:palette-base-color controls)
-                                      (:num-random-colors controls)))
+                          :color-palatte (lib/generate-palette
+                                          (:palette-base-color controls)
+                                          (:num-random-colors controls)))
                    controls)]
     (-> {:controls controls
          :entities (concat
-                     (when (controls :middle-temp-zone?)
-                       [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                          (-> controls
-                                              :middle-temp-zone
-                                              :diameter)
-                                          (:max-temp controls)
-                                          (:max-temp controls)
-                                          controls)])
-                     (repeatedly (:temp-zone-count controls)
-                                 #(random-temp-zone controls))
-                     (mapcat identity
-                       (repeatedly (:spawn-amount controls)
-                                   #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
-                                            (-> controls
-                                                :cart-scale)
-                                            (* q/TWO-PI (rand))
-                                            (rand-nth (-> controls
-                                                          :color-palatte))))))
+                    (when (controls :middle-temp-zone?)
+                      [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                         (-> controls
+                                             :middle-temp-zone
+                                             :diameter)
+                                         (:max-temp controls)
+                                         (:max-temp controls)
+                                         controls)])
+                    (repeatedly (:temp-zone-count controls)
+                                #(random-temp-zone controls))
+                    (mapcat identity
+                            (repeatedly (:spawn-amount controls)
+                                        #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
+                                                 (-> controls
+                                                     :cart-scale)
+                                                 (* q/TWO-PI (rand))
+                                                 (rand-nth (-> controls
+                                                               :color-palatte))))))
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))
@@ -503,6 +500,8 @@
               :mouse-released mouse-released
               :frame-rate 30)))
 
+(def restart-fn (atom nil))
+
 (defmethod art/view "getting-around"
   [{:keys [place version]}]
   (let
@@ -513,8 +512,12 @@
              (controls/default-versions "getting-around")
              (get-in versions ["getting-around" version])
              @user-controls/!app)))]
-      (reset! user-controls/restart-fn f)
+      (reset! restart-fn f)
       (f)))
+
+(defmethod user-controls/action-button ::restart
+  [_]
+  (some-> @restart-fn (apply nil)))
 
 (comment
 

@@ -2,7 +2,6 @@
 
 (def white [0 0 255])
 
-
 (def
   cyberpunk-palette-hsb
   [{:h 180 :s 255 :b 255}
@@ -38,16 +37,22 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "getting-around" {:background-colour 230
-                     :brownian-factor 0.8
-                     :cart-scale 1
-                     :color-palatte [50 40 60]
-                     :max-temp 1
-                     :spawn-amount 50
-                     :spawn-spread 0.4
-                     :temp-zone-count 10
-                     :temperature-colors [[255 255 255 20] [255 255 255 255]]
-                     :time-speed 2}})
+   "getting-around"
+   {:background-colour 230
+    :brownian-factor 0.8
+    :cart-scale 1
+    :color-palatte [50 40 60]
+    :max-temp 1
+    :spawn-amount 50
+    :spawn-spread 0.4
+    :temp-zone-count 10
+    :temperature-colors [[255 255 255 20] [255 255 255 255]]
+    :time-speed 2}})
+
+(def leva-controls
+  {"getting-around"
+   {:schema
+    {:restart [:leva/button :ftlm.vehicles.art.vehicles.getting-around/restart]}}})
 
 (def versions
   {"2" {:brownian-factor 0.8
@@ -384,24 +389,35 @@
                           :spawn-spread 0.2
                           :temp-zone-count 10}
                      "2" {:brownian-factor 0.8
+                          :cart-scale 0.4
                           :color-palatte [50 40 60]
                           :max-temp 1
                           :middle-temp-zone {:diameter 300}
                           :middle-temp-zone? true
                           :spawn-amount 40
                           :spawn-spread 0.4
-                          :cart-scale 0.4
                           :temp-zone-count 10}
-                     "3" {:brownian-factor 0.8
+                     "3" {:background-colour 0
+                          :brownian-factor 0.8
+                          :cart-scale 0.4
                           :color-palatte [50 40 60]
                           :max-temp 1
                           :middle-temp-zone {:diameter 300}
                           :middle-temp-zone? true
                           :spawn-amount 40
                           :spawn-spread 0.4
+                          :temp-zone-count 10
+                          :temperature-colors [[100 100 255 250]
+                                               [0 0 255 250]]}
+                     "4" {:background-colour 0
+                          :brownian-factor 0.8
                           :cart-scale 0.4
-                          :background-colour 0
-                          :temperature-colors
-                          [[100 100 255 250]
-                           [0 0 255 250]]
-                          :temp-zone-count 10}}})
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone? true
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10
+                          :temperature-colors [[100 100 255 250]
+                                               [0 0 255 250]]}}})
