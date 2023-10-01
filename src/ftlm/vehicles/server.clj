@@ -39,7 +39,6 @@
                                :parameters
                                :query
                                :controls))]
-    (def req req)
     (page-resp
       [:div [:div {:id "main"}]
        (graft "art"
@@ -55,7 +54,8 @@
     (page-resp
      (let
          [all-pages (sort-by read-string compare (keys (get art-controls/versions piece)))
-          pages (into [] (partition-all 3) all-pages)
+          page-layout (get art-controls/page-layouts piece)
+          pages (into [] (partition-all (:per-page page-layout 3)) all-pages)
           page (max 0 (min page (dec (count pages))))
           versions (nth pages page)]
          [:div
@@ -66,7 +66,10 @@
                [:div {:id (str piece "-" version)}]
                (graft "art" :prev-sibling {:piece piece :version version})
                [:h3 [:a {:href (str "/art/p/" piece "/" version)}
-                     [:strong piece " #" version]]]])
+                     [:strong piece " #" version]]
+                [:span " || "]
+                [:a {:href (str "/art/p/" piece "/" version "?controls=true")}
+                 [:strong "  with controls"]]]])
             versions)]
           (let [$btn
                 (css

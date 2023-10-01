@@ -55,17 +55,13 @@
                      :trail-color {:h 0 :s 0 :v 89}
                      :trail-size 20}})
 
+
+(def page-layouts
+  {"brownians" {:per-page 3}
+   "getting-around" {:per-page 1}})
+
 (def versions
-  {"2" {:brownian-factor 0.8
-        :color-palatte [50 40 60]
-        :max-temp 1
-        :middle-temp-zone-diameter 300
-        :middle-temp-zone? true
-        :num-random-colors 8
-        :spawn-amount 50
-        :spawn-spread 0.1
-        :temp-zone-count 10}
-   "brownians" {"0" {}
+  {"brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614
                      :brownian-factor 0.1
@@ -379,25 +375,7 @@
                      :spread 1.5
                      :spread-speed 1}}
    "getting-around" {"0" {}
-                     "1" {:brownian-factor 0.8
-                          :middle-temp-zone-diameter 300
-                          :middle-temp-zone? true
-                          :spawn-amount 20
-                          :spawn-spread 0.2}
-                     "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
-                     "11" {:background-color {:h 131 :s 29 :v 63}
-                           :max-temp 10
-                           :spawn-amount 20
-                           :temp-zone-count 20}
-                     "2" {:brownian-factor 0.8
-                          :cart-scale 0.4
-                          :color-palatte [50 40 60]
-                          :max-temp 1
-                          :middle-temp-zone-diameter 300
-                          :middle-temp-zone? true
-                          :spawn-amount 40
-                          :temp-zone-count 20}
-                     "3" {:background-color {:h 0 :s 0 :v 0}
+                     "1" {:background-color {:h 0 :s 0 :v 0}
                           :brownian-factor 0.8
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
@@ -409,6 +387,22 @@
                           :temp-color-high quite-green
                           :temp-color-low olive-lime-green
                           :temp-zone-count 10}
+                     "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
+                     "12" {:brownian-factor 0.8
+                           :middle-temp-zone-diameter 300
+                           :middle-temp-zone? true
+                           :spawn-amount 40
+                           :spawn-spread 0.2}
+                     "2" {:brownian-factor 0.8
+                          :cart-scale 0.4
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :middle-temp-zone-diameter 300
+                          :middle-temp-zone? true
+                          :spawn-amount 40
+                          :temp-color-high {:a 1 :h 146 :s 78 :v 76}
+                          :temp-color-low {:a 0.1 :h 234 :s 60 :v 82}
+                          :temp-zone-count 20}
                      "4" {:background-color {:h 0 :s 0 :v 0}
                           :brownian-factor 0.1
                           :cart-scale 0.4
