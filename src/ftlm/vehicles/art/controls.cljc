@@ -18,6 +18,9 @@
    {:h 240 :s 191 :b 166}
    {:h 290 :s 179 :b 153}])
 
+(def quite-green {:h 135 :s 100 :v 100})
+(def olive-lime-green {:h 72 :s 100 :v 100})
+
 (def default-versions
   {"brownians" {:background 230
                 :base-color 7.790258368269614
@@ -37,35 +40,28 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "getting-around"
-   {
-    :background-color
-    {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :cart-scale 1
-    :color-palatte [50 40 60]
-    :max-temp 1
-    :spawn-amount 30
-    :spawn-spread 0.4
-    :temp-zone-count 10
-    :temp-color-low
-    {:h 0 :s 68 :v 89 :a 0.1}
-    :temp-color-high {:h 0 :s 68 :v 89 :a 1}
-    :time-speed 2
-    :distance-when-darting 0
-    :trail-color
-    {:h 0 :s 0 :v 89}
-    :trail-size 20}})
+   "getting-around" {:background-color {:h 0 :s 0 :v 89}
+                     :brownian-factor 0.8
+                     :cart-scale 1
+                     :color-palatte [50 40 60]
+                     :distance-when-darting 0
+                     :max-temp 1
+                     :spawn-amount 30
+                     :spawn-spread 0.4
+                     :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+                     :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+                     :temp-zone-count 10
+                     :time-speed 2
+                     :trail-color {:h 0 :s 0 :v 89}
+                     :trail-size 20}})
 
 (def versions
   {"2" {:brownian-factor 0.8
         :color-palatte [50 40 60]
-        ;; nil
         :max-temp 1
-        ;; :palette-base-color
-        :num-random-colors 8
-        :middle-temp-zone {:diameter 300}
+        :middle-temp-zone-diameter 300
         :middle-temp-zone? true
+        :num-random-colors 8
         :spawn-amount 50
         :spawn-spread 0.1
         :temp-zone-count 10}
@@ -384,42 +380,36 @@
                      :spread-speed 1}}
    "getting-around" {"0" {}
                      "1" {:brownian-factor 0.8
-                          :color-palatte [50 40 60]
-                          :max-temp 1
-                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone-diameter 300
                           :middle-temp-zone? true
                           :spawn-amount 20
-                          :spawn-spread 0.2
-                          :temp-zone-count 10}
+                          :spawn-spread 0.2}
                      "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
-                     "11"
-                     {:background-color
-                      {:h 131 :v 63 :s 29}
-                      :max-temp 10
-                      :spawn-amount 20
-                      :temp-zone-count 20}
+                     "11" {:background-color {:h 131 :s 29 :v 63}
+                           :max-temp 10
+                           :spawn-amount 20
+                           :temp-zone-count 20}
                      "2" {:brownian-factor 0.8
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
                           :max-temp 1
-                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone-diameter 300
                           :middle-temp-zone? true
                           :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-zone-count 10}
-                     "3" {:background-color 0
+                          :temp-zone-count 20}
+                     "3" {:background-color {:h 0 :s 0 :v 0}
                           :brownian-factor 0.8
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
                           :max-temp 1
-                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone-diameter 300
                           :middle-temp-zone? true
                           :spawn-amount 40
                           :spawn-spread 0.4
-                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
-                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
+                          :temp-color-high quite-green
+                          :temp-color-low olive-lime-green
                           :temp-zone-count 10}
-                     "4" {:background-color 0
+                     "4" {:background-color {:h 0 :s 0 :v 0}
                           :brownian-factor 0.1
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
@@ -428,37 +418,35 @@
                           :max-temp 1
                           :spawn-amount 40
                           :spawn-spread 0.4
-                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
-                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
-                          :temp-zone-count 10}
+                          :temp-zone-count 0}
                      "5" {:background-color 0
-                          :brownian-factor 0.1
-                          :cart-scale 1
-                          :color-palatte [50 40 60]
-                          :distance-when-darting 500
+                          :cart-scale 0.8
+                          :cart-shinyness 200
+                          :everbody-darts? true
                           :max-temp 1
                           :spawn-amount 40
                           :spawn-spread 0.4
-                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
-                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
-                          :temp-zone-count 10}
-                     "6" {:background-color 0
-                          :brownian-factor 0.1
-                          :cart-scale 1
-                          :color-palatte [50 40 60]
-                          :distance-when-darting 500
-                          :max-temp 1
+                          :temp-color-high quite-green
+                          :temp-color-low olive-lime-green
+                          :temp-shinyness 200
+                          :temp-zone-count 15}
+                     "6" {:background-color {:h 0 :s 0 :v 0}
+                          :brownian-factor 2
+                          :cart-scale 0.4
+                          :cart-shinyness 100
+                          :max-temp 5
                           :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
-                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
-                          :temp-zone-count 10}
-                     "7" {:background-color 0
-                          :brownian-factor 0.1
-                          :cart-scale 1
-                          :color-palatte [50 40 60]
-                          :distance-when-darting 500
-                          :max-temp 1
+                          :spawn-spread 0.2
+                          :temp-color-high quite-green
+                          :temp-color-low olive-lime-green
+                          :temp-shinyness 20
+                          :temp-zone-count 15
+                          :trail-color white}
+                     "7" {:background-color {:h 0 :s 0 :v 0}
+                          :brownian-factor 0.2
+                          :cart-scale 0.5
+                          :color-palatte [0 30 0]
+                          :max-temp 5
                           :spawn-amount 40
                           :spawn-spread 0.4
                           :temp-zone-count 10}

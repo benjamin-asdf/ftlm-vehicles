@@ -1,5 +1,5 @@
 (ns ftlm.vehicles.art.vehicles.getting-around
-  (:require [ftlm.vehicles.art.lib :as lib]
+  (:require [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
             [ftlm.vehicles.art :as art]
             [quil.core :as q :include-macros true]
             [quil.middleware :as m]
@@ -10,8 +10,6 @@
 (defn print-it-every-ms [entity]
   (q/print-every-n-millisec 200 entity)
   entity)
-
-(def ^:dynamic *dt* nil)
 
 (def event-queue (atom []))
 
@@ -130,7 +128,8 @@
    :particle? true
    :draggable? true
    :darts? true
-   :always-darts? (:temp-zones-always-dart controls)))
+   :always-darts? (:temp-zones-always-dart controls)
+   :shinyness (:temp-shinyness controls)))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -232,7 +231,7 @@
                        :rotation rot)}))
 
 (defn cart-1
-  [pos scale rot color]
+  [{:keys [pos scale rot color shinyness]}]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection sensor motor)
@@ -243,10 +242,10 @@
                     :particle? true
                     :darts? true
                     :makes-trail? true
+                    :shinyness shinyness
                     ;; :lifetime 500
                     )]
     [body sensor motor line]))
-
 ;; say motor :activation makes more velocity
 ;; velocity goes down with friction-1
 ;;
@@ -466,7 +465,7 @@
     (dart-to-middle entity)
     entity))
 
-(defn dart-always
+(defn dart-middle-always
   [{:as entity :keys [darts? always-darts?]}]
   (if (and darts? always-darts?)
     (dart-to-middle entity)
@@ -475,13 +474,12 @@
 (defn dart-everyboy
   [{:as entity :keys [darts?]}]
   (if (and darts?
-           (:everbody-darts? (q/state :controls))
+           (:everbody-darts? (q/state :controls) false)
            (< 1000
               (- (q/millis)
                  (get entity :last-darted -500))))
-    (-> ;; (dart-one entity)
-     entity
-     (orient-towards (mid-point))
+    (->
+     (dart-one entity)
      (assoc :acceleration (lib/normal-distr 1000 1))
      (assoc :last-darted (q/millis)))
     entity))
@@ -494,15 +492,16 @@
       brownian-motion
 
       dart-distants-to-middle
-      dart-always
-      ;; dart-everyboy
+      dart-middle-always
+      dart-everyboy
       move-dragged
       update-rotation
       update-position
 
       (update-sensors state)
       activation-decay
-      activation-shine))
+      activation-shine
+      lib/shine))
 
 (defn make-trails
   [state]
@@ -547,7 +546,7 @@
             track-components
             track-conn-lines
             make-trails
-            (lib/update-lifetime *dt*)
+            lib/update-lifetime
             lib/cleanup-connections)))))
 
 (defn window-dimensions []
@@ -559,36 +558,35 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls :background-color)))
+  (q/background (lib/->hsb (-> controls
+                               :background-color)))
   (let [controls (if-not (:color-palatte controls)
                    (assoc controls
-                          :color-palatte (lib/generate-palette
-                                          (:palette-base-color controls)
-                                          (:num-random-colors controls)))
+                     :color-palatte (lib/generate-palette
+                                      (:palette-base-color controls)
+                                      (:num-random-colors controls)))
                    controls)]
     (-> {:controls controls
-         :entities (concat
-                    (when (controls :middle-temp-zone?)
-                      [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                         (-> controls
-                                             :middle-temp-zone
-                                             :diameter)
-                                         (:max-temp controls)
-                                         (:max-temp controls)
-                                         controls)])
-                    (repeatedly (:temp-zone-count controls)
-                                #(random-temp-zone controls))
-                    (mapcat identity
-                            (repeatedly
-                             (:spawn-amount controls)
-                             #(cart-1 (rand-on-canvas-gauss (:spawn-spread
-                                                             controls))
-                                      (-> controls
-                                          :cart-scale)
-                                      (* q/TWO-PI (rand))
-                                      (rand-nth (-> controls
-                                                    :color-palatte)))))
-                    )
+         :entities
+           (concat (when (controls :middle-temp-zone?)
+                     [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                        (-> controls
+                                            :middle-temp-zone-diameter)
+                                        (:max-temp controls)
+                                        (:max-temp controls)
+                                        controls)])
+                   (repeatedly (:temp-zone-count controls)
+                               #(random-temp-zone controls))
+                   (mapcat identity
+                     (repeatedly (:spawn-amount controls)
+                                 #(cart-1 {:color (rand-nth (-> controls
+                                                                :color-palatte))
+                                           :pos (rand-on-canvas-gauss
+                                                 (:spawn-spread controls))
+                                           :rot (* q/TWO-PI (rand))
+                                           :scale (-> controls
+                                                      :cart-scale)
+                                           :shinyness (:cart-shinyness controls)}))))
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))

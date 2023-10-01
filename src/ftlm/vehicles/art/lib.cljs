@@ -3,6 +3,8 @@
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]))
 
+(def ^:dynamic *dt* nil)
+
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
@@ -63,14 +65,15 @@
      (number? color) [color 255 255]
      :else [color])))
 
-(defn shine [{:keys [shine] :as entity}]
-  (if-not
-      shine entity
-      (update
-       entity
-       :color
-       (fn [c]
-         (update-in (->hsb c) [0] (comp #(mod % 255) (partial + shine)))))))
+(defn shine
+  [{:as entity :keys [shine shinyness]}]
+  (if-not shinyness
+    entity
+    (let [shine (mod (+ shine (* *dt* shinyness)) 255)]
+      (q/print-every-n-millisec 200 shine)
+      (-> entity
+          (assoc :shine shine)
+          (update :color (fn [c] (q/color shine 255 255)))))))
 
 (defn signum [x]
   (cond
@@ -120,13 +123,13 @@
   (merge-with * t1 trsf))
 
 (defn update-lifetime
-  [state dt]
+  [state]
   (update state
           :entities
           (fn [entities]
             (let [entities
                   (map (fn [{:as e :keys [lifetime]}]
-                         (if lifetime (update e :lifetime - dt) e))
+                         (if lifetime (update e :lifetime - *dt*) e))
                        entities)
                   dead-entities
                   (into #{}
