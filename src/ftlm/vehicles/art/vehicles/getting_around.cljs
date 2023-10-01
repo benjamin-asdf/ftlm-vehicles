@@ -204,15 +204,14 @@
                        e))
                    ents)))))
 
-(defn ->trail [pos size color]
-  (assoc
-   (lib/->entity :circle)
-   :transform (lib/->transform pos size size 0.2)
-   :trail? true
-   :particle? true
-   :lifetime 0.8
-   :color color
-   ))
+(defn ->trail
+  [pos size color]
+  (assoc (lib/->entity :circle)
+    :transform (lib/->transform pos size size 0.2)
+    :trail? true
+    :particle? true
+    :lifetime 0.8
+    :color color))
 
 (defn ->brain [& connections] connections)
 (defn ->body [])
@@ -433,10 +432,8 @@
 (defn dart-to-middle
   [{:as entity :keys [darts?]}]
   (if (and darts?
-           ;; (:everbody-darts? (q/state :controls))
-           (<
-            (lib/normal-distr 1000 200)
-            (- (q/millis) (get entity :last-darted -500))))
+           (< (lib/normal-distr 1000 200)
+              (- (q/millis) (get entity :last-darted -500))))
     (-> entity
         (orient-towards (mid-point))
         (assoc :acceleration 1000)
