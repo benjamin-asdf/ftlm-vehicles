@@ -435,7 +435,7 @@
            :temp-shinyness 200
            :temp-zone-count 15}
       "6" {:background-color {:h 0 :s 0 :v 0}
-           :brownian-factor 2
+           :brownian-factor 3
            :cart-scale 0.4
            :cart-shinyness 100
            :max-temp 5
