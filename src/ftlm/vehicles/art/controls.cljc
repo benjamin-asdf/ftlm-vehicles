@@ -44,7 +44,6 @@
                      :brownian-factor 0.8
                      :cart-scale 1
                      :color-palatte [50 40 60]
-                     :distance-when-darting 0
                      :max-temp 1
                      :spawn-amount 30
                      :spawn-spread 0.4
@@ -415,7 +414,6 @@
            :brownian-factor 0.1
            :cart-scale 0.4
            :color-palatte [50 40 60]
-           :dart-distance 0
            :everbody-darts? true
            :make-trails? false
            :max-temp 1
