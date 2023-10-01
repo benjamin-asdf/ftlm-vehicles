@@ -24,19 +24,30 @@
 
 ;; controls
 
-(defn art [req]
-  (let [piece (-> req :path-params :piece)
-        version (-> req :path-params :version)
-        controls? (boolean (-> req :parameters :query :controls))]
+(defn art
+  [req]
+  (let [piece (-> req
+                  :path-params
+                  :piece)
+        version (-> req
+                    :path-params
+                    :version)
+        {:keys [width height]} (-> req
+                                   :parameters
+                                   :query)
+        controls? (boolean (-> req
+                               :parameters
+                               :query
+                               :controls))]
+    (def req req)
     (page-resp
-     [:div
-      [:div {:id "main"}]
-      (graft "art" :prev-sibling {:piece piece :version version})
-      (when
-          controls?
-          [:div (graft
-                 "controls-app"
-                 :parent {:piece piece :version version})])])))
+      [:div [:div {:id "main"}]
+       (graft "art"
+              :prev-sibling
+              {:height height :piece piece :version version :width width})
+       (when controls?
+         [:div
+          (graft "controls-app" :parent {:piece piece :version version})])])))
 
 (defn art-gallery [req]
   (let [piece (-> req :path-params :piece)
@@ -99,7 +110,9 @@
                                     :parameters
                                     {:query
                                      [:map
-                                      [:controls {:optional true} :boolean]]}}}]])
+                                      [:controls {:optional true} :boolean]
+                                      [:width {:optional true} :int]
+                                      [:height {:optional true} :int]]}}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler

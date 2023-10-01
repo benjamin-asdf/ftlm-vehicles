@@ -70,7 +70,6 @@
   (if-not shinyness
     entity
     (let [shine (mod (+ shine (* *dt* shinyness)) 255)]
-      (q/print-every-n-millisec 200 shine)
       (-> entity
           (assoc :shine shine)
           (update :color (fn [c] (q/color shine 255 255)))))))

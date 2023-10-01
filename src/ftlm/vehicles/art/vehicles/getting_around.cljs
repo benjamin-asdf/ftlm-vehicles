@@ -552,7 +552,7 @@
 (defn window-dimensions []
   (let [w (.-innerWidth js/window)
         h (.-innerHeight js/window)]
-    {:width w :height h}))
+    [w h]))
 
 (defn setup
   [controls]
@@ -627,10 +627,10 @@
                     ents)))))))
 
 (defn sketch
-  [host controls]
-  (let [{:keys [width height]} (window-dimensions)]
+  [host {:keys [width height]} controls]
+  (let [[screen-width screen-height] (window-dimensions)]
     (q/sketch :host host
-              :size [width height]
+              :size [(or width screen-width) (or height screen-height)]
               :setup (partial setup controls)
               :update update-state
               :draw draw-state
@@ -642,11 +642,12 @@
 
 (let [restart-fn (atom nil)]
   (defmethod art/view "getting-around"
-    [{:keys [place version]}]
+    [{:keys [place version] :as opts}]
     (let
         [f (fn []
              (sketch
               place
+              opts
               (merge
                (controls/default-versions "getting-around")
                (get-in versions ["getting-around" version])
