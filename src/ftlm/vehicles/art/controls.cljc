@@ -53,7 +53,8 @@
                      :temp-zone-count 10
                      :time-speed 2
                      :trail-color {:h 0 :s 0 :v 89}
-                     :trail-size 20}})
+                     :trail-size 20
+                     :make-trails? true}})
 
 
 (def page-layouts
@@ -375,7 +376,7 @@
                      :spread 1.5
                      :spread-speed 1}}
    "getting-around" {"0" {}
-                     "1" {:background-color {:h 0 :s 0 :v 0}
+                     "1" {:background-color {:h 100 :s 0 :v 0}
                           :brownian-factor 0.8
                           :cart-scale 0.4
                           :color-palatte [50 40 60]
@@ -386,7 +387,8 @@
                           :spawn-spread 0.4
                           :temp-color-high quite-green
                           :temp-color-low olive-lime-green
-                          :temp-zone-count 10}
+                          :temp-zone-count 10
+                          :trail-color {:h 135 :s 100 :v 100}}
                      "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
                      "12" {:brownian-factor 0.8
                            :middle-temp-zone-diameter 300
@@ -423,7 +425,8 @@
                           :temp-color-high quite-green
                           :temp-color-low olive-lime-green
                           :temp-shinyness 200
-                          :temp-zone-count 15}
+                          :temp-zone-count 15
+                          :make-trails? false}
                      "6" {:background-color {:h 0 :s 0 :v 0}
                           :brownian-factor 2
                           :cart-scale 0.4
@@ -445,4 +448,14 @@
                           :spawn-spread 0.4
                           :temp-zone-count 10}
                      "8" {:spawn-amount 1 :temp-zones-always-dart true}
-                     "9" {:spawn-amount 20 :temp-zones-always-dart true}}})
+                     "9" {:spawn-amount 20 :temp-zones-always-dart true}
+                     "20"
+                     {:spawn-amount 3
+                      :brownian-factor 0.02
+                      :cart-scale 2
+                      :temp-zone-count 0}
+                     "21"
+                     {:spawn-amount 4
+                      :brownian-factor 1
+                      :cart-scale 0.8
+                      :temp-zone-count 3}}})

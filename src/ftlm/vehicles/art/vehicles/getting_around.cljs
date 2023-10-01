@@ -7,10 +7,6 @@
             [ftlm.vehicles.art.user-controls :as user-controls]
             [ftlm.vehicles.art.controls :as controls]))
 
-(defn print-it-every-ms [entity]
-  (q/print-every-n-millisec 200 entity)
-  entity)
-
 (def event-queue (atom []))
 
 ;; env
@@ -167,18 +163,18 @@
         activation (* sensitivity (max 0 temp))]
     (assoc sensor :activation activation)))
 
-(defn ->connection-model
-  ([a b] (->connection-model a b identity))
-  ([a b f] {:a a :b b :f f}))
+(defn ->connection
+  ([a b] (->connection a b identity))
+  ([a b f] {:source a :destination b :f f}))
 
-(defn ->connection [entity-a entity-b]
+(defn ->connection-line [entity-a entity-b]
   (merge
    (lib/->connection-line entity-a entity-b)
-   {:connection-model (->connection-model (:id entity-a) (:id entity-b))
+   {:connection-model (->connection (:id entity-a) (:id entity-b))
     :connection? true}))
 
-(def connection->source (comp :a :connection-model))
-(def connection->destination (comp :b :connection-model))
+(def connection->source (comp :source :connection-model))
+(def connection->destination (comp :destination :connection-model))
 
 (defn transduce-signal [destination source {:keys [f]}]
   (update destination :activation + (f (:activation source))))
@@ -215,7 +211,7 @@
    :trail? true
    :particle? true
    :lifetime 0.8
-   :color {:h 0 :s 68 :v 89 :a 0.1}
+   :color {:h 0 :s 68 :v 89 :source 0.1}
    ;; :color color
    ))
 
@@ -234,18 +230,17 @@
   [{:keys [pos scale rot color shinyness]}]
   (let [sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
-        line (->connection sensor motor)
+        line (->connection-line sensor motor)
         body (assoc (->cart pos scale rot color)
-                    :components (map :id [motor sensor])
-                    :motors (map :id [motor])
-                    :sensors (map :id [sensor])
-                    :particle? true
-                    :darts? true
-                    :makes-trail? true
-                    :shinyness shinyness
-                    ;; :lifetime 500
-                    )]
+               :components (map :id [motor sensor])
+               :motors (map :id [motor])
+               :sensors (map :id [sensor])
+               :particle? true
+               :darts? true
+               :makes-trail? true
+               :shinyness shinyness)]
     [body sensor motor line]))
+
 ;; say motor :activation makes more velocity
 ;; velocity goes down with friction-1
 ;;
@@ -253,23 +248,20 @@
 ;; 5 is fast
 ;; positive is clockwise
 
+(defn effector->angular-acceleration
+  [{:keys [anchor activation]}]
+  (* 0.2 activation (anchor->rot-influence anchor)))
+
 (defn update-body
   [cart state]
   (if-not (:cart? cart)
     cart
-    (let [effectors (effectors cart state)
-          ;; [{:activation 3 :anchor :bottom-right}
-          ;;  {:activation 4 :anchor :bottom-left}]
-         ]
+    (let [effectors (effectors cart state)]
       (-> cart
           (update :acceleration + (reduce + (map :activation effectors)))
-          (assoc :angular-acceleration (reduce +
-                                         (map (fn [{:as e :keys [anchor]}]
-                                                (* 0.2
-                                                   (:activation e)
-                                                   (anchor->rot-influence
-                                                     anchor)))
-                                              effectors)))))))
+          (assoc :angular-acceleration (reduce + (map effector->angular-acceleration effectors)))))))
+
+
 (defn brownian-motion
   [e]
   (if-not (:particle? e)
@@ -279,9 +271,9 @@
                 +
                 (* 30 (q/random-gaussian) (:brownian-factor (lib/controls))))
         (update
-          :angular-acceleration
-          +
-          (* 0.3 (q/random-gaussian) (:brownian-factor (lib/controls)))))))
+         :angular-acceleration
+         +
+         (* 0.3 (q/random-gaussian) (:brownian-factor (lib/controls)))))))
 
 (defn update-rotation
   [entity]
@@ -505,31 +497,33 @@
 
 (defn make-trails
   [state]
-  (let [make-trail (into {}
-                         (comp (filter :makes-trail?)
-                               (filter (comp #(< 100 %) :velocity))
-                               (filter
-                                (fn [e]
-                                  (< 500
-                                     (-
-                                      (q/millis)
-                                      (:made-trail e -500)))))
-                               (map (juxt :id identity)))
-                         (lib/entities state))
-        new-trial (map (fn [e]
-                         (->trail (position e)
-                                  (-> state
-                                      :controls
-                                      :trail-size)
-                                  (-> state
-                                      :controls
-                                      :trail-color)))
-                    (vals make-trail))]
-    (-> state
-        (lib/append-ents new-trial)
-        (lib/update-ents
-          (fn [e]
-            (if (make-trail (:id e)) (assoc e :made-trail (q/millis)) e))))))
+  (if-not (-> state :controls :make-trails?)
+    state
+    (let [make-trail (into {}
+                           (comp (filter :makes-trail?)
+                                 (filter (comp #(< 100 %) :velocity))
+                                 (filter
+                                  (fn [e]
+                                    (< 500
+                                       (-
+                                        (q/millis)
+                                        (:made-trail e -500)))))
+                                 (map (juxt :id identity)))
+                           (lib/entities state))
+          new-trial (map (fn [e]
+                           (->trail (position e)
+                                    (-> state
+                                        :controls
+                                        :trail-size)
+                                    (-> state
+                                        :controls
+                                        :trail-color)))
+                         (vals make-trail))]
+      (-> state
+          (lib/append-ents new-trial)
+          (lib/update-ents
+           (fn [e]
+             (if (make-trail (:id e)) (assoc e :made-trail (q/millis)) e)))))))
 
 (defn update-state
   [state]
