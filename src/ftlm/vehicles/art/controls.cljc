@@ -38,27 +38,24 @@
                 :spread 1
                 :spread-speed 0}
    "getting-around"
-   {:background-color 230
+   {
+    :background-color
+    {:h 0 :s 0 :v 89}
     :brownian-factor 0.8
     :cart-scale 1
     :color-palatte [50 40 60]
     :max-temp 1
-    :spawn-amount 50
+    :spawn-amount 30
     :spawn-spread 0.4
     :temp-zone-count 10
-    :temperature-colors [[255 255 255 20] [255 255 255 255]]
+    :temp-color-low
+    {:h 0 :s 68 :v 89 :a 0.1}
+    :temp-color-high {:h 0 :s 68 :v 89 :a 1}
     :time-speed 2
     :distance-when-darting 0
-    :trail-color [50 255 255 255]
+    :trail-color
+    {:h 0 :s 0 :v 89}
     :trail-size 20}})
-
-(def leva-controls
-  {"getting-around"
-   {:schema
-    {:restart
-     [:leva/button :ftlm.vehicles.art.vehicles.getting-around/restart]
-     :dart!
-     [:leva/button :ftlm.vehicles.art.vehicles.getting-around/dart!]}}})
 
 (def versions
   {"2" {:brownian-factor 0.8
@@ -385,83 +382,85 @@
                      :spawn-rate {:base 1 :freq 1 :pow 1}
                      :spread 1.5
                      :spread-speed 1}}
-   "getting-around"
-     {"0" {}
-      "1" {:brownian-factor 0.8
-           :color-palatte [50 40 60]
-           :max-temp 1
-           :middle-temp-zone {:diameter 300}
-           :middle-temp-zone? true
-           :spawn-amount 20
-           :spawn-spread 0.2
-           :temp-zone-count 10}
-      "2" {:brownian-factor 0.8
-           :cart-scale 0.4
-           :color-palatte [50 40 60]
-           :max-temp 1
-           :middle-temp-zone {:diameter 300}
-           :middle-temp-zone? true
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10}
-      "3" {:background-color 0
-           :brownian-factor 0.8
-           :cart-scale 0.4
-           :color-palatte [50 40 60]
-           :max-temp 1
-           :middle-temp-zone {:diameter 300}
-           :middle-temp-zone? true
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10
-           :temperature-colors [[100 100 255 250] [0 0 255 250]]}
-      "4" {:background-color 0
-           :brownian-factor 0.1
-           :cart-scale 0.4
-           :color-palatte [50 40 60]
-           :dart-distance 0
-           :everbody-darts? true
-           :max-temp 1
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10
-           :temperature-colors [[100 100 255 250] [0 0 255 250]]}
-      "5" {:background-color 0
-           :brownian-factor 0.1
-           :cart-scale 1
-           :color-palatte [50 40 60]
-           :distance-when-darting 500
-           :max-temp 1
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10
-           :temperature-colors [[100 100 255 250] [0 0 255 250]]}
-      "6" {:background-color 0
-           :brownian-factor 0.1
-           :cart-scale 1
-           :color-palatte [50 40 60]
-           :distance-when-darting 500
-           :max-temp 1
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10
-           :temperature-colors [[100 100 255 250] [0 0 255 250]]}
-      "7" {:background-color 0
-           :brownian-factor 0.1
-           :cart-scale 1
-           :color-palatte [50 40 60]
-           :distance-when-darting 500
-           :max-temp 1
-           :spawn-amount 40
-           :spawn-spread 0.4
-           :temp-zone-count 10
-           :temperature-colors [[100 100 255 250] [0 0 255 250]]}
-      "8" {:spawn-amount 1 :temp-zones-always-dart true}
-      "9" {:spawn-amount 20 :temp-zones-always-dart true}
-      "10" {:spawn-amount 20 :temp-zone-count 20 :max-temp 10}
-      "11"
-      {:background-color 0
-       :max-temp 10
-       :spawn-amount 20
-       :temp-zone-count 20
-       :temperature-colors [[100 100 255 250] [0 0 255 250]]}}})
+   "getting-around" {"0" {}
+                     "1" {:brownian-factor 0.8
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone? true
+                          :spawn-amount 20
+                          :spawn-spread 0.2
+                          :temp-zone-count 10}
+                     "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
+                     "11"
+                     {:background-color
+                      {:h 131 :v 63 :s 29}
+                      :max-temp 10
+                      :spawn-amount 20
+                      :temp-zone-count 20}
+                     "2" {:brownian-factor 0.8
+                          :cart-scale 0.4
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone? true
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10}
+                     "3" {:background-color 0
+                          :brownian-factor 0.8
+                          :cart-scale 0.4
+                          :color-palatte [50 40 60]
+                          :max-temp 1
+                          :middle-temp-zone {:diameter 300}
+                          :middle-temp-zone? true
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
+                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
+                          :temp-zone-count 10}
+                     "4" {:background-color 0
+                          :brownian-factor 0.1
+                          :cart-scale 0.4
+                          :color-palatte [50 40 60]
+                          :dart-distance 0
+                          :everbody-darts? true
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
+                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
+                          :temp-zone-count 10}
+                     "5" {:background-color 0
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :distance-when-darting 500
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
+                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
+                          :temp-zone-count 10}
+                     "6" {:background-color 0
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :distance-when-darting 500
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-color-high {:a 1 :h 0 :l 255 :s 0}
+                          :temp-color-low {:a 1 :h 100 :l 255 :s 100}
+                          :temp-zone-count 10}
+                     "7" {:background-color 0
+                          :brownian-factor 0.1
+                          :cart-scale 1
+                          :color-palatte [50 40 60]
+                          :distance-when-darting 500
+                          :max-temp 1
+                          :spawn-amount 40
+                          :spawn-spread 0.4
+                          :temp-zone-count 10}
+                     "8" {:spawn-amount 1 :temp-zones-always-dart true}
+                     "9" {:spawn-amount 20 :temp-zones-always-dart true}}})

@@ -34,7 +34,7 @@
 
 (defn draw-state
   [state]
-  (q/background (-> state :controls :background-color))
+  (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 1)
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (:entities state)]
@@ -121,8 +121,8 @@
    (lib/->entity :circle)
    :transform (lib/->transform pos d d 1)
    :color  (q/lerp-color
-            (apply q/color (-> controls :temperature-colors first))
-            (apply q/color (-> controls :temperature-colors first))
+            (lib/->hsb (-> controls :temp-color-low))
+            (lib/->hsb (-> controls :temp-color-high))
             (normalize-value-1 0 max-temp temp))
    :temp-zone? true
    :d d
@@ -215,8 +215,10 @@
    :transform (lib/->transform pos size size 0.2)
    :trail? true
    :particle? true
-   :lifetime 20
-   :color color))
+   :lifetime 0.8
+   :color {:h 0 :s 68 :v 89 :a 0.1}
+   ;; :color color
+   ))
 
 (defn ->brain [& connections] connections)
 (defn ->body [])
@@ -504,32 +506,31 @@
 
 (defn make-trails
   [state]
-  (let [make-trail
-        (into
-         {}
-         (comp
-          (filter :makes-trail?)
-          (filter (fn [e] (< 500 (- (q/millis) (:made-trail e)))))
-          (map (juxt :id identity)))
-         (lib/entities state))
-        new-trial
-        (map
-         (fn [e]
-           (->trail (position e)
-                    (-> state
-                        :controls
-                        :trail-size)
-                    (-> state
-                        :controls
-                        :trail-color)))
-         (vals make-trail))]
-    (->
-     state
-     (lib/append-ents new-trial)
-     (lib/update-ents (fn [e]
-                        (if (make-trail (:id e))
-                          (assoc e :made-trail (q/millis))
-                          e))))))
+  (let [make-trail (into {}
+                         (comp (filter :makes-trail?)
+                               (filter (comp #(< 100 %) :velocity))
+                               (filter
+                                (fn [e]
+                                  (< 500
+                                     (-
+                                      (q/millis)
+                                      (:made-trail e -500)))))
+                               (map (juxt :id identity)))
+                         (lib/entities state))
+        new-trial (map (fn [e]
+                         (->trail (position e)
+                                  (-> state
+                                      :controls
+                                      :trail-size)
+                                  (-> state
+                                      :controls
+                                      :trail-color)))
+                    (vals make-trail))]
+    (-> state
+        (lib/append-ents new-trial)
+        (lib/update-ents
+          (fn [e]
+            (if (make-trail (:id e)) (assoc e :made-trail (q/millis)) e))))))
 
 (defn update-state
   [state]
@@ -546,7 +547,7 @@
             track-components
             track-conn-lines
             make-trails
-            lib/update-lifetime
+            (lib/update-lifetime *dt*)
             lib/cleanup-connections)))))
 
 (defn window-dimensions []
@@ -558,37 +559,36 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (-> controls
-                    :background-color))
+  (q/background (lib/->hsb (-> controls :background-color)))
   (let [controls (if-not (:color-palatte controls)
                    (assoc controls
-                     :color-palatte (lib/generate-palette
-                                      (:palette-base-color controls)
-                                      (:num-random-colors controls)))
+                          :color-palatte (lib/generate-palette
+                                          (:palette-base-color controls)
+                                          (:num-random-colors controls)))
                    controls)]
     (-> {:controls controls
          :entities (concat
-                     (when (controls :middle-temp-zone?)
-                       [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                          (-> controls
-                                              :middle-temp-zone
-                                              :diameter)
-                                          (:max-temp controls)
-                                          (:max-temp controls)
-                                          controls)])
-                     (repeatedly (:temp-zone-count controls)
-                                 #(random-temp-zone controls))
-                     (mapcat identity
-                       (repeatedly
-                        (:spawn-amount controls)
-                       #(cart-1 (rand-on-canvas-gauss (:spawn-spread
-                                                        controls))
-                                 (-> controls
-                                     :cart-scale)
-                                 (* q/TWO-PI (rand))
-                                 (rand-nth (-> controls
-                                               :color-palatte)))))
-                     )
+                    (when (controls :middle-temp-zone?)
+                      [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                         (-> controls
+                                             :middle-temp-zone
+                                             :diameter)
+                                         (:max-temp controls)
+                                         (:max-temp controls)
+                                         controls)])
+                    (repeatedly (:temp-zone-count controls)
+                                #(random-temp-zone controls))
+                    (mapcat identity
+                            (repeatedly
+                             (:spawn-amount controls)
+                             #(cart-1 (rand-on-canvas-gauss (:spawn-spread
+                                                             controls))
+                                      (-> controls
+                                          :cart-scale)
+                                      (* q/TWO-PI (rand))
+                                      (rand-nth (-> controls
+                                                    :color-palatte)))))
+                    )
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))
@@ -657,8 +657,7 @@
         (f)))
   (defmethod user-controls/action-button ::restart
     [_]
-    (some-> @restart-fn (apply nil)))
-  )
+    (some-> @restart-fn (apply nil))))
 
 (defmethod user-controls/action-button ::dart!
   [_]

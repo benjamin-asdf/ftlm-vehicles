@@ -29,7 +29,7 @@
 
 (defn ->connection-line [entity-a entity-b]
   (merge
-   (->entity :line)
+   (->entity :vine)
    {:connection-line? true
     :entity-a (:id entity-a)
     :entity-b (:id entity-b)
@@ -43,12 +43,25 @@
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
-(defn ->hsb [color]
-  (cond
-    (map? color) [(:h color) (:s color) (:b color)]
-    (sequential? color) color
-    (number? color) [color 255 255]
-    :else [(q/color color)]))
+(defn ->hsb
+  [color]
+  (apply
+   q/color
+   (cond
+     (and (map? color) (every? #(contains? color %) [:h :s :b]))
+     [(:h color) (:s color) (:b color)]
+     (and (map? color) (every? #(contains? color %) [:h :s :v :a]))
+     [(* (/ (:h color) 360) 255)
+      (* 255 (/ (:s color) 100))
+      (* 255 (/ (:v color) 100))
+      (* 255 (:a color))]
+     (and (map? color) (every? #(contains? color %) [:h :s :v]))
+     [(* (/ (:h color) 360) 255)
+      (* 255 (/ (:s color) 100))
+      (* 255 (/ (:v color) 100))]
+     (sequential? color) color
+     (number? color) [color 255 255]
+     :else [color])))
 
 (defn shine [{:keys [shine] :as entity}]
   (if-not
@@ -107,16 +120,18 @@
   (merge-with * t1 trsf))
 
 (defn update-lifetime
-  [state]
+  [state dt]
   (update state
           :entities
           (fn [entities]
-            (let [entities (map (fn [{:as e :keys [lifetime]}]
-                                  (if lifetime (update e :lifetime dec) e))
-                                entities)
-                  dead-entities (into #{}
-                                      (filter #(some-> % :lifetime (< 1)))
-                                      entities)
+            (let [entities
+                  (map (fn [{:as e :keys [lifetime]}]
+                         (if lifetime (update e :lifetime - dt) e))
+                       entities)
+                  dead-entities
+                  (into #{}
+                        (filter #(some-> % :lifetime (<= 0)))
+                        entities)
                   dead? (into #{} (map :id) dead-entities)
                   components-of-dead (into #{}
                                            (mapcat :components dead-entities))]
@@ -156,7 +171,7 @@
           (assoc :end-pos (position dest) )
           (assoc :color (:color source))))))
 
-(def draw-color (comp #(apply q/fill %) ->hsb))
+(def draw-color (comp #(q/fill %) ->hsb))
 
 (defmulti draw-entity :kind)
 
@@ -165,7 +180,7 @@
         {:keys [width height scale]} transform]
     (q/ellipse x y (* scale width) (* scale height))))
 
-(defmethod draw-entity :line
+(defmethod draw-entity :vine
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]

@@ -10,18 +10,27 @@
 
 (defmulti action-button identity)
 
+(def leva-controls
+  {"getting-around"
+   {:schema {:dart! (leva/button
+                      (fn []
+                        (action-button
+                          :ftlm.vehicles.art.vehicles.getting-around/dart!)))
+             :restart
+               (leva/button
+                 (fn []
+                   (action-button
+                    :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
+
 (defn ui
   [{:keys [version piece more-controls]}]
   (when @!app
-    [:<> [leva/Controls {:atom !app :folder {:name (str piece " #" version)}}]
+    [:<>
+     [leva/Controls
+      {:atom !app :folder {:name (str piece " #" version)}}]
      (when more-controls
        [leva/Controls
-        (walk/postwalk
-         (fn [e]
-           (if (and (vector? e) (= :leva/button (first e)))
-             (leva/button (fn [] (action-button (second e))))
-             e))
-         (do (def more-controls more-controls) more-controls))])]))
+        more-controls])]))
 
 (defn setup! [c]
   (reset! !app (into (sorted-map) c)))
@@ -30,8 +39,7 @@
   [{:as opts :keys [version piece]} place]
   (let [opts (assoc opts
                     :more-controls
-                    (-> controls/leva-controls
-                        (get piece)))]
+                    (-> leva-controls (get piece)))]
     (setup! (merge (controls/default-versions piece)
                    (get-in controls/versions [piece version])))
     (rdom/render [ui opts] place)))
