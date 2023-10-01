@@ -128,7 +128,9 @@
    :d d
    :temp temp
    :particle? true
-   :draggable? true))
+   :draggable? true
+   :darts? true
+   :always-darts? (:temp-zones-always-dart controls)))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -439,13 +441,33 @@
 (defn dart-to-middle
   [{:as entity :keys [darts?]}]
   (if (and darts?
-           (:everbody-darts? (q/state :controls))
-           (< 0 (q/random-gaussian))
-           (< 1000 (- (q/millis) (get entity :last-darted -500))))
+           ;; (:everbody-darts? (q/state :controls))
+           (<
+            (lib/normal-distr 1000 200)
+            (- (q/millis) (get entity :last-darted -500))))
     (-> entity
         (orient-towards (mid-point))
         (assoc :acceleration 1000)
         (assoc :last-darted (q/millis)))
+    entity))
+
+(defn inside-screen?
+  [[x y]]
+  (and (< 0 x (q/width))
+       (< 0 y (q/height))))
+
+(defn dart-distants-to-middle
+  [{:as entity :keys [darts?]}]
+  (if (and
+       darts?
+       (not (inside-screen? (position entity))))
+    (dart-to-middle entity)
+    entity))
+
+(defn dart-always
+  [{:as entity :keys [darts? always-darts?]}]
+  (if (and darts? always-darts?)
+    (dart-to-middle entity)
     entity))
 
 (defn dart-everyboy
@@ -469,8 +491,9 @@
       ;; print-it-every-ms
       brownian-motion
 
+      dart-distants-to-middle
+      dart-always
       ;; dart-everyboy
-      dart-to-middle
       move-dragged
       update-rotation
       update-position
@@ -512,8 +535,7 @@
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge @user-controls/!app)
-        dt (* (:time-speed (lib/controls))
-              (/ (- current-tick (:last-tick state)) 1000.0))]
+        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (let [state (apply-events state)]
         (-> state
@@ -536,35 +558,37 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (-> controls :background-color))
+  (q/background (-> controls
+                    :background-color))
   (let [controls (if-not (:color-palatte controls)
                    (assoc controls
-                          :color-palatte (lib/generate-palette
-                                          (:palette-base-color controls)
-                                          (:num-random-colors controls)))
+                     :color-palatte (lib/generate-palette
+                                      (:palette-base-color controls)
+                                      (:num-random-colors controls)))
                    controls)]
     (-> {:controls controls
          :entities (concat
-                    (when (controls :middle-temp-zone?)
-                      [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                         (-> controls
-                                             :middle-temp-zone
-                                             :diameter)
-                                         (:max-temp controls)
-                                         (:max-temp controls)
-                                         controls)])
-                    (repeatedly (:temp-zone-count controls)
-                                #(random-temp-zone controls))
-                    (mapcat identity
-                            (repeatedly
-                             (:spawn-amount controls)
-
-                             #(cart-1 (rand-on-canvas-gauss (:spawn-spread controls))
-                                      (-> controls
-                                          :cart-scale)
-                                      (* q/TWO-PI (rand))
-                                      (rand-nth (-> controls
-                                                    :color-palatte))))))
+                     (when (controls :middle-temp-zone?)
+                       [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                          (-> controls
+                                              :middle-temp-zone
+                                              :diameter)
+                                          (:max-temp controls)
+                                          (:max-temp controls)
+                                          controls)])
+                     (repeatedly (:temp-zone-count controls)
+                                 #(random-temp-zone controls))
+                     (mapcat identity
+                       (repeatedly
+                        (:spawn-amount controls)
+                       #(cart-1 (rand-on-canvas-gauss (:spawn-spread
+                                                        controls))
+                                 (-> controls
+                                     :cart-scale)
+                                 (* q/TWO-PI (rand))
+                                 (rand-nth (-> controls
+                                               :color-palatte)))))
+                     )
          :last-tick (q/millis)}
         track-components
         track-conn-lines)))
