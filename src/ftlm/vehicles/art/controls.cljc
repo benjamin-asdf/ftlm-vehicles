@@ -375,87 +375,84 @@
                      :spawn-rate {:base 1 :freq 1 :pow 1}
                      :spread 1.5
                      :spread-speed 1}}
-   "getting-around" {"0" {}
-                     "1" {:background-color {:h 100 :s 0 :v 0}
-                          :brownian-factor 0.8
-                          :cart-scale 0.4
-                          :color-palatte [50 40 60]
-                          :max-temp 1
-                          :middle-temp-zone-diameter 300
-                          :middle-temp-zone? true
-                          :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-color-high quite-green
-                          :temp-color-low olive-lime-green
-                          :temp-zone-count 10
-                          :trail-color {:h 135 :s 100 :v 100}}
-                     "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
-                     "12" {:brownian-factor 0.8
-                           :middle-temp-zone-diameter 300
-                           :middle-temp-zone? true
-                           :spawn-amount 40
-                           :spawn-spread 0.2}
-                     "2" {:brownian-factor 0.8
-                          :cart-scale 0.4
-                          :color-palatte [50 40 60]
-                          :max-temp 1
-                          :middle-temp-zone-diameter 300
-                          :middle-temp-zone? true
-                          :spawn-amount 40
-                          :temp-color-high {:a 1 :h 146 :s 78 :v 76}
-                          :temp-color-low {:a 0.1 :h 234 :s 60 :v 82}
-                          :temp-zone-count 20}
-                     "4" {:background-color {:h 0 :s 0 :v 0}
-                          :brownian-factor 0.1
-                          :cart-scale 0.4
-                          :color-palatte [50 40 60]
-                          :dart-distance 0
-                          :everbody-darts? true
-                          :max-temp 1
-                          :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-zone-count 0}
-                     "5" {:background-color 0
-                          :cart-scale 0.8
-                          :cart-shinyness 200
-                          :everbody-darts? true
-                          :max-temp 1
-                          :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-color-high quite-green
-                          :temp-color-low olive-lime-green
-                          :temp-shinyness 200
-                          :temp-zone-count 15
-                          :make-trails? false}
-                     "6" {:background-color {:h 0 :s 0 :v 0}
-                          :brownian-factor 2
-                          :cart-scale 0.4
-                          :cart-shinyness 100
-                          :max-temp 5
-                          :spawn-amount 40
-                          :spawn-spread 0.2
-                          :temp-color-high quite-green
-                          :temp-color-low olive-lime-green
-                          :temp-shinyness 20
-                          :temp-zone-count 15
-                          :trail-color white}
-                     "7" {:background-color {:h 0 :s 0 :v 0}
-                          :brownian-factor 0.2
-                          :cart-scale 0.5
-                          :color-palatte [0 30 0]
-                          :max-temp 5
-                          :spawn-amount 40
-                          :spawn-spread 0.4
-                          :temp-zone-count 10}
-                     "8" {:spawn-amount 1 :temp-zones-always-dart true}
-                     "9" {:spawn-amount 20 :temp-zones-always-dart true}
-                     "20"
-                     {:spawn-amount 3
-                      :brownian-factor 0.02
-                      :cart-scale 2
-                      :temp-zone-count 0}
-                     "21"
-                     {:spawn-amount 4
-                      :brownian-factor 1
-                      :cart-scale 0.8
-                      :temp-zone-count 3}}})
+   "getting-around"
+     {"0" {}
+      "1" {:background-color {:h 100 :s 0 :v 0}
+           :brownian-factor 0.8
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :max-temp 1
+           :middle-temp-zone-diameter 300
+           :middle-temp-zone? true
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-zone-count 10
+           :trail-color {:h 135 :s 100 :v 100}}
+      "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
+      "12" {:brownian-factor 0.8
+            :middle-temp-zone-diameter 300
+            :middle-temp-zone? true
+            :spawn-amount 40
+            :spawn-spread 0.2}
+      "2" {:brownian-factor 0.8
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :max-temp 1
+           :middle-temp-zone-diameter 300
+           :middle-temp-zone? true
+           :spawn-amount 40
+           :temp-color-high {:a 1 :h 146 :s 78 :v 76}
+           :temp-color-low {:a 0.1 :h 234 :s 60 :v 82}
+           :temp-zone-count 20
+           :trail-color {:h 130 :s 52 :v 87}}
+      "20"
+        {:brownian-factor 0.02 :cart-scale 2 :spawn-amount 3 :temp-zone-count 0}
+      "21"
+        {:brownian-factor 1 :cart-scale 0.8 :spawn-amount 4 :temp-zone-count 3}
+      "4" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 0.1
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :dart-distance 0
+           :everbody-darts? true
+           :make-trails? false
+           :max-temp 1
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-zone-count 0}
+      "5" {:background-color 0
+           :cart-scale 0.8
+           :cart-shinyness 200
+           :everbody-darts? true
+           :make-trails? false
+           :max-temp 1
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-shinyness 200
+           :temp-zone-count 15}
+      "6" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 2
+           :cart-scale 0.4
+           :cart-shinyness 100
+           :max-temp 5
+           :spawn-amount 40
+           :spawn-spread 0.2
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-shinyness 20
+           :temp-zone-count 15
+           :trail-color white}
+      "7" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 0.2
+           :cart-scale 0.5
+           :color-palatte [0 30 0]
+           :max-temp 5
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-zone-count 10}
+      "8" {:spawn-amount 1 :temp-zones-always-dart true}
+      "9" {:spawn-amount 20 :temp-zones-always-dart true}}})

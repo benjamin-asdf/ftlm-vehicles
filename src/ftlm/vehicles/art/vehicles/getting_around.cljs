@@ -211,8 +211,7 @@
    :trail? true
    :particle? true
    :lifetime 0.8
-   :color {:h 0 :s 68 :v 89 :source 0.1}
-   ;; :color color
+   :color color
    ))
 
 (defn ->brain [& connections] connections)
@@ -512,12 +511,8 @@
                            (lib/entities state))
           new-trial (map (fn [e]
                            (->trail (position e)
-                                    (-> state
-                                        :controls
-                                        :trail-size)
-                                    (-> state
-                                        :controls
-                                        :trail-color)))
+                                    (-> state :controls :trail-size)
+                                    (-> state :controls :trail-color)))
                          (vals make-trail))]
       (-> state
           (lib/append-ents new-trial)
