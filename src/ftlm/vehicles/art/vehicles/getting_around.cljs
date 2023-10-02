@@ -374,7 +374,6 @@
   [(lib/normal-distr (/ (q/width) 2) (* distr (/ (q/width) 2)))
    (lib/normal-distr (/ (q/height) 2) (* distr (/ (q/height) 2)))])
 
-
 (defn random-temp-zone [controls]
   (temperature-zone
    (rand-on-canvas)

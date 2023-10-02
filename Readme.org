@@ -1,5 +1,19 @@
 Visualize and play around with cybernetic ai concepts. + Make gen art.
 
+* Vehicles
+
+[[https://en.wikipedia.org/wiki/Braitenberg_vehicle][Braitenberg Vehicles]]. The book is called /Vehicles: Experiments in Synthetic Psychology/.
+
+** Chapter I
+
+Welcome to the world of my Braitenberg vehicles.
+
+Here is the [[https://vehicles.faster-than-light-memes.xyz/art/g/getting-around?page=0][gallery]]. Each picture you can also open with controls, with the link at the bottom.
+Clicking on the canvas moves one of the temperature bubbles.
+
+- [[https://faster-than-light-memes.xyz/vehicles.html][Overview blog post]]
+- [[https://faster-than-light-memes.xyz/getting-around.html][Getting Around Blog Post]]
+
 * Art
 
 ** Brownians
