@@ -11,20 +11,32 @@
 (defn controls []
   (q/state :controls))
 
-(defn ->entity [kind]
-  {:kind kind :id (random-uuid) :spawn-time (q/millis)})
+(let [c (atom 0)
+      ->eid #(swap! c inc)]
+  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis)}))
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
 
-(def entities :entities)
-(def entities-by-id (comp #(into {} (map (juxt :id identity) %)) entities))
+(def entities (comp vals :eid->entity))
+(def entities-by-id :eid->entity)
+
+(defn destroy [state eid]
+  (update state :eid->entity dissoc eid))
 
 (defn update-ents [state f]
-  (update state :entities (fn [ents] (doall (map f ents)))))
+  (update state
+          :eid->entity
+          (fn [s]
+            (into (sorted-map) (update-vals s f)))))
 
 (defn append-ents [state ents]
-  (update state :entities concat ents))
+  (-> state
+      (update :eid->entity (fnil (fn [s] (into s (map (juxt :id identity)) ents)) (sorted-map)))))
+
+(defn update--entities
+  [state f]
+  (update state :eid->entity (fn [s] (into (sorted-map) (f s)))))
 
 (defn transform [e] (:transform e))
 (defn position [e] (-> e transform :pos))
@@ -37,7 +49,9 @@
     :entity-b (:id entity-b)
     :transform (->transform (position entity-a) 1 1 1)
     :color (:color entity-a)
-    :end-pos (position entity-b)}))
+    :end-pos (position entity-b)
+    :children [(:id entity-b)
+               (:id entity-b)]}))
 
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
@@ -121,48 +135,52 @@
 (defn *transform [t1 trsf]
   (merge-with * t1 trsf))
 
-(defn update-lifetime
+(defn update-lifetime-1
+  [{:as entity :keys [lifetime]}]
+  (if-not lifetime entity (update entity :lifetime - *dt*)))
+
+(defn kill-from-lifetime
+  [{:as entity :keys [lifetime]}]
+  (if (some-> lifetime (< 0)) (assoc entity :kill? true) entity))
+
+(def update-lifetime (comp kill-from-lifetime update-lifetime-1))
+
+(defn kill-components
   [state]
-  (update state
-          :entities
-          (fn [entities]
-            (let [entities
-                  (map (fn [{:as e :keys [lifetime]}]
-                         (if lifetime (update e :lifetime - *dt*) e))
-                       entities)
-                  dead-entities
-                  (into #{}
-                        (filter #(some-> % :lifetime (<= 0)))
-                        entities)
-                  dead? (into #{} (map :id) dead-entities)
-                  components-of-dead (into #{}
-                                           (mapcat :components dead-entities))]
-              (into []
-                    (comp
-                     ;; (map (fn [e]
-                     ;;        (if (components-of-dead (:id e))
-                     ;;          (assoc e :lifetime 10)
-                     ;;          e)))
-                     (remove (comp dead? :id))
-                     (remove (comp components-of-dead :id)))
-                    entities)))))
+  (let [kill?
+        (into #{}
+                (comp
+                 (filter :kill?)
+                 (mapcat :components))
+                (entities state))]
+    (update-ents state
+                 (fn [{:as e :keys [id]}]
+                   (if (kill? id)
+                     (assoc e :kill? true)
+                     e)))))
 
-(defn alive? [state eid] (boolean (-> state entities-by-id (get eid))))
-(def dead? (complement alive?))
+(defn kill-connections
+  [state]
+  (let [kill? (into #{}
+                    (comp (filter :connection-line?)
+                          (filter
+                           (fn [{:keys [entity-b entity-a]}]
+                             (or (:kill? ((entities-by-id state) entity-a))
+                                 (:kill? ((entities-by-id state) entity-b)))))
+                          (map :id))
+                    (entities state))]
+    (update-ents state
+                 (fn [{:as e :keys [id]}]
+                   (if (kill? id) (assoc e :kill? true) e)))))
 
-(defn cleanup-connections [state]
-  (update
-   state
-   :entities
-   (fn [ents]
-     (remove
-      (fn [{:keys [connection-line?] :as e}]
-        (when
-            connection-line?
-            (some #(dead? state %) [(connection->non-infected e) (connection->infected e)])))
-      ents))))
+(defn kill-entities-1
+  [state]
+  (update--entities state (fn [ents] (remove (comp :kill? val) ents))))
 
-(defn update-conn-line [{:keys [connection-line? entity-b entity-a] :as entity} state]
+(def kill-entities (comp kill-entities-1 kill-connections kill-components))
+
+(defn update-conn-line
+  [{:as entity :keys [connection-line? entity-b entity-a]} state]
   (if-not connection-line?
     entity
     (let [e-lut (entities-by-id state)
@@ -170,7 +188,7 @@
           source (e-lut entity-a)]
       (-> entity
           (assoc-in [:transform :pos] (position source))
-          (assoc :end-pos (position dest) )
+          (assoc :end-pos (position dest))
           (assoc :color (:color source))))))
 
 (def draw-color (comp #(q/fill %) ->hsb))

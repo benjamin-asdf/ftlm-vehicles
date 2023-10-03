@@ -15,7 +15,7 @@
   :dev {:extra-paths ["dev"]
         :extra-deps
         {binaryage/devtools {:mvn/version "1.0.3"}
-         cider/cider-nrepl {:mvn/version "0.37.1"}}}
+         cider/cider-nrepl {:mvn/version "0.38.1"}}}
   :+css-gen {:extra-paths ["css"]
              :ns-default css-gen}
   :cljs {:extra-paths ["src" "resources"]

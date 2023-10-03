@@ -31,8 +31,10 @@
   (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 1)
   (q/stroke 0.3)
-  (doseq [{:as entity :keys [color hidden?]} (:entities state)]
-    (when-not hidden? (lib/draw-color color) (lib/draw-entity entity))))
+  (doseq [{:as entity :keys [color hidden?]} (lib/entities state)]
+    (when-not hidden?
+      (lib/draw-color color)
+      (lib/draw-entity entity))))
 
 (defn rotate-point [rotation [x y]]
   [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
@@ -145,16 +147,16 @@
            (Math/pow (- y oy) 2))
         (Math/pow radius 2))))
 
-(defn ->temp [sensor-pos env]
-  (->> env
-       :temperature-zones
-       (filter
-        (fn [{:keys [temp d] :as e}]
-          (let
-              [origin (position e)]
-              (point-inside-circle? sensor-pos origin d))))
-       (map :temp)
-       (reduce +)))
+;; this is the perf bottleneck right now
+;; going through all temp zone for each sensor
+(defn ->temp
+  [sensor-pos env]
+  (transduce (comp (filter (fn [{:as e :keys [temp d]}]
+                             (let [origin (position e)]
+                               (point-inside-circle? sensor-pos origin d))))
+                   (map :temp))
+             +
+             (env :temperature-zones)))
 
 (defmethod update-sensor :temp
   [sensor env]
@@ -194,15 +196,13 @@
                                                          identity)))
                                         (lib/entities state))
         ent-lut (lib/entities-by-id state)]
-    (update state
-            :entities
-            (fn [ents]
-              (map (fn [e]
-                     (if-let [conn-e (connection-by-destination (:id e))]
-                       (let [source (ent-lut (connection->source conn-e))]
-                         (transduce-signal e source (:connection-model conn-e)))
-                       e))
-                   ents)))))
+    (lib/update-ents
+     state
+     (fn [e]
+       (if-let [conn-e (connection-by-destination (:id e))]
+         (let [source (ent-lut (connection->source conn-e))]
+           (transduce-signal e source (:connection-model conn-e)))
+         e)))))
 
 (defn ->trail
   [pos size color]
@@ -226,10 +226,11 @@
 
 (defn cart-1
   [{:keys [pos scale rot color shinyness]}]
-  (let [sensor (->sensor :top-middle)
+  (let [body (->cart pos scale rot color)
+        sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
         line (->connection-line sensor motor)
-        body (assoc (->cart pos scale rot color)
+        body (assoc body
                :components (map :id [motor sensor])
                :motors (map :id [motor])
                :sensors (map :id [sensor])
@@ -302,6 +303,7 @@
                      (vector (+ (first position) x)
                              (+ (second position) y)))))))
 
+
 (defn track-components
   [state]
   (let [parent-by-id (into {}
@@ -309,49 +311,37 @@
                                      (map (juxt identity (constantly ent))
                                           (:components ent)))
                                    (filter :components (lib/entities state))))]
-    (->
-     state
-     (update
-      :entities
-      (fn [ents]
-        (doall
-         (map (fn [{:as ent :keys [id]}]
-                (if-let [parent (parent-by-id id)]
-                  (let [relative-position (relative-position parent ent)
-                        parent-rotation (-> parent
+    (-> state
+        (lib/update-ents
+         (fn [{:as ent :keys [id]}]
+           (if-let [parent (parent-by-id id)]
+             (let [relative-position (relative-position parent ent)
+                   parent-rotation (-> parent
+                                       :transform
+                                       :rotation)
+                   scale (-> parent :transform :scale)]
+               (-> ent
+                   (assoc-in [:transform :pos]
+                             [(+ (first (v* [scale scale]
+                                            (rotate-point parent-rotation
+                                                          relative-position)))
+                                 (first (-> parent
                                             :transform
-                                            :rotation)
-                        scale (-> parent
-                                  :transform
-                                  :scale)]
-                    (-> ent
-                        (assoc-in
-                         [:transform :pos]
-                         [(+ (first (v* [scale scale]
-                                        (rotate-point parent-rotation
-                                                      relative-position)))
-                             (first (-> parent
-                                        :transform
-                                        :pos)))
-                          (+ (second (v* [scale scale]
-                                         (rotate-point parent-rotation
-                                                       relative-position)))
-                             (second (-> parent
-                                         :transform
-                                         :pos)))])
-                        (assoc-in [:transform :rotation]
-                                  (-> parent
-                                      :transform
-                                      :rotation))
-                        (assoc-in [:transform :scale] scale)))
-                  ent))
-              ents)))))))
+                                            :pos)))
+                              (+ (second (v* [scale scale]
+                                             (rotate-point parent-rotation
+                                                           relative-position)))
+                                 (second (-> parent
+                                             :transform
+                                             :pos)))])
+                   (assoc-in [:transform :rotation]
+                             (-> parent :transform :rotation))
+                   (assoc-in [:transform :scale] scale)))
+             ent))))))
 
 (defn track-conn-lines
   [state]
-  (update state
-          :entities
-          (fn [ents] (map #(lib/update-conn-line % state) ents))))
+  (lib/update-ents state #(lib/update-conn-line % state)))
 
 (defn activation-shine
   [{:as entity :keys [activation shine]}]
@@ -393,11 +383,7 @@
                     (take 5
                           (shuffle (sequence (comp (filter :darts?) (map :id))
                                              (lib/entities state)))))]
-    (update state
-            :entities
-            (fn [ents]
-              (doall (map (fn [e] (if (rands (:id e)) (dart-one e) e))
-                       ents))))))
+    (lib/update-ents state (fn [e] (if (rands (:id e)) (dart-one e) e)))))
 
 
 (defmulti event! (fn [e _] e))
@@ -475,7 +461,6 @@
   (-> entity
       (update-body state)
       friction
-      ;; print-it-every-ms
       brownian-motion
 
       dart-distants-to-middle
@@ -488,7 +473,8 @@
       (update-sensors state)
       activation-decay
       activation-shine
-      lib/shine))
+      lib/shine
+      lib/update-lifetime))
 
 (defn make-trails
   [state]
@@ -520,19 +506,18 @@
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge @user-controls/!app)
-        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
+        dt (* (:time-speed (lib/controls))
+              (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
       (let [state (apply-events state)]
         (-> state
             (assoc :last-tick current-tick)
-            (update :entities
-                    (fn [ents] (doall (map #(update-entity % state) ents))))
+            (lib/update-ents #(update-entity % state))
             transduce-signals
             track-components
             track-conn-lines
             make-trails
-            lib/update-lifetime
-            lib/cleanup-connections)))))
+            lib/kill-entities)))))
 
 (defn window-dimensions []
   (let [w (.-innerWidth js/window)
@@ -550,29 +535,33 @@
                      :color-palatte (lib/generate-palette
                                       (:palette-base-color controls)
                                       (:num-random-colors controls)))
-                   controls)]
-    (-> {:controls controls
-         :entities
-           (concat (when (controls :middle-temp-zone?)
-                     [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
-                                        (-> controls
-                                            :middle-temp-zone-diameter)
-                                        (:max-temp controls)
-                                        (:max-temp controls)
-                                        controls)])
-                   (repeatedly (:temp-zone-count controls)
-                               #(random-temp-zone controls))
-                   (mapcat identity
-                     (repeatedly (:spawn-amount controls)
-                                 #(cart-1 {:color (rand-nth (-> controls
-                                                                :color-palatte))
-                                           :pos (rand-on-canvas-gauss
-                                                 (:spawn-spread controls))
-                                           :rot (* q/TWO-PI (rand))
-                                           :scale (-> controls
-                                                      :cart-scale)
-                                           :shinyness (:cart-shinyness controls)}))))
-         :last-tick (q/millis)}
+                   controls)
+        state {:controls controls :last-tick (q/millis)}]
+    (-> state
+        (lib/append-ents (when (controls :middle-temp-zone?)
+                           [(temperature-zone [(/ (q/width) 2) (/ (q/height) 2)]
+                                              (-> controls
+                                                  :middle-temp-zone-diameter)
+                                              (:max-temp controls)
+                                              (:max-temp controls)
+                                              controls)]))
+        (lib/append-ents (doall
+                          (repeatedly (:temp-zone-count controls)
+                                      #(random-temp-zone controls))))
+        (lib/append-ents
+         (doall
+          (mapcat identity
+                  (repeatedly
+                              (:spawn-amount controls)
+                              #(cart-1 {
+                                        :color (rand-nth (-> controls
+                                                             :color-palatte))
+                                        :pos (rand-on-canvas-gauss (:spawn-spread
+                                                                    controls))
+                                        :rot (* q/TWO-PI (rand))
+                                        :scale (-> controls
+                                                   :cart-scale)
+                                        :shinyness (:cart-shinyness controls)})))))
         track-components
         track-conn-lines)))
 
@@ -585,31 +574,22 @@
          (sort-by (comp (fn [b] (distance mouse-position b)) lib/position))
          (first))))
 
+
 (defn mouse-pressed
   [state]
   (let [draggable (find-closest-draggable state)]
     (-> state
         (assoc :pressed true)
-        (update :entities
-                (fn [ents]
-                  (doall
-                   (map
-                    (fn [e]
-                      (if (= draggable e) (assoc e :dragged? true) e))
-                    ents)))))))
+        (lib/update-ents (fn [e]
+
+                           (if (= draggable e) (assoc e :dragged? true) e))))))
 
 (defn mouse-released
   [state]
-  (let [draggable (find-closest-draggable state)]
-    (-> state
-        (assoc :pressed false)
-        (update :entities
-                (fn [ents]
-                  (doall
-                   (map
-                    (fn [e]
-                      (dissoc e :dragged?))
-                    ents)))))))
+  (-> state
+      (assoc :pressed false)
+      (lib/update-ents (fn [e] (dissoc e :dragged?)))))
+
 
 (defn sketch
   [host {:keys [width height]} controls]
@@ -646,5 +626,3 @@
 (defmethod user-controls/action-button ::dart!
   [_]
   (swap! event-queue conj :dart))
-
-(comment)
