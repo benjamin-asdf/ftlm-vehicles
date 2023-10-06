@@ -58,7 +58,10 @@
 
 (def page-layouts
   {"brownians" {:per-page 3}
-   "getting-around" {:per-page 1}})
+   "getting-around" {:per-page 1
+                     :default-width 900
+                     :default-height 900
+                     :show-fullscreen-links? true}})
 
 (def versions
   {"brownians" {"0" {}
@@ -390,7 +393,7 @@
            :temp-zone-count 10
            :trail-color {:h 135 :s 100 :v 100}}
       "10" {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
-      "12" {:brownian-factor 0.8
+      "12" {:brownian-factor 1.8
             :middle-temp-zone-diameter 300
             :middle-temp-zone? true
             :spawn-amount 40
@@ -445,7 +448,7 @@
            :temp-zone-count 15
            :trail-color white}
       "7" {:background-color {:h 0 :s 0 :v 0}
-           :brownian-factor 0.2
+           :brownian-factor 1
            :cart-scale 0.5
            :color-palatte [0 30 0]
            :max-temp 5
