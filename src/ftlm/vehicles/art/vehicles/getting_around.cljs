@@ -15,9 +15,20 @@
 ;; effectors
 ;; brain (connections)
 
+(defn mem-latest [f]
+  (let [curr (atom {})]
+    (fn [& args]
+      (or
+       (@curr args)
+       (reset! curr {args (apply f args)})))))
+
+(def temp-zones
+  (mem-latest
+   (fn [state]
+     (->> state lib/entities (into [] (filter :temp-zone?))))))
+
 (defn env [state]
-  {:temperature-zones
-   (->> state lib/entities (filter :temp-zone?))})
+  {:temperature-zones (temp-zones state)})
 
 (def body identity)
 (def sensors :sensors)
@@ -31,7 +42,7 @@
   (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 1)
   (q/stroke 0.3)
-  (doseq [{:as entity :keys [color hidden?]} (lib/entities state)]
+  (doseq [{:as entity :keys [color hidden?]} (vals (into (sorted-map) (lib/entities-by-id state)))]
     (when-not hidden?
       (lib/draw-color color)
       (lib/draw-entity entity))))
@@ -101,6 +112,7 @@
          {:anchor anchor
           :color (q/color 40 96 255 255)
           :motor? true
+          :corner-r 25
           :transform (lib/->transform [0 0] 20 35 1)}))
 
 (defn normalize-value-1
@@ -147,8 +159,6 @@
            (Math/pow (- y oy) 2))
         (Math/pow radius 2))))
 
-;; this is the perf bottleneck right now
-;; going through all temp zone for each sensor
 (defn ->temp
   [sensor-pos env]
   (transduce (comp (filter (fn [{:as e :keys [temp d]}]
@@ -222,7 +232,7 @@
          {:cart? true
           :color color
           :transform (assoc (lib/->transform spawn-point 30 80 scale)
-                       :rotation rot)}))
+                            :rotation rot)}))
 
 (defn cart-1
   [{:keys [pos scale rot color shinyness]}]
@@ -231,13 +241,14 @@
         motor (->motor :bottom-middle)
         line (->connection-line sensor motor)
         body (assoc body
-               :components (map :id [motor sensor])
-               :motors (map :id [motor])
-               :sensors (map :id [sensor])
-               :particle? true
-               :darts? true
-               :makes-trail? true
-               :shinyness shinyness)]
+                    :components (map :id [motor sensor])
+                    :motors (map :id [motor])
+                    :sensors (map :id [sensor])
+                    :particle? true
+                    :darts? true
+                    :makes-trail? true
+                    :corner-r 25
+                    :shinyness shinyness)]
     [body sensor motor line]))
 
 ;; say motor :activation makes more velocity
@@ -552,16 +563,16 @@
          (doall
           (mapcat identity
                   (repeatedly
-                              (:spawn-amount controls)
-                              #(cart-1 {
-                                        :color (rand-nth (-> controls
-                                                             :color-palatte))
-                                        :pos (rand-on-canvas-gauss (:spawn-spread
-                                                                    controls))
-                                        :rot (* q/TWO-PI (rand))
-                                        :scale (-> controls
-                                                   :cart-scale)
-                                        :shinyness (:cart-shinyness controls)})))))
+                   (:spawn-amount controls)
+                   #(cart-1 {
+                             :color (rand-nth (-> controls
+                                                  :color-palatte))
+                             :pos (rand-on-canvas-gauss (:spawn-spread
+                                                         controls))
+                             :rot (* q/TWO-PI (rand))
+                             :scale (-> controls
+                                        :cart-scale)
+                             :shinyness (:cart-shinyness controls)})))))
         track-components
         track-conn-lines)))
 
@@ -590,12 +601,13 @@
       (assoc :pressed false)
       (lib/update-ents (fn [e] (dissoc e :dragged?)))))
 
-
 (defn sketch
   [host {:keys [width height]} controls]
-  (let [[screen-width screen-height] (window-dimensions)]
+  (let [[screen-width screen-height] (window-dimensions)
+        width (cond (= width "max") screen-width width width :else screen-width)
+        height (cond (= height "max") screen-height height height :else screen-height)]
     (q/sketch :host host
-              :size [(or width screen-width) (or height screen-height)]
+              :size [width height]
               :setup (partial setup controls)
               :update update-state
               :draw draw-state

@@ -22,8 +22,6 @@
 
 (def graft (graft/start pr-str))
 
-;; controls
-
 (defn art
   [req]
   (let [piece (-> req
@@ -48,58 +46,109 @@
          [:div
           (graft "controls-app" :parent {:piece piece :version version})])])))
 
-(defn art-gallery [req]
-  (let [piece (-> req :path-params :piece)
-        page (or (-> req :parameters :query :page) 0)]
+(defn ->query
+  [& qs]
+  (let [xs (sequence
+            (comp
+             (remove nil?)
+             (map (fn [[k v]] (str k "=" v)))
+             (interpose "&"))
+            qs)]
+    (when (seq xs)
+      (apply str (into ["?"] xs)))))
+
+(defn art-gallery
+  [req]
+  (let [piece (-> req
+                  :path-params
+                  :piece)
+        page (or (-> req
+                     :parameters
+                     :query
+                     :page)
+                 0)]
     (page-resp
-     (let
-         [all-pages (sort-by read-string compare (keys (get art-controls/versions piece)))
-          page-layout (get art-controls/page-layouts piece)
-          pages (into [] (partition-all (:per-page page-layout 3)) all-pages)
-          page (max 0 (min page (dec (count pages))))
-          versions (nth pages page)]
+      (let [all-pages (sort-by read-string
+                               compare
+                               (keys (get art-controls/versions piece)))
+            page-layout (get art-controls/page-layouts piece)
+            pages (into [] (partition-all (:per-page page-layout 3)) all-pages)
+            page (max 0 (min page (dec (count pages))))
+            versions (nth pages page)]
+        [:div
          [:div
-          [:div
-           (map
-            (fn [version]
-              [:div {:class (css :m-16)}
-               [:div {:id (str piece "-" version)}]
-               (graft "art" :prev-sibling {:piece piece :version version})
-               [:h3 [:a {:href (str "/art/p/" piece "/" version)}
-                     [:strong piece " #" version]]
-                [:span " || "]
-                [:a {:href (str "/art/p/" piece "/" version "?controls=true")}
-                 [:strong "  with controls"]]]])
+          (map (fn [version]
+                 [:div {:class (css :m-16)} [:div {:id (str piece "-" version)}]
+                  (graft "art"
+                         :prev-sibling
+                         {:height (:default-height page-layout)
+                          :piece piece
+                          :version version
+                          :width (:default-width page-layout)})
+                  [:h3
+                   [:a
+                    {:href (str "/art/p/"
+                                piece
+                                "/"
+                                version
+                                (->query
+                                  (when (:default-height page-layout)
+                                    ["height" (:default-height page-layout)])
+                                  (when (:default-width page-layout)
+                                    ["width" (:default-width page-layout)])))}
+                    [:strong piece " #" version]] [:span " || "]
+                   [:a
+                    {:href (str "/art/p/"
+                                piece
+                                "/"
+                                version
+                                (->query
+                                  (when (:default-height page-layout)
+                                    ["height" (:default-height page-layout)])
+                                  (when (:default-width page-layout)
+                                    ["width" (:default-width page-layout)])
+                                  ["controls" "true"]))}
+                    [:strong "  with controls"]] [:span " || "]
+                   (when (:show-fullscreen-links? page-layout)
+                     (seq [[:a
+                            {:href (str "/art/p/"
+                                        piece
+                                        "/"
+                                        version
+                                        "?width=max&height=max")}
+                            [:strong "  fullscreen"]] [:span " || "]
+                           [:a
+                            {:href (str "/art/p/" piece
+                                        "/" version
+                                        "?width=max&height=max"
+                                          "&controls=true")}
+                            [:strong "  with controls"]]]))]])
             versions)]
-          (let [$btn
-                (css
-                  :cursor-pointer
-                  :text-center
-                  :bg-gray-200
-                  :p-4
-                  :mx-2
-                  :my-8
-                  {:text-decoration "none"})
-                $btn-allowed (css :bg-orange-200 :rounded)
-                $btn-not-allowed (css :bg-gray-200 :cursor-not-allowed)]
-            [:div
-             {:class
-              (css
-                :flex :justify-center :w-full :mb-4
-                :items-center
-                :text-center)}
-             (let [enabled? (not (zero? page))]
-               [:div {:class (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
-                (when enabled?
-                  [:a {:href (str "/art/g/" piece "?page=" (dec page))} "previous page"])])
-             [:strong (str (inc page) "/" (count pages))]
-             (let [enabled? (not (= page (dec (count pages))))]
-               [:div
-                {:class
-                 (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
-                (when enabled?
-                  [:a
-                   {:href (str "/art/g/" piece "?page=" (inc page))} "next page"])])])]))))
+         (let [$btn (css :cursor-pointer
+                         :text-center :bg-gray-200
+                         :p-4 :mx-2
+                         :my-8 {:text-decoration "none"})
+               $btn-allowed (css :bg-orange-200 :rounded)
+               $btn-not-allowed (css :bg-gray-200 :cursor-not-allowed)]
+           [:div
+            {:class (css :flex :justify-center
+                         :w-full :mb-4
+                         :items-center :text-center)}
+            (let [enabled? (not (zero? page))]
+              [:div
+               {:class
+                  (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
+               (when enabled?
+                 [:a {:href (str "/art/g/" piece "?page=" (dec page))}
+                  "previous page"])])
+            [:strong (str (inc page) "/" (count pages))]
+            (let [enabled? (not (= page (dec (count pages))))]
+              [:div
+               {:class
+                  (str $btn " " (if enabled? $btn-allowed $btn-not-allowed))}
+               (when enabled?
+                 [:a {:href (str "/art/g/" piece "?page=" (inc page))}
+                  "next page"])])])]))))
 
 ;; seed wold be cool
 
@@ -114,8 +163,8 @@
                                     {:query
                                      [:map
                                       [:controls {:optional true} :boolean]
-                                      [:width {:optional true} :int]
-                                      [:height {:optional true} :int]]}}}]])
+                                      [:width {:optional true} [:or [:int] [:= "max"]]]
+                                      [:height {:optional true} [:or [:int] [:= "max"]]]]}}}]])
 
 (defmethod ig/init-key :handler/handler [_ {:keys [routes]}]
   (ring/ring-handler

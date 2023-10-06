@@ -7,6 +7,7 @@
 
    [ftlm.vehicles.art.gaus-circles]
    ftlm.vehicles.art.vehicles.getting-around
+   ftlm.vehicles.art.vehicles.fear-and-aggression
    [ftlm.vehicles.art.user-controls :as user-controls]))
 
 ;; (defn req [href opts]

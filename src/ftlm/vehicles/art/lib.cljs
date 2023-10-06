@@ -25,18 +25,15 @@
   (update state :eid->entity dissoc eid))
 
 (defn update-ents [state f]
-  (update state
-          :eid->entity
-          (fn [s]
-            (into (sorted-map) (update-vals s f)))))
+  (update state :eid->entity (fn [s] (update-vals s f))))
 
 (defn append-ents [state ents]
   (-> state
-      (update :eid->entity (fnil (fn [s] (into s (map (juxt :id identity)) ents)) (sorted-map)))))
+      (update :eid->entity merge (into {} (map (juxt :id identity)) ents))))
 
 (defn update--entities
   [state f]
-  (update state :eid->entity (fn [s] (into (sorted-map) (f s)))))
+  (update state :eid->entity (fn [s] (into {} (f s)))))
 
 (defn transform [e] (:transform e))
 (defn position [e] (-> e transform :pos))
@@ -96,41 +93,8 @@
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
 
-(defn spawn-rate-pow [frequency time-in-millis pow]
-  (max (Math/pow (sine-wave frequency time-in-millis) pow) 0))
-
 (defn generate-palette [base num-colors]
   (into [] (repeatedly num-colors #(mod (normal-distr base 50) 360))))
-
-(defn move [{[xv yv] :velocity :as entity}]
-  (update-in entity [:transform :pos] (fn [[x y]] [(+ x xv) (+ y yv)])))
-
-(defn friction [{:keys [velocity friction] fr :friction :as entity}]
-  (if (or (not velocity) (not friction))
-    entity
-    (update entity :velocity
-            (fn [[xv yv]]
-              [(* (signum xv) (max (abs (- (abs xv) fr)) 0))
-               (* (signum yv) (max (abs (- (abs yv) fr)) 0))]))))
-
-(defn wobble [{:keys [wobble spawn-time] :as entity}]
-  (if-not wobble
-    entity
-    (update-in
-     entity
-     [:transform :scale]
-     (fn [s]
-       (+
-        s
-        (* wobble (/ (q/sin (* q/TWO-PI (/ (mod (- (q/millis) spawn-time) 1000) 1000))) 30)))))))
-
-(defn brownian-motion [entity]
-  (let [brownian-factor (:brownian-factor (controls))]
-    (update entity :velocity (fnil (fn [[x y]] [(+ x
-                                                   (* brownian-factor (q/random-gaussian)))
-                                                (+ y
-                                                   (* brownian-factor (q/random-gaussian)))])
-                                   [0 0]))))
 
 (defn *transform [t1 trsf]
   (merge-with * t1 trsf))
@@ -209,9 +173,130 @@
       (q/line [x y] end-pos))
     (q/stroke-weight 1)))
 
-(defmethod draw-entity :rect [{:keys [transform]}]
+(defmethod draw-entity :rect [{:keys [transform corner-r]}]
   (let [[x y] (:pos transform)
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
       (q/rotate rotation)
-      (q/rect 0 0 (* width scale) (* height scale) 25))))
+      (q/rect 0 0 (* width scale) (* height scale) corner-r))))
+
+(defn window-dimensions []
+  (let [w (.-innerWidth js/window)
+        h (.-innerHeight js/window)]
+    [w h]))
+
+(defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
+(defn rand-on-canvas-gauss
+  [distr]
+  [(normal-distr (/ (q/width) 2) (* distr (/ (q/width) 2)))
+   (normal-distr (/ (q/height) 2) (* distr (/ (q/height) 2)))])
+
+(defn v* [[a b] [a' b']]
+  [(* a a')
+   (* b b')])
+
+(def anchor->trans-matrix
+  {:top-right [1 -1]
+   :top-left [-1 -1]
+   :top-middle [0 -1.2]
+   :bottom-left [-1 1]
+   :bottom-right [1 1]
+   :bottom-middle [0 1]})
+
+(def anchor->rot-influence
+  {;; :top-right -1
+   ;; :top-left 1
+   ;; :top-middle 0
+   :bottom-left 1
+   :bottom-right -1
+   :bottom-middle 0})
+
+(defn ->sensor
+  [anchor modality]
+  (assoc (->entity :circle)
+    :transform (->transform [0 0] 20 20 1)
+    :anchor anchor
+    :modality modality
+    :sensor? true
+    :color (q/color 40 96 255 255)))
+
+(defn ->motor
+  [anchor]
+  (merge (->entity :rect)
+         {:anchor anchor
+          :color (q/color 40 96 255 255)
+          :motor? true
+          :transform (->transform [0 0] 20 35 1)}))
+
+(defn normalize-value-1
+  [min max value]
+  (let [old-min min
+        old-max max
+        new-min 0
+        new-max 1]
+    (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
+
+(defn relative-position [parent ent]
+  (let [{:keys [width height]} (transform parent)
+        m (anchor->trans-matrix (:anchor ent))]
+    (v* m [(/ width 2) (/ height 2)])))
+
+(defn rotate-point [rotation [x y]]
+  [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
+   (+ (* x (Math/sin rotation)) (* y (Math/cos rotation)))])
+
+(defn translate-point [x y dx dy]
+  [(+ x dx) (+ y dy)])
+
+(defn scale-point [[x y] scale]
+  [(x * scale) (y * scale)])
+
+(defn friction-1 [velocity]
+  (* velocity 0.9))
+
+(defn friction [e]
+  (-> e
+      (update :velocity friction-1)
+      (update :acceleration friction-1)
+      (update :angular-velocity friction-1)
+      (update :angular-acceleration friction-1)))
+
+(defn track-components
+  [state]
+  (let [parent-by-id (into {}
+                           (mapcat (fn [ent]
+                                     (map (juxt identity (constantly ent))
+                                          (:components ent)))
+                                   (filter :components (entities state))))]
+    (-> state
+        (update-ents
+         (fn [{:as ent :keys [id]}]
+           (if-let [parent (parent-by-id id)]
+             (let [relative-position (relative-position parent ent)
+                   parent-rotation (-> parent
+                                       :transform
+                                       :rotation)
+                   scale (-> parent :transform :scale)]
+               (-> ent
+                   (assoc-in [:transform :pos]
+                             [(+ (first (v* [scale scale]
+                                            (rotate-point parent-rotation
+                                                          relative-position)))
+                                 (first (-> parent
+                                            :transform
+                                            :pos)))
+                              (+ (second (v* [scale scale]
+                                             (rotate-point parent-rotation
+                                                           relative-position)))
+                                 (second (-> parent
+                                             :transform
+                                             :pos)))])
+                   (assoc-in [:transform :rotation]
+                             (-> parent :transform :rotation))
+                   (assoc-in [:transform :scale] scale)))
+             ent))))))
+
+(defn draw-entities
+  [state]
+  (doseq [{:as entity :keys [color hidden?]} (entities state)]
+    (when-not hidden? (draw-color color) (draw-entity entity))))
