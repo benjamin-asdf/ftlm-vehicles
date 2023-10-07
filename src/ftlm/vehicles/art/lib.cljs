@@ -472,7 +472,9 @@
   [(assoc (->entity :circle)
           :transform (->transform pos 40 40 1)
           :color 0
-          :shinyness 30)])
+          :ray-source? true
+          :intensity intensity
+          :shinyness (* 3 intensity))])
 
 (defn ->body
   [spawn-point scale rot color]

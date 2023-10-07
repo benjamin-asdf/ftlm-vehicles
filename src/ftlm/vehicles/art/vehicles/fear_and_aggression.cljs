@@ -10,6 +10,9 @@
 
 (def default-controls {:time-speed 1})
 
+(defn env [state]
+  {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
+
 (defn draw-state
   [state]
   (q/background 230
@@ -21,22 +24,23 @@
   (lib/draw-entities state))
 
 (defn update-entity [entity state]
-  (-> entity
-      (lib/update-body state)
-      lib/friction
+  (let [env (env state)]
+    (-> entity
+        (lib/update-body state)
+        lib/friction
 
-      ;; dart-distants-to-middle
-      ;; dart-middle-always
-      ;; dart-everyboy
-      lib/move-dragged
-      lib/update-rotation
-      lib/update-position
+        ;; dart-distants-to-middle
+        ;; dart-middle-always
+        ;; dart-everyboy
+        lib/move-dragged
+        lib/update-rotation
+        lib/update-position
 
-      (lib/update-sensors state)
-      lib/activation-decay
-      lib/activation-shine
-      lib/shine
-      lib/update-lifetime))
+        (lib/update-sensors env)
+        lib/activation-decay
+        lib/activation-shine
+        lib/shine
+        lib/update-lifetime)))
 
 (defn update-state
   [state]
