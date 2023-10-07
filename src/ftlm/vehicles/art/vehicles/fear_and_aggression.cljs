@@ -11,9 +11,9 @@
 (def default-controls
   {:baseline-arousal 0.4
    :brownian-factor 1
-   :cart-spawn-amount 10
-   :ray-source-count 20
-   :time-speed 5})
+   :cart-spawn-amount 8
+   :ray-source-count 15
+   :time-speed 3})
 
 (defn env [state]
   {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
@@ -47,7 +47,6 @@
         (lib/update-body state)
         lib/brownian-motion
         lib/friction
-
 
         lib/dart-distants-to-middle
         ;; dart-middle-always
@@ -93,7 +92,7 @@
               body
               [sensor-right sensor-left]
               [motor-right motor-left]
-              {:corner-r 10 :draggable? true :shinyness 10})]
+              {:corner-r 10 :draggable? true :shinyness 5})]
     (into
       cart
       [(lib/->connection sensor-right motor-right)
@@ -114,7 +113,7 @@
         cart (lib/->cart body
                          [sensor-right sensor-left]
                          [motor-right motor-left]
-                         {:draggable? true :shinyness 100})]
+                         {:draggable? true :shinyness 10})]
     (into
       cart
       [(lib/->connection sensor-right motor-left)
@@ -139,7 +138,6 @@
            (lib/->connection sensor-left motor-right)
            (lib/->connection sensor-left motor-left)])))
 
-
 ;; {:motors
 ;;  [{:id :ma :anchor :bottom-right} {:id :mb :anchor :bottom-left}]
 ;;  :connections [[0 1] [1 1]]}
@@ -151,23 +149,16 @@
   (lib/append-ents
     {:controls controls}
     (concat
-     (doall
-      (mapcat
-       identity
-       (repeatedly (/ (:cart-spawn-amount controls) 2)
-                   #(->cart-2-a (lib/rand-on-canvas-gauss 0.3) 1))))
-     (doall
-      (mapcat
-       identity
-       (repeatedly (/ (:cart-spawn-amount controls) 2)
-                   #(->cart-2-b (lib/rand-on-canvas-gauss 0.3) 1))))
-
-      ;; (->cart-2-a (lib/rand-on-canvas-gauss 0.1) 1)
+      (mapcat identity
+              (repeatedly (/ (:cart-spawn-amount controls) 2)
+                          #(->cart-2-a (lib/rand-on-canvas-gauss 0.3) 1)))
+      (mapcat identity
+              (repeatedly (/ (:cart-spawn-amount controls) 2)
+                          #(->cart-2-b (lib/rand-on-canvas-gauss 0.3) 1)))
       (mapcat identity
         (repeatedly (:ray-source-count controls)
-                    #(lib/->ray-source
-                      (lib/rand-on-canvas-gauss 0.8)
-                      (+ 5 (rand 30))))))))
+                    #(lib/->ray-source (lib/rand-on-canvas-gauss 0.8)
+                                       (+ 5 (rand 30))))))))
 
 (defn mouse-pressed
   [state]
