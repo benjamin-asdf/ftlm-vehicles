@@ -8,14 +8,19 @@
    [ftlm.vehicles.art.user-controls :as user-controls]
    [ftlm.vehicles.art.controls :as controls]))
 
-(def default-controls {:ray-source-count 10 :time-speed 3 :baseline-arousal 1 :cart-spawn-amount 10})
+(def default-controls
+  {:baseline-arousal 0.4
+   :brownian-factor 1
+   :cart-spawn-amount 10
+   :ray-source-count 20
+   :time-speed 5})
 
 (defn env [state]
   {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
 
 (defn draw-state
   [state]
-  (q/background 230
+  (q/background 0
                 ;; (lib/->hsb 0 ;; (-> state :controls :background-color)
                 ;;            )
                 )
@@ -40,7 +45,9 @@
   (let [env (env state)]
     (-> entity
         (lib/update-body state)
+        lib/brownian-motion
         lib/friction
+
 
         lib/dart-distants-to-middle
         ;; dart-middle-always
@@ -76,16 +83,17 @@
 
 (defn ->cart-2-a
   [pos scale]
-  (let [sensor-right (lib/->sensor :top-right :rays)
+  (let [body (lib/->body pos scale (* (rand) q/TWO-PI) {:h 220 :s 100 :v 100})
+        sensor-right (lib/->sensor :top-right :rays)
         sensor-left (lib/->sensor :top-left :rays)
-        motor-right (assoc (lib/->motor :bottom-right 0.01) :corner-r 10)
-        motor-left (assoc (lib/->motor :bottom-left 0.01) :corner-r 10)
+        motor-right (assoc (lib/->motor :bottom-right 0.02) :corner-r 10)
+        motor-left (assoc (lib/->motor :bottom-left 0.02) :corner-r 10)
         arousal-neuron (->arousal-neuron)
         cart (lib/->cart
-               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 200 :s 100 :v 100})
-               [sensor-right sensor-left]
-               [motor-right motor-left]
-               {:corner-r 10 :draggable? true})]
+              body
+              [sensor-right sensor-left]
+              [motor-right motor-left]
+              {:corner-r 10 :draggable? true :shinyness 10})]
     (into
       cart
       [(lib/->connection sensor-right motor-right)
@@ -96,8 +104,8 @@
 (defn ->cart-2-b
   [pos scale]
   (let [body (assoc
-               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 200 :s 100 :v 100})
-               :corner-r 10)
+               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 0 :s 100 :v 100})
+               :corner-r 20)
         sensor-right (lib/->sensor :top-right :rays)
         sensor-left (lib/->sensor :top-left :rays)
         motor-right (assoc (lib/->motor :bottom-right 0.01) :corner-r 10)
@@ -106,7 +114,7 @@
         cart (lib/->cart body
                          [sensor-right sensor-left]
                          [motor-right motor-left]
-                         {:draggable? true})]
+                         {:draggable? true :shinyness 100})]
     (into
       cart
       [(lib/->connection sensor-right motor-left)
@@ -157,7 +165,9 @@
       ;; (->cart-2-a (lib/rand-on-canvas-gauss 0.1) 1)
       (mapcat identity
         (repeatedly (:ray-source-count controls)
-                    #(lib/->ray-source (lib/rand-on-canvas-gauss 0.8) 10))))))
+                    #(lib/->ray-source
+                      (lib/rand-on-canvas-gauss 0.8)
+                      (+ 5 (rand 30))))))))
 
 (defn mouse-pressed
   [state]

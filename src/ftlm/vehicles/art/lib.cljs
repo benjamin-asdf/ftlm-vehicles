@@ -405,6 +405,9 @@
   ([a b] (->transdution-model a b identity))
   ([a b f] {:source a :destination b :f f}))
 
+(def exite #(* 1 %))
+(def inhibit #(* -1 %))
+
 (defn with-transduction-model [n m]
   (assoc n :transduction-model m))
 
@@ -466,11 +469,9 @@
                 relative-angle (- sensor-rotation angle-to-source)
                 angle (- relative-angle q/PI)
                 raw-intensity (/ (:intensity light)
-                                 (/ (* distance distance) 10000))
+                                 (/ (* distance distance) 5000))
                 adjustment (calculate-adjustment angle
                                                  sensor-looking-direction)]
-
-            ;; (q/print-every-n-millisec 200 [raw-intensity adjustment (* raw-intensity adjustment)])
             (* raw-intensity adjustment)
             )))
    +
@@ -494,7 +495,8 @@
           :color 0
           :ray-source? true
           :intensity intensity
-          :shinyness intensity)])
+          :particle? true
+          :shinyness (* 8 intensity))])
 
 (defn ->body
   [spawn-point scale rot color]
@@ -535,7 +537,7 @@
               (- (q/millis) (get entity :last-darted -500))))
     (-> entity
         (orient-towards (mid-point))
-        (assoc :acceleration 1000)
+        (assoc :acceleration 300)
         (assoc :last-darted (q/millis)))
     entity))
 
@@ -551,3 +553,16 @@
        (not (inside-screen? (position entity))))
     (dart-to-middle entity)
     entity))
+
+(defn brownian-motion
+  [e]
+  (if-not (:particle? e)
+    e
+    (-> e
+        (update :acceleration
+                +
+                (* 30 (q/random-gaussian) (:brownian-factor (controls))))
+        (update
+         :angular-acceleration
+         +
+         (* 0.3 (q/random-gaussian) (:brownian-factor (controls)))))))
