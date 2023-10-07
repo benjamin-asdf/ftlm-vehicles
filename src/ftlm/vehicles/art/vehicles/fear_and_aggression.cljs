@@ -6,8 +6,9 @@
    [quil.middleware :as m]
    [ftlm.vehicles.art.controls :refer [versions]]
    [ftlm.vehicles.art.user-controls :as user-controls]
-   [ftlm.vehicles.art.controls :as controls]
-   [ftlm.vehicles.art.vehicles.carts :as c]))
+   [ftlm.vehicles.art.controls :as controls]))
+
+(def default-controls {:time-speed 1})
 
 (defn draw-state
   [state]
@@ -19,6 +20,24 @@
   (q/stroke 0.3)
   (lib/draw-entities state))
 
+(defn update-entity [entity state]
+  (-> entity
+      (lib/update-body state)
+      lib/friction
+
+      ;; dart-distants-to-middle
+      ;; dart-middle-always
+      ;; dart-everyboy
+      lib/move-dragged
+      lib/update-rotation
+      lib/update-position
+
+      (lib/update-sensors state)
+      lib/activation-decay
+      lib/activation-shine
+      lib/shine
+      lib/update-lifetime))
+
 (defn update-state
   [state]
   (let [current-tick (q/millis)
@@ -28,27 +47,47 @@
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
-          ;; (lib/update-ents #(update-entity % state))
+          (lib/update-ents #(update-entity % state))
           ;; transduce-signals
           lib/track-components
           ;; track-conn-lines
           ;; make-trails
           lib/kill-entities))))
 
-(defn setup [controls]
+(defn setup
+  [controls]
+  (q/rect-mode :center)
+  (q/color-mode :hsb)
   (lib/append-ents
    {:controls controls}
-   (c/->cart
-    (c/->body
-     (lib/rand-on-canvas-gauss 0.1)
-     1
-     0
-     {:h 255 :s 100 :v 100})
-    [(lib/->sensor :top-middle :rays)
-    ;; (lib/->sensor :top-right :rays)
-     ]
-    []
-    {:shinyness 0.1})))
+   (concat
+    (lib/->cart
+     (lib/->body
+      (lib/rand-on-canvas-gauss 0.1)
+      1
+      q/HALF-PI
+
+      {:h 100 :s 100 :v 100})
+     [(lib/->sensor :top-right :rays)
+      ;; (lib/->sensor :top-left :rays)
+      ]
+     []
+     {:shinyness 0.1 :draggable? true })
+    (lib/->ray-source [200 200] 1))))
+
+
+(defn mouse-pressed
+  [state]
+  (let [draggable (lib/find-closest-draggable state)]
+    (-> state
+        (assoc :pressed true)
+        (assoc-in [:eid->entity (:id draggable) :dragged?] true))))
+
+(defn mouse-released
+  [state]
+  (-> state
+      (assoc :pressed false)
+      (lib/update-ents (fn [e] (dissoc e :dragged?)))))
 
 (defn sketch
   [host {:keys [width height]} controls]
@@ -62,8 +101,8 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
-              ;; :mouse-pressed mouse-pressed
-              ;; :mouse-released mouse-released
+              :mouse-pressed mouse-pressed
+              :mouse-released mouse-released
               :frame-rate 30)))
 
 (let [restart-fn (atom nil)]
@@ -75,9 +114,11 @@
               place
               opts
               (merge
-               (controls/default-versions "fear_and_aggression")
-               (get-in versions ["fear_and_aggression" version])
-               @user-controls/!app)))]
+               default-controls
+               ;; (controls/default-versions "fear_and_aggression")
+               ;; (get-in versions ["fear_and_aggression" version])
+               ;; @user-controls/!app
+               )))]
         (reset! restart-fn f)
         (f)))
   (defmethod user-controls/action-button ::restart
