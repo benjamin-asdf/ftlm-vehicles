@@ -8,7 +8,7 @@
    [ftlm.vehicles.art.user-controls :as user-controls]
    [ftlm.vehicles.art.controls :as controls]))
 
-(def default-controls {:time-speed 1})
+(def default-controls {:ray-source-count 10 :time-speed 3 :baseline-arousal 1 :cart-spawn-amount 10})
 
 (defn env [state]
   {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
@@ -23,20 +23,36 @@
   (q/stroke 0.3)
   (lib/draw-entities state))
 
+(defn ->arousal-neuron []
+  (merge
+   (lib/->entity :neuron)
+   {:activation 0
+    :baseline-arousal-neuron? true
+    :neuron? true
+    :hidden? true}))
+
+(defn baseline-arousal [e]
+  (if (:baseline-arousal-neuron? e)
+    (update e :activation + (lib/normal-distr (:baseline-arousal (lib/controls)) 0.1))
+    e))
+
 (defn update-entity [entity state]
   (let [env (env state)]
     (-> entity
         (lib/update-body state)
         lib/friction
 
-        ;; dart-distants-to-middle
+        lib/dart-distants-to-middle
         ;; dart-middle-always
         ;; dart-everyboy
+
         lib/move-dragged
+
         lib/update-rotation
         lib/update-position
 
         (lib/update-sensors env)
+        baseline-arousal
         lib/activation-decay
         lib/activation-shine
         lib/shine
@@ -52,34 +68,96 @@
       (-> state
           (assoc :last-tick current-tick)
           (lib/update-ents #(update-entity % state))
-          ;; transduce-signals
+          lib/transduce-signals
           lib/track-components
-          ;; track-conn-lines
+          lib/track-conn-lines
           ;; make-trails
           lib/kill-entities))))
+
+(defn ->cart-2-a
+  [pos scale]
+  (let [sensor-right (lib/->sensor :top-right :rays)
+        sensor-left (lib/->sensor :top-left :rays)
+        motor-right (assoc (lib/->motor :bottom-right 0.01) :corner-r 10)
+        motor-left (assoc (lib/->motor :bottom-left 0.01) :corner-r 10)
+        arousal-neuron (->arousal-neuron)
+        cart (lib/->cart
+               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 200 :s 100 :v 100})
+               [sensor-right sensor-left]
+               [motor-right motor-left]
+               {:corner-r 10 :draggable? true})]
+    (into
+      cart
+      [(lib/->connection sensor-right motor-right)
+       (lib/->connection sensor-left motor-left) arousal-neuron
+       (lib/->hidden-connection arousal-neuron motor-left #(* % (rand)))
+       (lib/->hidden-connection arousal-neuron motor-right #(* % (rand)))])))
+
+(defn ->cart-2-b
+  [pos scale]
+  (let [body (assoc
+               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 200 :s 100 :v 100})
+               :corner-r 10)
+        sensor-right (lib/->sensor :top-right :rays)
+        sensor-left (lib/->sensor :top-left :rays)
+        motor-right (assoc (lib/->motor :bottom-right 0.01) :corner-r 10)
+        motor-left (assoc (lib/->motor :bottom-left 0.01) :corner-r 10)
+        arousal-neuron (->arousal-neuron)
+        cart (lib/->cart body
+                         [sensor-right sensor-left]
+                         [motor-right motor-left]
+                         {:draggable? true})]
+    (into
+      cart
+      [(lib/->connection sensor-right motor-left)
+       (lib/->connection sensor-left motor-right) arousal-neuron
+       (lib/->hidden-connection arousal-neuron motor-left #(* % (rand)))
+       (lib/->hidden-connection arousal-neuron motor-right #(* % (rand)))])))
+
+(defn ->cart-2-c
+  [pos scale]
+  (let [sensor-right (lib/->sensor :top-right :rays)
+        sensor-left (lib/->sensor :top-left :rays)
+        motor-right (assoc (lib/->motor :bottom-right 0.01) :corner-r 10)
+        motor-left (assoc (lib/->motor :bottom-left 0.01) :corner-r 10)
+        cart (lib/->cart
+               (lib/->body pos scale (* (rand) q/TWO-PI) {:h 200 :s 100 :v 100})
+               [sensor-right sensor-left]
+               [motor-right motor-left]
+               {:corner-r 10 :draggable? true})]
+    (into cart
+          [(lib/->connection sensor-right motor-left)
+           (lib/->connection sensor-right motor-right)
+           (lib/->connection sensor-left motor-right)
+           (lib/->connection sensor-left motor-left)])))
+
+
+;; {:motors
+;;  [{:id :ma :anchor :bottom-right} {:id :mb :anchor :bottom-left}]
+;;  :connections [[0 1] [1 1]]}
 
 (defn setup
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (lib/append-ents
-   {:controls controls}
-   (concat
-    (lib/->cart
-     (lib/->body
-      (lib/rand-on-canvas-gauss 0.1)
-      1
-      q/HALF-PI
-      {:h 100 :s 100 :v 100})
-     [(lib/->sensor :top-right :rays)
-      ;; (lib/->sensor :top-left :rays)
-      ]
-     []
-     {:shinyness 0.1 :draggable? true})
-    (lib/->ray-source
-     (lib/rand-on-canvas-gauss 0.8)
-     400))))
+    {:controls controls}
+    (concat
+     (doall
+      (mapcat
+       identity
+       (repeatedly (/ (:cart-spawn-amount controls) 2)
+                   #(->cart-2-a (lib/rand-on-canvas-gauss 0.3) 1))))
+     (doall
+      (mapcat
+       identity
+       (repeatedly (/ (:cart-spawn-amount controls) 2)
+                   #(->cart-2-b (lib/rand-on-canvas-gauss 0.3) 1))))
 
+      ;; (->cart-2-a (lib/rand-on-canvas-gauss 0.1) 1)
+      (mapcat identity
+        (repeatedly (:ray-source-count controls)
+                    #(lib/->ray-source (lib/rand-on-canvas-gauss 0.8) 10))))))
 
 (defn mouse-pressed
   [state]

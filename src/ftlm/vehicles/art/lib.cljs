@@ -82,7 +82,6 @@
   (if-not shinyness
     entity
     (let [shine (mod (+  (or shine 0) (* *dt* shinyness)) 255)]
-      ;; (q/print-every-n-millisec 200 [shine *dt*])
       (-> entity
           (assoc :shine shine)
           (update :color
@@ -199,11 +198,11 @@
    (* b b')])
 
 (def anchor->trans-matrix
-  {:top-right [1 -1]
-   :top-left [-1 -1]
+  {:top-right [0.8 -1.2]
+   :top-left [-0.8 -1.2]
    :top-middle [0 -1.2]
-   :bottom-left [-1 1]
-   :bottom-right [1 1]
+   :bottom-left [-0.8 1]
+   :bottom-right [0.8 1]
    :bottom-middle [0 1]})
 
 (def anchor->rot-influence
@@ -233,12 +232,14 @@
          :color (q/color 40 96 255 255)))
 
 (defn ->motor
-  [anchor]
-  (merge (->entity :rect)
-         {:anchor anchor
-          :color (q/color 40 96 255 255)
-          :motor? true
-          :transform (->transform [0 0] 20 35 1)}))
+  [anchor rotational-power]
+  (merge
+   (->entity :rect)
+   {:anchor anchor
+    :color (q/color 40 96 255 255)
+    :motor? true
+    :transform (->transform [0 0] 20 35 1)
+    :rotational-power rotational-power}))
 
 (defn normalize-value-1
   [min max value]
@@ -311,25 +312,30 @@
 (defn draw-entities
   [state]
   (doseq [{:as entity :keys [color hidden?]} (entities state)]
-    (when-not hidden? (draw-color color) (draw-entity entity))))
+    (when-not hidden?
+      (draw-color color)
+      (draw-entity entity))))
 
 (defn effector->angular-acceleration
-  [{:keys [anchor activation]}]
-  (* 0.2 activation (anchor->rot-influence anchor)))
+  [{:keys [anchor activation rotational-power]}]
+  (* rotational-power activation (anchor->rot-influence anchor)))
 
 (defn update-body
   [entity state]
   (if-not (:body? entity)
     entity
-    (let [effectors (->> entity :motors (map (entities-by-id state)))]
+    (let [effectors (->> entity
+                         :motors
+                         (map (entities-by-id state)))]
       (-> entity
           (update :acceleration + (reduce + (map :activation effectors)))
-          (assoc :angular-acceleration (reduce + (map effector->angular-acceleration effectors)))))))
+          (assoc :angular-acceleration
+                 (transduce (map effector->angular-acceleration) + effectors))))))
 
 (defn update-rotation
   [entity]
   (let [angular-velocity (+ (:angular-velocity entity 0)
-                    (* *dt* (:angular-acceleration entity 0)))]
+                            (* *dt* (:angular-acceleration entity 0)))]
     (-> entity
         (update-in [:transform :rotation] #(+ % angular-velocity))
         (assoc :angular-velocity angular-velocity))))
@@ -395,36 +401,46 @@
       (assoc entity :activation activation))
     entity))
 
-(defn ->transuction-model
-  ([a b] (->transuction-model a b identity))
+(defn ->transdution-model
+  ([a b] (->transdution-model a b identity))
   ([a b f] {:source a :destination b :f f}))
+
+(defn with-transduction-model [n m]
+  (assoc n :transduction-model m))
+
+(defn ->hidden-connection [entity-a entity-b f]
+  (merge
+   (->entity :hidden-connection)
+   {:hidden? true
+    :transduction-model (->transdution-model (:id entity-a) (:id entity-b) f)
+    :connection? true}))
 
 (defn ->connection [entity-a entity-b]
   (merge
    (->connection-line entity-a entity-b)
-   {:transduction-model (->connection-line (:id entity-a) (:id entity-b))
+   {:transduction-model (->transdution-model (:id entity-a) (:id entity-b))
     :connection? true}))
 
 (def connection->source (comp :source :transduction-model))
 (def connection->destination (comp :destination :transduction-model))
 
 (defn transduce-signal [destination source {:keys [f]}]
+  ;; (q/print-every-n-millisec 200 [(:activation source) (:activation destination)])
   (update destination :activation + (f (:activation source))))
 
 (defn transduce-signals
   [state]
-  (let [connection-by-destination (into {}
-                                        (comp (filter :connection?)
-                                              (map (juxt connection->destination identity)))
-                                        (entities state))
-        ent-lut (entities-by-id state)]
-    (update-ents
-     state
-     (fn [e]
-       (if-let [conn-e (connection-by-destination (:id e))]
-         (let [source (ent-lut (connection->source conn-e))]
-           (transduce-signal e source (:transduction-model conn-e)))
-         e)))))
+  (let [models (keep :transduction-model (entities state))
+        e-lut (:eid->entity state)
+        new-lut (reduce (fn [lut model]
+                          (update lut
+                                  (:destination model)
+                                  transduce-signal
+                                  (e-lut (:source model))
+                                  model))
+                  e-lut
+                  models)]
+    (assoc state :eid->entity new-lut)))
 
 (defn mid-point [] [(/ (q/width) 2)
                     (/ (q/height) 2)])
@@ -450,10 +466,13 @@
                 relative-angle (- sensor-rotation angle-to-source)
                 angle (- relative-angle q/PI)
                 raw-intensity (/ (:intensity light)
-                                 (/ (* distance distance) 1000))
+                                 (/ (* distance distance) 10000))
                 adjustment (calculate-adjustment angle
                                                  sensor-looking-direction)]
-            (* raw-intensity adjustment))))
+
+            ;; (q/print-every-n-millisec 200 [raw-intensity adjustment (* raw-intensity adjustment)])
+            (* raw-intensity adjustment)
+            )))
    +
    (:ray-sources env)))
 
@@ -465,7 +484,8 @@
          (rotation sensor)
          (-> sensor :anchor anchor->sensor-direction)
          env)]
-    (assoc sensor :activation ray-intensity)))
+    (q/print-every-n-millisec 200 ray-intensity)
+    (assoc sensor :activation (min ray-intensity 14))))
 
 (defn ->ray-source
   [pos intensity]
@@ -481,10 +501,8 @@
   (merge (->entity :rect)
          {:body? true
           :color color
-          :transform
-          (assoc
-           (->transform spawn-point 50 80 scale)
-           :rotation rot)}))
+          :transform (assoc (->transform spawn-point 50 80 scale)
+                       :rotation rot)}))
 
 (defn ->cart
   [body sensors motors opts]
@@ -505,3 +523,31 @@
          (filter :draggable?)
          (sort-by (comp (fn [b] (distance mouse-position b)) position))
          (first))))
+
+(defn track-conn-lines
+  [state]
+  (update-ents state #(update-conn-line % state)))
+
+(defn dart-to-middle
+  [{:as entity :keys [darts?]}]
+  (if (and darts?
+           (< (normal-distr 1000 200)
+              (- (q/millis) (get entity :last-darted -500))))
+    (-> entity
+        (orient-towards (mid-point))
+        (assoc :acceleration 1000)
+        (assoc :last-darted (q/millis)))
+    entity))
+
+(defn inside-screen?
+  [[x y]]
+  (and (< 0 x (q/width))
+       (< 0 y (q/height))))
+
+(defn dart-distants-to-middle
+  [{:as entity :keys [darts?]}]
+  (if (and
+       darts?
+       (not (inside-screen? (position entity))))
+    (dart-to-middle entity)
+    entity))
