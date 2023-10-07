@@ -70,14 +70,15 @@
       (lib/rand-on-canvas-gauss 0.1)
       1
       q/HALF-PI
-
       {:h 100 :s 100 :v 100})
      [(lib/->sensor :top-right :rays)
       ;; (lib/->sensor :top-left :rays)
       ]
      []
-     {:shinyness 0.1 :draggable? true })
-    (lib/->ray-source [200 200] 1))))
+     {:shinyness 0.1 :draggable? true})
+    (lib/->ray-source
+     (lib/rand-on-canvas-gauss 0.8)
+     400))))
 
 
 (defn mouse-pressed

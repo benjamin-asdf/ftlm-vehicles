@@ -445,8 +445,8 @@
   [sensor-pos sensor-rotation sensor-looking-direction env]
   (transduce
    (map (fn [light]
-          (let [distance (distance sensor-pos (:position light))
-                angle-to-source (angle-between (:position light) sensor-pos)
+          (let [distance (distance sensor-pos (position light))
+                angle-to-source (angle-between (position light) sensor-pos)
                 relative-angle (- sensor-rotation angle-to-source)
                 angle (- relative-angle q/PI)
                 raw-intensity (/ (:intensity light)
@@ -464,7 +464,7 @@
          (position sensor)
          (rotation sensor)
          (-> sensor :anchor anchor->sensor-direction)
-         {:ray-sources [{:position [200 200] :intensity 100}]})]
+         env)]
     (assoc sensor :activation ray-intensity)))
 
 (defn ->ray-source
@@ -474,7 +474,7 @@
           :color 0
           :ray-source? true
           :intensity intensity
-          :shinyness (* 3 intensity))])
+          :shinyness intensity)])
 
 (defn ->body
   [spawn-point scale rot color]

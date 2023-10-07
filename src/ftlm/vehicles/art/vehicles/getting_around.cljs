@@ -366,8 +366,8 @@
     entity))
 
 (defn update-sensors
-  [entity state]
-  (if (:sensor? entity) (update-sensor entity (env state)) entity))
+  [entity env]
+  (if (:sensor? entity) (update-sensor entity env) entity))
 
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
 (defn rand-on-canvas-gauss
