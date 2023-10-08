@@ -1,7 +1,8 @@
 (ns ftlm.vehicles.art.lib
-  (:require
-   [quil.core :as q :include-macros true]
-   [quil.middleware :as m]))
+  (:require [quil.core :as q :include-macros true]
+            [quil.middleware :as m]
+            [ftlm.vehicles.art.util :as u])
+  (:require-macros [ftlm.vehicles.art.util :as u]))
 
 (def ^:dynamic *dt* nil)
 
@@ -239,6 +240,10 @@
           :transform (->transform [0 0] 20 35 1)}
          opts))
 
+(defn ->neuron
+  [opts]
+  (merge (->entity :neuron) {:activation 0 :hidden? true :neuron? true} opts))
+
 (defn normalize-value-1
   [min max value]
   (let [old-min min
@@ -309,10 +314,17 @@
 
 (defn draw-entities
   [state]
-  (doseq [{:as entity :keys [color hidden?]} (entities state)]
-    (when-not hidden?
-      (draw-color color)
-      (draw-entity entity))))
+  (doseq [{:as entity :keys [color]}
+          (sort-by
+           (u/by (some-fn :z-index (constantly 0))
+                 u/ascending
+                 :id
+                 u/ascending)
+           (sequence
+            (remove :hidden?)
+            (entities state)))]
+    (draw-color color)
+    (draw-entity entity)))
 
 (defn effector->angular-acceleration
   [{:keys [anchor activation rotational-power]}]
@@ -410,13 +422,14 @@
 (def exite #(* 1 %))
 (def inhibit #(* -1 %))
 
-(defn ->connection [{:keys [entity-a entity-b hidden? f]}]
+(defn ->connection [{:keys [source destination hidden? f]}]
   (merge
    (if hidden?
      (->entity :hidden-connection)
-     (->connection-line entity-a entity-b))
-   {:transduction-model (->transdution-model (:id entity-a) (:id entity-b) f)
-    :connection? true}))
+     (->connection-line source destination))
+   {:transduction-model (->transdution-model (:id source) (:id destination) f)
+    :connection? true
+    :hidden? hidden?}))
 
 (def connection->source (comp :source :transduction-model))
 (def connection->destination (comp :destination :transduction-model))
@@ -602,3 +615,12 @@
                              {:spread 1 :color (:color e) :n 20 :pos (position e) :size 10})))
                      cat)
                explode-them)))))
+
+(defn baseline-arousal
+  [e]
+  (if (:baseline-arousal e)
+    (update e
+            :activation
+            +
+            (normal-distr (:baseline-arousal e) (:baseline-arousal e)))
+    e))
