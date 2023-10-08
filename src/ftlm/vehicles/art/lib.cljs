@@ -223,7 +223,7 @@
    :bottom-middle -1})
 
 (defn ->sensor
-  [anchor modality]
+  [{:keys [anchor modality]}]
   (assoc (->entity :circle)
          :transform (->transform [0 0] 20 20 1)
          :anchor anchor
@@ -232,14 +232,12 @@
          :color (q/color 40 96 255 255)))
 
 (defn ->motor
-  [anchor rotational-power]
-  (merge
-   (->entity :rect)
-   {:anchor anchor
-    :color (q/color 40 96 255 255)
-    :motor? true
-    :transform (->transform [0 0] 20 35 1)
-    :rotational-power rotational-power}))
+  [opts]
+  (merge (->entity :rect)
+         {:color (q/color 40 96 255 255)
+          :motor? true
+          :transform (->transform [0 0] 20 35 1)}
+         opts))
 
 (defn normalize-value-1
   [min max value]
@@ -324,13 +322,17 @@
   [entity state]
   (if-not (:body? entity)
     entity
-    (let [effectors (->> entity
-                         :motors
-                         (map (entities-by-id state)))]
+    (let [effectors (sequence
+                     (comp
+                      (map (entities-by-id state))
+                      (filter :motor?))
+                     (:components entity))]
       (-> entity
           (update :acceleration + (reduce + (map :activation effectors)))
-          (assoc :angular-acceleration
-                 (transduce (map effector->angular-acceleration) + effectors))))))
+          (assoc :angular-acceleration (transduce
+                                         (map effector->angular-acceleration)
+                                         +
+                                         effectors))))))
 
 (defn update-rotation
   [entity]
@@ -408,27 +410,18 @@
 (def exite #(* 1 %))
 (def inhibit #(* -1 %))
 
-(defn with-transduction-model [n m]
-  (assoc n :transduction-model m))
-
-(defn ->hidden-connection [entity-a entity-b f]
+(defn ->connection [{:keys [entity-a entity-b hidden? f]}]
   (merge
-   (->entity :hidden-connection)
-   {:hidden? true
-    :transduction-model (->transdution-model (:id entity-a) (:id entity-b) f)
-    :connection? true}))
-
-(defn ->connection [entity-a entity-b]
-  (merge
-   (->connection-line entity-a entity-b)
-   {:transduction-model (->transdution-model (:id entity-a) (:id entity-b))
+   (if hidden?
+     (->entity :hidden-connection)
+     (->connection-line entity-a entity-b))
+   {:transduction-model (->transdution-model (:id entity-a) (:id entity-b) f)
     :connection? true}))
 
 (def connection->source (comp :source :transduction-model))
 (def connection->destination (comp :destination :transduction-model))
 
 (defn transduce-signal [destination source {:keys [f]}]
-  ;; (q/print-every-n-millisec 200 [(:activation source) (:activation destination)])
   (update destination :activation + (f (:activation source))))
 
 (defn transduce-signals
@@ -441,8 +434,8 @@
                                   transduce-signal
                                   (e-lut (:source model))
                                   model))
-                  e-lut
-                  models)]
+                        e-lut
+                        models)]
     (assoc state :eid->entity new-lut)))
 
 (defn mid-point [] [(/ (q/width) 2)
@@ -485,7 +478,6 @@
          (rotation sensor)
          (-> sensor :anchor anchor->sensor-direction)
          env)]
-    (q/print-every-n-millisec 200 ray-intensity)
     (assoc sensor :activation (min ray-intensity 14))))
 
 (defn ->ray-source
@@ -496,26 +488,15 @@
           :ray-source? true
           :intensity intensity
           :particle? true
-          :shinyness (* 8 intensity))])
+          :shinyness intensity)])
 
 (defn ->body
-  [spawn-point scale rot color]
-  (merge (->entity :rect)
-         {:body? true
-          :color color
-          :transform (assoc (->transform spawn-point 50 80 scale)
-                       :rotation rot)}))
-
-(defn ->cart
-  [body sensors motors opts]
-  (let [body (merge (assoc body
-                      :components (map :id (concat sensors motors))
-                      :motors (map :id motors)
-                      :sensors (map :id sensors)
-                      :darts? true
-                      :makes-trail? true)
-                    opts)]
-    (into [body] (concat sensors motors))))
+  [{:keys [pos scale rot] :as opts}]
+  (merge
+   (->entity :rect)
+   {:body? true
+    :transform (assoc (->transform pos 50 80 scale) :rotation rot)}
+   opts))
 
 (defn find-closest-draggable
   [state]
@@ -554,15 +535,70 @@
     (dart-to-middle entity)
     entity))
 
+(defn kinetic-energy-motion
+  [entity kinetic-energy]
+  (-> entity
+      (update :acceleration
+              +
+              (* 30 (q/random-gaussian) kinetic-energy))
+      (update :angular-acceleration
+              +
+              (* 0.3 (q/random-gaussian) kinetic-energy))))
+
 (defn brownian-motion
   [e]
   (if-not (:particle? e)
     e
-    (-> e
-        (update :acceleration
-                +
-                (* 30 (q/random-gaussian) (:brownian-factor (controls))))
-        (update
-         :angular-acceleration
-         +
-         (* 0.3 (q/random-gaussian) (:brownian-factor (controls)))))))
+    (kinetic-energy-motion e (:brownian-factor (controls)))))
+
+
+
+(defn ->explosion
+  [{:keys [n size pos color spread]}]
+  (into []
+        (map (fn []
+               (-> (merge (->entity :circle)
+                          {:color color
+                           :lifetime 1
+                           :transform
+                           (->transform
+                            [(normal-distr (first pos) spread)
+                             (normal-distr (second pos) spread)]
+                            size
+                            size
+                            1)})
+                   (kinetic-energy-motion 10))))
+        (range n)))
+
+(defn ray-source-collision-burst
+  [state]
+  (let [sources (sequence (comp (filter :ray-source?)
+                                (filter (comp #(< 1000 %)
+                                              #(- (q/millis) %)
+                                              (fnil :last-exploded 0))))
+                          (entities state))
+        bodies (filter :body? (entities state))
+        explode-them
+          (into #{}
+                (comp (remove (fn [[s b]]
+                                (< 100 (distance (position s) (position b)))))
+                      (map first)
+                      (map :id))
+                (for [source sources body bodies] [source body]))]
+    (-> state
+        (update :eid->entity
+                (fn [lut]
+                  (reduce (fn [m id]
+                            (-> m
+                                (assoc-in [id :last-exploded] (q/millis))
+                                (assoc-in [id :transform :scale] 2)))
+                    lut
+                    explode-them)))
+        (append-ents
+         (into []
+               (comp (map (entities-by-id state))
+                     (map (fn [e]
+                            (->explosion
+                             {:spread 1 :color (:color e) :n 20 :pos (position e) :size 10})))
+                     cat)
+               explode-them)))))
