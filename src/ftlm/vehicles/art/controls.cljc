@@ -60,7 +60,8 @@
     :cart-scale 1
     :color-palatte [50 40 60]
     :max-temp 1
-    :spawn-amount 4
+    :spawn-amount 5
+    :covards-spawn 5
     :spawn-spread 0.4
     :time-speed 3
     :trail-color {:h 0 :s 0 :v 89}

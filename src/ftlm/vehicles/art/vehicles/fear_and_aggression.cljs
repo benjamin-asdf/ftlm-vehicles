@@ -11,51 +11,8 @@
 (defn env [state]
   {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
 
-(defn draw-state
-  [state]
-  (q/background (lib/->hsb (-> state :controls :background-color)))
-  (q/stroke-weight 1)
-  (q/stroke 0.3)
-  (lib/draw-entities state))
-
-(defn update-entity [entity state]
-  (let [env (env state)]
-    (-> entity
-        (lib/update-body state)
-        lib/brownian-motion
-        lib/friction
-
-        lib/dart-distants-to-middle
-
-        lib/move-dragged
-        lib/update-rotation
-        lib/update-position
-
-        (lib/update-sensors env)
-        lib/baseline-arousal
-        lib/activation-decay
-        lib/activation-shine
-        lib/shine
-        lib/update-lifetime)))
-
-(defn update-state
-  [state]
-  (let [current-tick (q/millis)
-        state (update state :controls merge @user-controls/!app)
-        dt (* (:time-speed (lib/controls))
-              (/ (- current-tick (:last-tick state)) 1000.0))]
-    (binding [*dt* dt]
-      (-> state
-          (assoc :last-tick current-tick)
-          (lib/update-ents #(update-entity % state))
-          lib/transduce-signals
-          lib/track-components
-          lib/track-conn-lines
-          ;; lib/ray-source-collision-burst
-          lib/kill-entities))))
-
 (defn base
-  [{:keys [scale]}]
+  [{:keys [scale baseline-arousal]}]
   {:body {:scale scale :z-index -1}
    :components
    [[:cart/motor :ma
@@ -64,7 +21,7 @@
      {:anchor :bottom-left :corner-r 5 :rotational-power 0.02}]
     [:cart/sensor :sa {:anchor :top-right :modality :rays}]
     [:cart/sensor :sb {:anchor :top-left :modality :rays}]
-    [:brain/neuron :arousal {:baseline-arousal 0.8}]
+    [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
     [:brain/connection :_
      {:destination [:ref :mb] :f rand :hidden? true :source [:ref :arousal]}]
     [:brain/connection :_
@@ -90,6 +47,46 @@
           #(into %
                  [[:brain/connection :_ {:destination [:ref :ma] :f :exite :source [:ref :sb]}]
                   [:brain/connection :_ {:destination [:ref :mb] :f :exite :source [:ref :sa]}]])))
+
+
+(defn ->love
+  [{:keys [scale]}]
+  {:body {:scale scale :z-index -1}
+   :components
+     [[:cart/motor :ma
+       {:anchor :bottom-right :corner-r 5 :rotational-power 0.02
+        :on-update [(lib/->cap-activation)]}]
+      [:cart/motor :mb
+       {:anchor :bottom-left :corner-r 5 :rotational-power 0.02
+        :on-update [(lib/->cap-activation)]}]
+      [:cart/sensor :sa {:anchor :top-right :modality :rays}]
+      [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+      ;; You don't get love if you are too fidgety... huh
+      [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
+
+
+      ;; [:brain/neuron :cap->mb
+      ;;  {:on-update (fn [e] (update e :activation #(max 0 %)))}]
+      ;; [:brain/neuron :cap->ma
+      ;;  {:on-update (fn [e] (update e :activation #(max 0 %)))}]
+
+      ;; The love cart moves with arousal, but more focused
+
+      [:brain/connection :_ {:destination [:ref :ma] :f :exite :hidden? true :source [:ref :arousal]}]
+      [:brain/connection :_ {:destination [:ref :mb] :f :exite :hidden? true :source [:ref :arousal]}]
+      [:brain/connection :_
+       {:destination [:ref :ma] :f (lib/->weighted -1.2) :source [:ref :sa]}]
+      [:brain/connection :_
+       {:destination [:ref :mb] :f (lib/->weighted -1.2) :source [:ref :sb]}]]})
+
+;; (defn ->love
+;;   [opts]
+;;   (update (base (assoc opts :baseline-arousal 2))
+;;           :components
+;;           #(into %
+;;                  [[:brain/connection :_ {:destination [:ref :ma] :f :inhibit :source [:ref :sa]}]
+;;                   [:brain/connection :_ {:destination [:ref :mb] :f :inhibit :source [:ref :sb]}]])))
+
 
 (def builders
   {:brain/connection
@@ -146,6 +143,50 @@
     (into [(assoc body :components (into [] (map :id) comps))]
           comps)))
 
+(defn draw-state
+  [state]
+  (q/background (lib/->hsb (-> state :controls :background-color)))
+  (q/stroke-weight 1)
+  (q/stroke 0.3)
+  (lib/draw-entities state))
+
+(defn update-entity [entity state]
+  (let [env (env state)]
+    (-> entity
+        (lib/update-update-functions state)
+        (lib/update-body state)
+        lib/brownian-motion
+        lib/friction
+
+        lib/dart-distants-to-middle
+
+        lib/move-dragged
+        lib/update-rotation
+        lib/update-position
+
+        (lib/update-sensors env)
+        lib/activation-decay
+        lib/activation-shine
+        lib/shine
+        lib/update-lifetime)))
+
+(defn update-state
+  [state]
+  (let [current-tick (q/millis)
+        state (update state :controls merge @user-controls/!app)
+        dt (* (:time-speed (lib/controls))
+              (/ (- current-tick (:last-tick state)) 1000.0))]
+    (binding [*dt* dt]
+      (-> state
+          (assoc :last-tick current-tick)
+          (lib/update-ents #(update-entity % state))
+          lib/transduce-signals
+          lib/track-components
+          lib/track-conn-lines
+          lib/ray-source-collision-burst
+          lib/kill-entities))))
+
+
 (defn setup
   [controls]
   (q/rect-mode :center)
@@ -154,22 +195,40 @@
                                :background-color)))
   (lib/append-ents
     {:controls controls}
-    (concat (mapcat identity
-              (repeatedly (/ (:spawn-amount controls) 2)
-                          (comp ->cart
-                                #(->cart-2-b {:scale 1
-                                              :shine (when (:carts-shine? controls)
-                                                       (:cart-shinyness controls))}))))
-            (mapcat identity
-              (repeatedly (/ (:spawn-amount controls) 2)
-                          (comp ->cart
-                                #(->cart-2-a {:scale 1
-                                              :shine (when (:carts-shine? controls)
-                                                       (:cart-shinyness controls))}))))
-            (mapcat identity
-              (repeatedly (:ray-source-count controls)
-                          #(lib/->ray-source (lib/rand-on-canvas-gauss 0.8)
-                                             (+ 5 (rand 30))))))))
+    (concat
+
+     (mapcat identity
+             (repeatedly (/ (:spawn-amount controls) 2)
+                         (comp ->cart
+                               #(->cart-2-b {:scale 1
+                                             :shine (when (:carts-shine? controls)
+                                                      (:cart-shinyness controls))}))))
+
+     ;; (mapcat identity
+     ;;         (repeatedly (:covards-spawn controls)
+     ;;                     (comp ->cart
+     ;;                           #(->cart-2-a {:scale 1
+     ;;                                         :shine (when (:carts-shine? controls)
+     ;;                                                  (:cart-shinyness controls))}))))
+
+
+     ;; (mapcat identity
+     ;;         (repeatedly (/ (:spawn-amount controls) 2)
+     ;;                     (comp ->cart
+     ;;                           #(->love
+     ;;                             {:scale 1
+     ;;                              :shine (when (:carts-shine? controls)
+     ;;                                       (:cart-shinyness controls))}))))
+
+
+     (mapcat identity
+             (repeatedly (:ray-source-count controls)
+                         #(lib/->ray-source
+                          {:pos
+                           (lib/rand-on-canvas-gauss 0.8)
+                           :z-index 10
+                           :intensity
+                           (+ 5 (rand 30))}))))))
 
 (defn mouse-pressed
   [state]

@@ -244,6 +244,16 @@
   [opts]
   (merge (->entity :neuron) {:activation 0 :hidden? true :neuron? true} opts))
 
+(defn ->baseline-arousal [power]
+  (fn [e _]
+    (update e :activation + (normal-distr power power))))
+
+(defn ->cap-activation
+  ([] (->cap-activation 0))
+  ([at]
+   (fn [e _]
+     (update e :activation #(max at %)))))
+
 (defn normalize-value-1
   [min max value]
   (let [old-min min
@@ -421,6 +431,7 @@
 
 (def exite #(* 1 %))
 (def inhibit #(* -1 %))
+(defn ->weighted [weight] #(* weight %))
 
 (defn ->connection [{:keys [source destination hidden? f]}]
   (merge
@@ -494,14 +505,15 @@
     (assoc sensor :activation (min ray-intensity 14))))
 
 (defn ->ray-source
-  [pos intensity]
-  [(assoc (->entity :circle)
-          :transform (->transform pos 40 40 1)
-          :color 0
-          :ray-source? true
-          :intensity intensity
-          :particle? true
-          :shinyness intensity)])
+  [{:as opts :keys [pos intensity]}]
+  [(merge (->entity :circle)
+          {:color 0
+           :draggable? true
+           :particle? true
+           :ray-source? true
+           :shinyness intensity
+           :transform (->transform pos 40 40 1)}
+          opts)])
 
 (defn ->body
   [{:keys [pos scale rot] :as opts}]
@@ -564,24 +576,44 @@
     e
     (kinetic-energy-motion e (:brownian-factor (controls)))))
 
-
-
 (defn ->explosion
   [{:keys [n size pos color spread]}]
   (into []
         (map (fn []
-               (-> (merge (->entity :circle)
-                          {:color color
-                           :lifetime 1
-                           :transform
-                           (->transform
-                            [(normal-distr (first pos) spread)
-                             (normal-distr (second pos) spread)]
-                            size
-                            size
-                            1)})
-                   (kinetic-energy-motion 10))))
+               (let [spawn-pos [(normal-distr (first pos) spread)
+                                (normal-distr (second pos) spread)]]
+                 (-> (merge (->entity :circle)
+                            {:acceleration (normal-distr 1000 200)
+                             :color color
+                             :lifetime (normal-distr 1 0.5)
+                             :transform
+                               (assoc (->transform spawn-pos size size 1)
+                                 :rotation (angle-between spawn-pos pos))})))))
         (range n)))
+
+(defn ->wobble-anim [duration magnitute]
+  (let [s (atom {:time-since 0})]
+    (fn [e state]
+      (if (= :done @s)
+        e
+        (do
+          (when-not (:initial-scale @s)
+            (swap! s assoc :initial-scale (-> e :transform :scale)))
+          (swap! s update :time-since + *dt*)
+          (let [progress (/ (:time-since @s) duration)
+                initial-scale (:initial-scale @s)]
+            (if (< 1.0 progress)
+              (do
+                (reset! s :done)
+                (assoc-in e [:transform :scale] initial-scale))
+              (do
+                (assoc-in e
+                          [:transform :scale]
+                          (q/lerp
+                           (:initial-scale @s)
+                           (* (:initial-scale @s) magnitute)
+                           (q/sin (float (* q/PI progress)))))))))))))
+
 
 (defn ray-source-collision-burst
   [state]
@@ -599,28 +631,28 @@
                       (map :id))
                 (for [source sources body bodies] [source body]))]
     (-> state
-        (update :eid->entity
-                (fn [lut]
-                  (reduce (fn [m id]
-                            (-> m
-                                (assoc-in [id :last-exploded] (q/millis))
-                                (assoc-in [id :transform :scale] 2)))
-                    lut
-                    explode-them)))
-        (append-ents
-         (into []
-               (comp (map (entities-by-id state))
-                     (map (fn [e]
-                            (->explosion
-                             {:spread 1 :color (:color e) :n 20 :pos (position e) :size 10})))
-                     cat)
-               explode-them)))))
+        (update
+          :eid->entity
+          (fn [lut]
+            (reduce (fn [m id]
+                      (-> m
+                          (assoc-in [id :last-exploded] (q/millis))
+                          (update-in [id :on-update] conj (->wobble-anim 1 3))))
+              lut
+              explode-them)))
+        (append-ents (into []
+                           (comp (map (entities-by-id state))
+                                 (map (fn [e]
+                                        (->explosion
+                                         {:color (:color e)
+                                          :n 20
+                                          :pos (position e)
+                                          :size 10
+                                          :spread 10})))
+                                 cat)
+                           explode-them)))))
 
-(defn baseline-arousal
-  [e]
-  (if (:baseline-arousal e)
-    (update e
-            :activation
-            +
-            (normal-distr (:baseline-arousal e) (:baseline-arousal e)))
-    e))
+(defn update-update-functions [{:keys [on-update] :as entity} state]
+  (if on-update
+    (reduce (fn [e f] (f e state)) entity on-update)
+    entity))
