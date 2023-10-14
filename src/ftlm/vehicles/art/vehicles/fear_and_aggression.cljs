@@ -50,8 +50,8 @@
 
 
 (defn ->love
-  [{:keys [scale]}]
-  {:body {:scale scale :z-index -1}
+  [{:keys [scale] :as opts}]
+  {:body (assoc opts :z-index -1)
    :components
      [[:cart/motor :ma
        {:anchor :bottom-right :corner-r 5 :rotational-power 0.02
@@ -67,9 +67,9 @@
       [:brain/connection :_ {:destination [:ref :ma] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_ {:destination [:ref :mb] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_
-       {:destination [:ref :ma] :f (lib/->weighted -1.2) :source [:ref :sa]}]
+       {:destination [:ref :ma] :f (lib/->weighted -0.4) :source [:ref :sa]}]
       [:brain/connection :_
-       {:destination [:ref :mb] :f (lib/->weighted -1.2) :source [:ref :sb]}]]})
+       {:destination [:ref :mb] :f (lib/->weighted -0.4) :source [:ref :sb]}]]})
 
 ;; (defn ->love
 ;;   [opts]
@@ -135,6 +135,14 @@
     (into [(assoc body :components (into [] (map :id) comps))]
           comps)))
 
+(defmethod lib/event! :love
+  [_ {:keys [controls] :as state}]
+  (lib/append-ents state
+                   (->cart (->love {:color 0
+                                    :shinyness (when (:carts-shine? controls)
+                                                 (:cart-shinyness
+                                                  controls))}))))
+
 (defn draw-state
   [state]
   (q/background (lib/->hsb (-> state :controls :background-color)))
@@ -171,6 +179,7 @@
     (binding [*dt* dt]
       (-> state
           (assoc :last-tick current-tick)
+          lib/apply-events
           (lib/update-ents #(update-entity % state))
           lib/transduce-signals
           lib/track-components
@@ -204,13 +213,14 @@
      ;;                                                  (:cart-shinyness controls))}))))
 
 
-     ;; (mapcat identity
-     ;;         (repeatedly (/ (:spawn-amount controls) 2)
-     ;;                     (comp ->cart
-     ;;                           #(->love
-     ;;                             {:scale 1
-     ;;                              :shine (when (:carts-shine? controls)
-     ;;                                       (:cart-shinyness controls))}))))
+     (mapcat identity
+             (repeatedly (/ (:spawn-amount controls) 2)
+                         (comp ->cart
+                               #(->love
+                                 {:scale 1
+                                  :color 0
+                                  :shine (when (:carts-shine? controls)
+                                           (:cart-shinyness controls))}))))
 
 
      (mapcat identity
@@ -264,10 +274,14 @@
               (merge
                (controls/default-versions "fear_and_aggression")
                (get-in versions ["fear_and_aggression" version])
-               @user-controls/!app
-               )))]
-        (reset! restart-fn f)
+               @user-controls/!app)))]
+      (reset! restart-fn f)
         (f)))
   (defmethod user-controls/action-button ::restart
     [_]
     (some-> @restart-fn (apply nil))))
+
+
+(defmethod user-controls/action-button ::love
+  [_]
+  (swap! lib/event-queue conj :love))

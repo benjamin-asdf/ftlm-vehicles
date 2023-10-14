@@ -11,16 +11,27 @@
 (defmulti action-button identity)
 
 (def leva-controls
-  {"getting-around"
-   {:schema {:dart! (leva/button
-                      (fn []
-                        (action-button
-                          :ftlm.vehicles.art.vehicles.getting-around/dart!)))
-             :restart
-               (leva/button
-                 (fn []
-                   (action-button
-                    :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
+  {"fear_and_aggression"
+     {:schema
+        {:love! (leva/button
+                  (fn []
+                    (action-button
+                      :ftlm.vehicles.art.vehicles.fear-and-aggression/love)))
+         :restart
+           (leva/button
+             (fn []
+               (action-button
+                 :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}}
+   "getting-around"
+     {:schema {:dart! (leva/button
+                        (fn []
+                          (action-button
+                            :ftlm.vehicles.art.vehicles.getting-around/dart!)))
+               :restart
+                 (leva/button
+                   (fn []
+                     (action-button
+                       :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
 
 (defn ui
   [{:keys [version piece more-controls]}]

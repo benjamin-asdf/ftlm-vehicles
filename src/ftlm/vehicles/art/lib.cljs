@@ -6,6 +6,8 @@
 
 (def ^:dynamic *dt* nil)
 
+
+
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
@@ -656,3 +658,15 @@
   (if on-update
     (reduce (fn [e f] (f e state)) entity on-update)
     entity))
+
+(def event-queue (atom []))
+
+(defmulti event! (fn [e _] e))
+
+(defn apply-events
+  [state]
+  (reduce (fn [s e] (event! e s))
+          state
+          (let [r @event-queue]
+            (reset! event-queue [])
+            r)))
