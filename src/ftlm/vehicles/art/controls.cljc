@@ -40,10 +40,30 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
+   "fear_and_aggression" {:aggression-amount 4
+                          :background-color {:h 0 :s 0 :v 89}
+                          :brownian-factor 0.8
+                          :cart-scale 1
+                          :cart-shinyness 20
+                          :carts-shine? false
+                          :color-palatte [50 40 60]
+                          :explorer-amount 0
+                          :fear-amount 0
+                          :love-amount 0
+                          :make-trails? true
+                          :max-temp 1
+                          :ray-source-color {:h 0 :s 200 :v 89}
+                          :ray-source-count 15
+                          :spawn-amount 5
+                          :spawn-spread 0.4
+                          :time-speed 3
+                          :trail-color {:h 0 :s 0 :v 89}
+                          :trail-size 20}
    "getting-around" {:background-color {:h 0 :s 0 :v 89}
                      :brownian-factor 0.8
                      :cart-scale 1
                      :color-palatte [50 40 60]
+                     :make-trails? true
                      :max-temp 1
                      :spawn-amount 30
                      :spawn-spread 0.4
@@ -52,25 +72,7 @@
                      :temp-zone-count 10
                      :time-speed 2
                      :trail-color {:h 0 :s 0 :v 89}
-                     :trail-size 20
-                     :make-trails? true}
-   "fear_and_aggression"
-   {:background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :cart-scale 1
-    :color-palatte [50 40 60]
-    :max-temp 1
-    :spawn-amount 5
-    :covards-spawn 5
-    :spawn-spread 0.4
-    :time-speed 3
-    :trail-color {:h 0 :s 0 :v 89}
-    :trail-size 20
-    :make-trails? true
-    :ray-source-count 15
-    :ray-source-color {:h 0 :s 200 :v 89}
-    :carts-shine? false
-    :cart-shinyness 20}})
+                     :trail-size 20}})
 
 
 (def page-layouts

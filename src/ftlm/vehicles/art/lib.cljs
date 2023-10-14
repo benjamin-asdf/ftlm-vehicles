@@ -6,8 +6,6 @@
 
 (def ^:dynamic *dt* nil)
 
-
-
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
@@ -294,35 +292,43 @@
   (let [parent-by-id (into {}
                            (mapcat (fn [ent]
                                      (map (juxt identity (constantly ent))
-                                          (:components ent)))
-                                   (filter :components (entities state))))]
-    (-> state
-        (update-ents
-         (fn [{:as ent :keys [id]}]
-           (if-let [parent (parent-by-id id)]
-             (let [relative-position (relative-position parent ent)
-                   parent-rotation (-> parent
-                                       :transform
-                                       :rotation)
-                   scale (-> parent :transform :scale)]
-               (-> ent
-                   (assoc-in [:transform :pos]
-                             [(+ (first (v* [scale scale]
+                                       (:components ent)))
+                             (filter :components (entities state))))]
+    (->
+      state
+      (update-ents
+        (fn [{:as ent :keys [id]}]
+          (if-let [parent (parent-by-id id)]
+            (let [relative-position (relative-position parent ent)
+                  parent-rotation (-> parent
+                                      :transform
+                                      :rotation)
+                  parent-scale (-> parent
+                                   :transform
+                                   :scale)
+                  scale (or
+                         (-> ent :transform :absolute-scale)
+                         (* (-> ent :transform :scale) parent-scale))]
+              (-> ent
+                  (assoc-in [:transform :pos]
+                            [(+ (first (v* [parent-scale parent-scale]
+                                           (rotate-point parent-rotation
+                                                         relative-position)))
+                                (first (-> parent
+                                           :transform
+                                           :pos)))
+                             (+ (second (v* [parent-scale parent-scale]
                                             (rotate-point parent-rotation
                                                           relative-position)))
-                                 (first (-> parent
+                                (second (-> parent
                                             :transform
-                                            :pos)))
-                              (+ (second (v* [scale scale]
-                                             (rotate-point parent-rotation
-                                                           relative-position)))
-                                 (second (-> parent
-                                             :transform
-                                             :pos)))])
-                   (assoc-in [:transform :rotation]
-                             (-> parent :transform :rotation))
-                   (assoc-in [:transform :scale] scale)))
-             ent))))))
+                                            :pos)))])
+                  (assoc-in [:transform :rotation]
+                            (-> parent
+                                :transform
+                                :rotation))
+                  (assoc-in [:transform :scale] scale)))
+            ent))))))
 
 (defn draw-entities
   [state]
@@ -496,6 +502,20 @@
    +
    (:ray-sources env)))
 
+(defn ->grow
+  [speed]
+  (fn [e _]
+    (cond-> (update-in e [:transform :scale] + (* *dt* speed))
+      (-> e
+          :transform
+          :absolute-scale)
+        (update-in [:transform :absolute-scale] + (* *dt* speed)))))
+
+(defn ->clamp-scale
+  [max]
+  (fn [e _]
+    (update-in e [:transform :scale] #(min max %))))
+
 (defmethod update-sensor :rays
   [sensor env]
   (let [ray-intensity
@@ -506,6 +526,36 @@
          env)]
     (assoc sensor :activation (min ray-intensity 14))))
 
+(defn ->circular-shine-1
+  [pos color speed]
+  (assoc (->entity :circle)
+         :transform (assoc
+                     (->transform pos 20 20 0.5)
+                     :absolute-scale 0.5)
+    :lifetime 1
+    :color color
+    :z-index -4
+    :on-update [(->grow speed) (->clamp-scale 20)]))
+
+(defn ->circular-shine
+  [freq speed]
+  (let [s (atom {:next freq})]
+    (fn [entity state]
+      (swap! s update :next - *dt*)
+      (when (<= (:next @s) 0)
+        (swap! s assoc :next (normal-distr freq freq))
+        (let [se (->circular-shine-1 (position entity)
+                                     (q/color (q/hue (:color entity))
+                                              (q/lightness (:color entity))
+                                              (q/saturation (:color entity))
+                                              100)
+                                     speed)]
+          {:updated-state (-> state
+                              (update-in [:eid->entity (:id entity) :components]
+                                         (fnil conj [])
+                                         (:id se))
+                              (append-ents [se]))})))))
+
 (defn ->ray-source
   [{:as opts :keys [pos intensity]}]
   [(merge (->entity :circle)
@@ -513,8 +563,10 @@
            :draggable? true
            :particle? true
            :ray-source? true
+           :makes-circular-shines? true
            :shinyness intensity
-           :transform (->transform pos 40 40 1)}
+           :on-update [(->circular-shine 1.5 (/ intensity 3))]
+           :transform (assoc (->transform pos 40 40 1) :scale 1)}
           opts)])
 
 (defn ->body
@@ -616,7 +668,6 @@
                            (* (:initial-scale @s) magnitute)
                            (q/sin (float (* q/PI progress)))))))))))))
 
-
 (defn ray-source-collision-burst
   [state]
   (let [sources (sequence (comp (filter :ray-source?)
@@ -645,19 +696,29 @@
         (append-ents (into []
                            (comp (map (entities-by-id state))
                                  (map (fn [e]
-                                        (->explosion
-                                         {:color (:color e)
-                                          :n 20
-                                          :pos (position e)
-                                          :size 10
-                                          :spread 10})))
+                                        (->explosion {:color (:color e)
+                                                      :n 20
+                                                      :pos (position e)
+                                                      :size 10
+                                                      :spread 10})))
                                  cat)
                            explode-them)))))
 
-(defn update-update-functions [{:keys [on-update] :as entity} state]
-  (if on-update
-    (reduce (fn [e f] (f e state)) entity on-update)
-    entity))
+
+(defn update-update-functions
+  [state]
+  (transduce (filter :on-update)
+             (completing (fn [s {:keys [on-update id]}]
+                           (reduce (fn [s f]
+                                     (let [{:as e :keys [updated-state]}
+                                             (f ((entities-by-id s) id) s)]
+                                       (cond updated-state updated-state
+                                             e (assoc-in s [:eid->entity id] e)
+                                             :else s)))
+                             s
+                             on-update)))
+             state
+             (entities state)))
 
 (def event-queue (atom []))
 
@@ -666,7 +727,7 @@
 (defn apply-events
   [state]
   (reduce (fn [s e] (event! e s))
-          state
-          (let [r @event-queue]
-            (reset! event-queue [])
-            r)))
+    state
+    (let [r @event-queue]
+      (reset! event-queue [])
+      r)))
