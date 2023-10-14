@@ -58,7 +58,11 @@
                           :spawn-spread 0.4
                           :time-speed 3
                           :trail-color {:h 0 :s 0 :v 89}
-                          :trail-size 20}
+                          :trail-size 20
+                          :ray-sources-spawn-rate 0.8
+                          :ray-sources-die? true
+                          ;; true
+                          }
    "getting-around" {:background-color {:h 0 :s 0 :v 89}
                      :brownian-factor 0.8
                      :cart-scale 1

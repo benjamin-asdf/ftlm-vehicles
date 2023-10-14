@@ -30,7 +30,7 @@
       :hidden? true
       :source [:ref :arousal]}]]})
 
-(defn ->cart-2-a
+(defn ->fear
   [opts]
   (update (base opts)
           :components
@@ -40,7 +40,7 @@
                   [:brain/connection :_
                    {:destination [:ref :mb] :f :exite :source [:ref :sb]}]])))
 
-(defn ->cart-2-b
+(defn ->aggression
   [opts]
   (update (base opts)
           :components
@@ -66,9 +66,9 @@
       [:brain/connection :_ {:destination [:ref :ma] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_ {:destination [:ref :mb] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_
-       {:destination [:ref :ma] :f (lib/->weighted -0.4) :source [:ref :sa]}]
+       {:destination [:ref :ma] :f (lib/->weighted -0.8) :source [:ref :sa]}]
       [:brain/connection :_
-       {:destination [:ref :mb] :f (lib/->weighted -0.4) :source [:ref :sb]}]]})
+       {:destination [:ref :mb] :f (lib/->weighted -0.8) :source [:ref :sb]}]]})
 
 (defn ->explore
   [{:keys [scale] :as opts}]
@@ -83,22 +83,12 @@
     [:cart/sensor :sa {:anchor :top-right :modality :rays}]
     [:cart/sensor :sb {:anchor :top-left :modality :rays}]
     [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
-    ;; The love cart moves with arousal, but more focused
     [:brain/connection :_ {:destination [:ref :ma] :f :exite :hidden? true :source [:ref :arousal]}]
     [:brain/connection :_ {:destination [:ref :mb] :f :exite :hidden? true :source [:ref :arousal]}]
     [:brain/connection :_
      {:destination [:ref :ma] :f (lib/->weighted -1) :source [:ref :sb]}]
     [:brain/connection :_
      {:destination [:ref :mb] :f (lib/->weighted -1) :source [:ref :sa]}]]})
-
-;; (defn ->love
-;;   [opts]
-;;   (update (base (assoc opts :baseline-arousal 2))
-;;           :components
-;;           #(into %
-;;                  [[:brain/connection :_ {:destination [:ref :ma] :f :inhibit :source [:ref :sa]}]
-;;                   [:brain/connection :_ {:destination [:ref :mb] :f :inhibit :source [:ref :sb]}]])))
-
 
 (def builders
   {:brain/connection
@@ -192,6 +182,7 @@
         lib/shine
         lib/update-lifetime)))
 
+
 (defn update-state
   [state]
   (let [current-tick (q/millis)
@@ -202,6 +193,7 @@
       (-> state
           (assoc :last-tick current-tick)
           lib/update-update-functions
+          lib/update-state-update-functions
           lib/apply-events
           (lib/update-ents #(update-entity % state))
           lib/transduce-signals
@@ -218,54 +210,40 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (lib/append-ents
-    {:controls controls}
+    {:controls controls
+     :on-update (concat (when-not (zero? (controls :ray-sources-spawn-rate))
+                          [(lib/every-n-seconds
+                             (/ 1 (controls :ray-sources-spawn-rate))
+                             (fn [state]
+                               state
+                               (lib/append-ents
+                                 state
+                                 (lib/->ray-source
+                                   {:intensity (+ 5 (rand 30))
+                                    :pos (lib/rand-on-canvas-gauss 0.8)
+                                    :z-index 10}))))]))}
     (concat
-
-     ;; (mapcat identity
-     ;;         (repeatedly (/ (:spawn-amount controls) 2)
-     ;;                     (comp ->cart
-     ;;                           #(->cart-2-b {:scale 1
-     ;;                                         :shine (when (:carts-shine? controls)
-     ;;                                                  (:cart-shinyness controls))}))))
-
-     ;; (mapcat identity
-     ;;         (repeatedly (:covards-spawn controls)
-     ;;                     (comp ->cart
-     ;;                           #(->cart-2-a {:scale 1
-     ;;                                         :shine (when (:carts-shine? controls)
-     ;;                                                  (:cart-shinyness controls))}))))
-
-
-     (mapcat identity
-             (repeatedly (/ (:spawn-amount controls) 2)
-                         (comp ->cart
-                               #(->love
-                                 {:scale 1
-                                  :color 0
-                                  :shine (when (:carts-shine? controls)
-                                           (:cart-shinyness controls))}))))
-
-     ;; (mapcat identity
-     ;;         (repeatedly (/ (:spawn-amount controls) 2)
-     ;;                     (comp ->cart
-     ;;                           #(->explore
-     ;;                             {:scale 1
-     ;;                              :color 200
-     ;;                              :shine (when (:carts-shine? controls)
-     ;;                                       (:cart-shinyness controls))}))))
-
-
-     (mapcat identity
-             (repeatedly
-              (:ray-source-count controls)
-              #(lib/->ray-source
-                {:pos
-                 (lib/rand-on-canvas-gauss 0.8)
-                 :z-index 10
-                 :intensity
-
-                 (+ 5 (rand 30))
-                 }))))))
+      (mapcat identity (repeatedly 1 (comp ->cart #(->aggression {:scale 1}))))
+      (mapcat identity (repeatedly 2 (comp ->cart #(->fear {:scale 1}))))
+      (mapcat identity
+              (repeatedly 3
+                    (comp ->cart
+                          #(->love {:color 0
+                                    :scale 1
+                                    :shine (when (:carts-shine? controls)
+                                             (:cart-shinyness controls))}))))
+      (mapcat identity
+              (repeatedly 1
+                    (comp ->cart
+                          #(->explore {:color 200
+                                       :scale 1
+                                       :shine (when (:carts-shine? controls)
+                                                (:cart-shinyness controls))}))))
+      (mapcat identity
+        (repeatedly (:ray-source-count controls)
+                    #(lib/->ray-source {:intensity (+ 5 (rand 30))
+                                        :pos (lib/rand-on-canvas-gauss 0.8)
+                                        :z-index 10}))))))
 
 (defn mouse-pressed
   [state]

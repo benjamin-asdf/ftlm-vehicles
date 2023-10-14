@@ -684,15 +684,18 @@
                       (map :id))
                 (for [source sources body bodies] [source body]))]
     (-> state
-        (update
-          :eid->entity
-          (fn [lut]
-            (reduce (fn [m id]
-                      (-> m
-                          (assoc-in [id :last-exploded] (q/millis))
-                          (update-in [id :on-update] conj (->wobble-anim 1 3))))
-              lut
-              explode-them)))
+        (update :eid->entity
+                (fn [lut]
+                  (reduce (fn [m id]
+                            (cond-> m
+                              :always (assoc-in [id :last-exploded] (q/millis))
+                              :always (update-in [id :on-update]
+                                                 conj
+                                                 (->wobble-anim 1 3))
+                              (-> state :controls :ray-sources-die?)
+                              (assoc-in [id :lifetime] 0.8)))
+                    lut
+                    explode-them)))
         (append-ents (into []
                            (comp (map (entities-by-id state))
                                  (map (fn [e]
@@ -704,21 +707,32 @@
                                  cat)
                            explode-them)))))
 
-
 (defn update-update-functions
   [state]
   (transduce (filter :on-update)
              (completing (fn [s {:keys [on-update id]}]
                            (reduce (fn [s f]
                                      (let [{:as e :keys [updated-state]}
-                                             (f ((entities-by-id s) id) s)]
+                                           (f ((entities-by-id s) id) s)]
                                        (cond updated-state updated-state
                                              e (assoc-in s [:eid->entity id] e)
                                              :else s)))
-                             s
-                             on-update)))
+                                   s
+                                   on-update)))
              state
              (entities state)))
+
+(defn update-state-update-functions
+  [{:keys [on-update] :as state}]
+  (reduce (fn [s f] (or (f s) s)) state on-update))
+
+(defn every-n-seconds [n f]
+  (let [till (atom n)]
+    (fn [state]
+      (swap! till - *dt*)
+      (when (< @till 0)
+        (reset! till n)
+        (f state)))))
 
 (def event-queue (atom []))
 
