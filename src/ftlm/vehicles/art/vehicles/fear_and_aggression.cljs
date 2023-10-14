@@ -63,15 +63,7 @@
       [:cart/sensor :sb {:anchor :top-left :modality :rays}]
       ;; You don't get love if you are too fidgety... huh
       [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
-
-
-      ;; [:brain/neuron :cap->mb
-      ;;  {:on-update (fn [e] (update e :activation #(max 0 %)))}]
-      ;; [:brain/neuron :cap->ma
-      ;;  {:on-update (fn [e] (update e :activation #(max 0 %)))}]
-
       ;; The love cart moves with arousal, but more focused
-
       [:brain/connection :_ {:destination [:ref :ma] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_ {:destination [:ref :mb] :f :exite :hidden? true :source [:ref :arousal]}]
       [:brain/connection :_
