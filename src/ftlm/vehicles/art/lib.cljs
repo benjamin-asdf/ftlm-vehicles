@@ -477,6 +477,18 @@
   (let [desired-angle (angle-between (position entity) target)]
     (assoc-in entity [:transform :rotation] desired-angle)))
 
+(defn ->grow
+  [speed]
+  (fn [e _]
+    (cond-> (update-in e [:transform :scale] + (* *dt* speed))
+      (-> e :transform :absolute-scale)
+      (update-in [:transform :absolute-scale] + (* *dt* speed)))))
+
+(defn ->clamp-scale
+  [max]
+  (fn [e _]
+    (update-in e [:transform :scale] #(min max %))))
+
 ;; sensors have 180 degree of seeing.
 ;; 1 directly in front 0 to the side, 0 when behind
 (defn calculate-adjustment [angle looking-direction]
@@ -494,22 +506,9 @@
                                  (/ (* distance distance) 5000))
                 adjustment (calculate-adjustment angle
                                                  sensor-looking-direction)]
-            (* raw-intensity adjustment)
-            )))
+            (* raw-intensity adjustment))))
    +
    (:ray-sources env)))
-
-(defn ->grow
-  [speed]
-  (fn [e _]
-    (cond-> (update-in e [:transform :scale] + (* *dt* speed))
-      (-> e :transform :absolute-scale)
-      (update-in [:transform :absolute-scale] + (* *dt* speed)))))
-
-(defn ->clamp-scale
-  [max]
-  (fn [e _]
-    (update-in e [:transform :scale] #(min max %))))
 
 (defmethod update-sensor :rays
   [sensor env]
@@ -592,8 +591,7 @@
               (- (q/millis) (get entity :last-darted -500))))
     (-> entity
         (orient-towards (mid-point))
-        (assoc :acceleration 100 ;; 300
-               )
+        (assoc :acceleration 100)
         (assoc :last-darted (q/millis)))
     entity))
 

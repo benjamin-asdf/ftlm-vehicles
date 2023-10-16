@@ -11,132 +11,143 @@
 (defn env [state]
   {:ray-sources (into [] (filter :ray-source?) (lib/entities state))})
 
-(defn base
-  [{:keys [scale baseline-arousal]}]
-  {:body {:scale scale}
-   :components
-     [[:cart/motor :ma
-       {:anchor :bottom-right
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/motor :mb
-       {:anchor :bottom-left
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/sensor :sa {:anchor :top-right :modality :rays}]
-      [:cart/sensor :sb {:anchor :top-left :modality :rays}]
-      [:brain/neuron :arousal
-       {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
-      [:brain/connection :_
-       {:destination [:ref :mb] :f rand :hidden? true :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :ma]
-        :f rand
-        :hidden? true
-        :source [:ref :arousal]}]]})
+(def body-plans
+  {:aggression (fn [{:as opts :keys [baseline-arousal]}]
+                 {:body opts
+                  :components
+                    [[:cart/motor :ma
+                      {:anchor :bottom-right
+                       :corner-r 5
+                       :on-update [(lib/->cap-activation)]
+                       :rotational-power 0.02}]
+                     [:cart/motor :mb
+                      {:anchor :bottom-left
+                       :corner-r 5
+                       :on-update [(lib/->cap-activation)]
+                       :rotational-power 0.02}]
+                     [:cart/sensor :sa {:anchor :top-right :modality :rays}]
+                     [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+                     [:brain/neuron :arousal
+                      {:on-update [(lib/->baseline-arousal (or baseline-arousal
+                                                               0.8))]}]
+                     [:brain/connection :_
+                      {:destination [:ref :mb]
+                       :f rand
+                       :hidden? true
+                       :source [:ref :arousal]}]
+                     [:brain/connection :_
+                      {:destination [:ref :ma]
+                       :f rand
+                       :hidden? true
+                       :source [:ref :arousal]}]
+                     [:brain/connection :_
+                      {:destination [:ref :ma] :f :exite :source [:ref :sb]}]
+                     [:brain/connection :_
+                      {:destination [:ref :mb] :f :exite :source [:ref :sa]}]]})
+   :explore
+     (fn [{:as opts}]
+       {:body (assoc opts :color 200)
+        :components
+          [[:cart/motor :ma
+            {:anchor :bottom-right
+             :corner-r 5
+             :on-update [(lib/->cap-activation)]
+             :rotational-power 0.02}]
+           [:cart/motor :mb
+            {:anchor :bottom-left
+             :corner-r 5
+             :on-update [(lib/->cap-activation)]
+             :rotational-power 0.02}]
+           [:cart/sensor :sa {:anchor :top-right :modality :rays}]
+           [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+           [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
+           [:brain/connection :_
+            {:destination [:ref :ma]
+             :f :exite
+             :hidden? true
+             :source [:ref :arousal]}]
+           [:brain/connection :_
+            {:destination [:ref :mb]
+             :f :exite
+             :hidden? true
+             :source [:ref :arousal]}]
+           [:brain/connection :_
+            {:destination [:ref :ma] :f (lib/->weighted -1) :source [:ref :sb]}]
+           [:brain/connection :_
+            {:destination [:ref :mb]
+             :f (lib/->weighted -1)
+             :source [:ref :sa]}]]})
+   :fear (fn [{:as opts :keys [baseline-arousal]}]
+           {:body (merge {:color 50} opts)
+            :components [[:cart/motor :ma
+                          {:anchor :bottom-right
+                           :corner-r 5
+                           :on-update [(lib/->cap-activation)]
+                           :rotational-power 0.03}]
+                         [:cart/motor :mb
+                          {:anchor :bottom-left
+                           :corner-r 5
+                           :on-update [(lib/->cap-activation)]
+                           :rotational-power 0.03}]
+                         [:cart/sensor :sa {:anchor :top-right :modality :rays}]
+                         [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+                         [:brain/neuron :arousal
+                          {:on-update [(lib/->baseline-arousal
+                                         (or baseline-arousal 0.6))]}]
+                         [:brain/connection :_
+                          {:destination [:ref :mb]
+                           :f rand
+                           :hidden? true
+                           :source [:ref :arousal]}]
+                         [:brain/connection :_
+                          {:destination [:ref :ma]
+                           :f rand
+                           :hidden? true
+                           :source [:ref :arousal]}]
+                         [:brain/connection :_
+                          {:destination [:ref :ma]
+                           :f (lib/->weighted 0.5)
+                           :source [:ref :sa]}]
+                         [:brain/connection :_
+                          {:destination [:ref :mb]
+                           :f (lib/->weighted 0.5)
+                           :source [:ref :sb]}]]})
+   :love (fn [{:as opts}]
+           {:body (assoc opts :color 0)
+            :components [[:cart/motor :ma
+                          {:anchor :bottom-right
+                           :corner-r 5
+                           :on-update [(lib/->cap-activation)]
+                           :rotational-power 0.02}]
+                         [:cart/motor :mb
+                          {:anchor :bottom-left
+                           :corner-r 5
+                           :on-update [(lib/->cap-activation)]
+                           :rotational-power 0.02}]
+                         [:cart/sensor :sa {:anchor :top-right :modality :rays}]
+                         [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+                         [:brain/neuron :arousal
+                          {:on-update [(lib/->baseline-arousal 1)]}]
+                         ;; The love cart moves with arousal, but more focused
+                         [:brain/connection :_
+                          {:destination [:ref :ma]
+                           :f :exite
+                           :hidden? true
+                           :source [:ref :arousal]}]
+                         [:brain/connection :_
+                          {:destination [:ref :mb]
+                           :f :exite
+                           :hidden? true
+                           :source [:ref :arousal]}]
+                         [:brain/connection :_
+                          {:destination [:ref :ma]
+                           :f (lib/->weighted -0.5)
+                           :source [:ref :sa]}]
+                         [:brain/connection :_
+                          {:destination [:ref :mb]
+                           :f (lib/->weighted -0.5)
+                           :source [:ref :sb]}]]})})
 
-(defn ->fear
-  [{:as opts :keys [scale baseline-arousal]}]
-  {:body {:color 50 :scale scale}
-   :components
-     [[:cart/motor :ma
-       {:anchor :bottom-right
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.03}]
-      [:cart/motor :mb
-       {:anchor :bottom-left
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.03}]
-      [:cart/sensor :sa {:anchor :top-right :modality :rays}]
-      [:cart/sensor :sb {:anchor :top-left :modality :rays}]
-      [:brain/neuron :arousal
-       {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.6))]}]
-      [:brain/connection :_
-       {:destination [:ref :mb] :f rand :hidden? true :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :ma] :f rand :hidden? true :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :ma] :f (lib/->weighted 0.5) :source [:ref :sa]}]
-      [:brain/connection :_
-       {:destination [:ref :mb] :f (lib/->weighted 0.5) :source [:ref :sb]}]]})
-
-(defn ->aggression
-  [opts]
-  (update (base opts)
-          :components
-          #(into %
-                 [[:brain/connection :_ {:destination [:ref :ma] :f :exite :source [:ref :sb]}]
-                  [:brain/connection :_ {:destination [:ref :mb] :f :exite :source [:ref :sa]}]])))
-
-
-(defn ->love
-  [{:as opts :keys [scale]}]
-  {:body opts
-   :components
-     [[:cart/motor :ma
-       {:anchor :bottom-right
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/motor :mb
-       {:anchor :bottom-left
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/sensor :sa {:anchor :top-right :modality :rays}]
-      [:cart/sensor :sb {:anchor :top-left :modality :rays}]
-      [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
-      ;; The love cart moves with arousal, but more focused
-      [:brain/connection :_
-       {:destination [:ref :ma]
-        :f :exite
-        :hidden? true
-        :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :mb]
-        :f :exite
-        :hidden? true
-        :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :ma] :f (lib/->weighted -0.5) :source [:ref :sa]}]
-      [:brain/connection :_
-       {:destination [:ref :mb] :f (lib/->weighted -0.5) :source [:ref :sb]}]]})
-
-(defn ->explore
-  [{:as opts :keys [scale]}]
-  {:body opts
-   :components
-     [[:cart/motor :ma
-       {:anchor :bottom-right
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/motor :mb
-       {:anchor :bottom-left
-        :corner-r 5
-        :on-update [(lib/->cap-activation)]
-        :rotational-power 0.02}]
-      [:cart/sensor :sa {:anchor :top-right :modality :rays}]
-      [:cart/sensor :sb {:anchor :top-left :modality :rays}]
-      [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
-      [:brain/connection :_
-       {:destination [:ref :ma]
-        :f :exite
-        :hidden? true
-        :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :mb]
-        :f :exite
-        :hidden? true
-        :source [:ref :arousal]}]
-      [:brain/connection :_
-       {:destination [:ref :ma] :f (lib/->weighted -1) :source [:ref :sb]}]
-      [:brain/connection :_
-       {:destination [:ref :mb] :f (lib/->weighted -1) :source [:ref :sa]}]]})
 
 (def builders
   {:brain/connection
@@ -194,14 +205,8 @@
           comps)))
 
 (defmethod lib/event! :love
-  [_ {:keys [controls] :as state}]
-  (lib/append-ents
-   state
-   (->cart
-    (->love {:color 0
-             :shinyness (when (:carts-shine? controls)
-                          (:cart-shinyness
-                           controls))}))))
+  [_ {:as state :keys [controls]}]
+  (lib/append-ents state (->cart ((body-plans :love) {}))))
 
 (defn draw-state
   [state]
@@ -250,8 +255,6 @@
           lib/ray-source-collision-burst
           lib/kill-entities))))
 
-
-
 (defn setup
   [controls]
   (q/rect-mode :center)
@@ -270,38 +273,24 @@
                                      (lib/->ray-source
                                        {:intensity (+ 5 (rand 30))
                                         :pos (lib/rand-on-canvas-gauss 0.6)
-                                        :z-index 10}))))]))}]
-    (->
-      state
-      (lib/append-ents (mapcat identity
-                         (repeatedly 1
-                                     (comp ->cart #(->aggression {:scale 1})))))
-      (lib/append-ents (mapcat identity
-                         (repeatedly 2 (comp ->cart #(->fear {:scale 1})))))
-      (lib/append-ents
-        (doall (mapcat (comp ->cart
-                             #(->love {:color 0
-                                       :scale 1
-                                       :shine (when (:carts-shine? controls)
-                                                (:cart-shinyness
-                                                controls))}))
-                 (range 3))))
-      (lib/append-ents
-        (mapcat identity
-          (repeatedly 2
-                      (comp ->cart
-                            #(->explore {:color 200
-                                         :scale 1
-                                         :shine (when (:carts-shine?
-                                         controls)
-                                                  (:cart-shinyness
-                                                   controls))})))))
-      (lib/append-ents (mapcat identity
-                         (repeatedly (:ray-source-count controls)
-                                     #(lib/->ray-source
-                                        {:intensity (+ 5 (rand 30))
-                                         :pos (lib/rand-on-canvas-gauss 0.8)
-                                         :z-index 10})))))))
+                                        :z-index 10}))))]))}
+        spawn-them [{:amount 1 :kind :aggression} {:amount 3 :kind :love}
+                    {:amount 2 :kind :fear} {:amount 2 :kind :explore}]]
+    (-> state
+        (lib/append-ents
+          (->> spawn-them
+               (sequence
+                 (comp (mapcat (fn [{:keys [amount kind opts]}]
+                                 (repeatedly amount #((body-plans kind) opts))))
+                       (map (fn [i] (def i i) i))
+                       (map ->cart)
+                       cat))))
+        (lib/append-ents (mapcat identity
+                           (repeatedly (:ray-source-count controls)
+                                       #(lib/->ray-source
+                                          {:intensity (+ 5 (rand 30))
+                                           :pos (lib/rand-on-canvas-gauss 0.8)
+                                           :z-index 10})))))))
 
 (defn on-double-click
   [state id]
