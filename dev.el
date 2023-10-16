@@ -1,4 +1,4 @@
-(defun ftlm-vehicles-shadow-cljs-connect-app-client ()
+(defun ftlm-vehicles-cider-shadow-cljs-connect-app-client ()
   (interactive)
   (let ((cider-shadow-default-options ":client"))
     (cider-connect-cljs

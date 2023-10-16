@@ -13,15 +13,21 @@
 (def leva-controls
   {"fear_and_aggression"
      {:schema
-        {:love! (leva/button
-                  (fn []
-                    (action-button
-                      :ftlm.vehicles.art.vehicles.fear-and-aggression/love)))
-         :restart
-           (leva/button
-             (fn []
-               (action-button
-                 :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}}
+      {:love! (leva/button
+               (fn []
+                 (action-button
+                  :ftlm.vehicles.art.vehicles.fear-and-aggression/love)))
+       :restart
+       (leva/button
+        (fn []
+          (action-button
+           :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))
+       ;; {:schema
+       ;;  (leva/)
+       ;;  }
+       }
+
+      }
    "getting-around"
      {:schema {:dart! (leva/button
                         (fn []

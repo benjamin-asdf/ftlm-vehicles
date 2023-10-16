@@ -333,14 +333,11 @@
 (defn draw-entities
   [state]
   (doseq [{:as entity :keys [color]}
-          (sort-by
-           (u/by (some-fn :z-index (constantly 0))
-                 u/ascending
-                 :id
-                 u/ascending)
-           (sequence
-            (remove :hidden?)
-            (entities state)))]
+          (sort (u/by (some-fn :z-index (constantly 0))
+                      u/ascending
+                      :id
+                      u/ascending)
+                (sequence (remove :hidden?) (entities state)))]
     (draw-color color)
     (draw-entity entity)))
 
@@ -506,10 +503,8 @@
   [speed]
   (fn [e _]
     (cond-> (update-in e [:transform :scale] + (* *dt* speed))
-      (-> e
-          :transform
-          :absolute-scale)
-        (update-in [:transform :absolute-scale] + (* *dt* speed)))))
+      (-> e :transform :absolute-scale)
+      (update-in [:transform :absolute-scale] + (* *dt* speed)))))
 
 (defn ->clamp-scale
   [max]
@@ -597,7 +592,8 @@
               (- (q/millis) (get entity :last-darted -500))))
     (-> entity
         (orient-towards (mid-point))
-        (assoc :acceleration 300)
+        (assoc :acceleration 100 ;; 300
+               )
         (assoc :last-darted (q/millis)))
     entity))
 
