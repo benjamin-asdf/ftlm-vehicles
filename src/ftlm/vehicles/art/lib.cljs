@@ -39,6 +39,8 @@
 (defn transform [e] (:transform e))
 (defn position [e] (-> e transform :pos))
 (defn rotation [e] (-> e transform :rotation))
+(defn scale [e] (-> e transform :scale))
+
 
 (defn ->connection-line [entity-a entity-b]
   (merge
@@ -551,7 +553,7 @@
                               (append-ents [se]))})))))
 
 (defn ->ray-source
-  [{:as opts :keys [pos intensity]}]
+  [{:as opts :keys [pos intensity scale]}]
   [(merge (->entity :circle)
           {:color 0
            :draggable? true
@@ -560,7 +562,7 @@
            :makes-circular-shines? true
            :shinyness intensity
            :on-update [(->circular-shine 1.5 (/ intensity 3))]
-           :transform (assoc (->transform pos 40 40 1) :scale 1)}
+           :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
           opts)])
 
 (defn ->body
@@ -673,7 +675,8 @@
         explode-them
           (into #{}
                 (comp (remove (fn [[s b]]
-                                (< 100 (distance (position s) (position b)))))
+
+                                (< (* (scale s) 100) (distance (position s) (position b)))))
                       (map first)
                       (map :id))
                 (for [source sources body bodies] [source body]))]
@@ -730,12 +733,12 @@
 
 (def event-queue (atom []))
 
-(defmulti event! (fn [e _] e))
+(defmulti event! (fn [e _] (or :kind e e)))
 
 (defn apply-events
   [state]
   (reduce (fn [s e] (event! e s))
-    state
-    (let [r @event-queue]
-      (reset! event-queue [])
-      r)))
+          state
+          (let [r @event-queue]
+            (reset! event-queue [])
+            r)))

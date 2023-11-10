@@ -239,7 +239,7 @@
 (defn update-state
   [state]
   (let [current-tick (q/millis)
-        state (update state :controls merge @user-controls/!app)
+        state (update state :controls merge (user-controls/controls))
         dt (* (:time-speed (lib/controls))
               (/ (- current-tick (:last-tick state)) 1000.0))]
     (binding [*dt* dt]
@@ -263,34 +263,40 @@
                                :background-color)))
   (let [state {:controls controls
                :on-update (concat
-                            (when-not (zero? (controls :ray-sources-spawn-rate))
-                              [(lib/every-n-seconds
-                                 (/ 1 (controls :ray-sources-spawn-rate))
-                                 (fn [state]
-                                   state
-                                   (lib/append-ents
-                                     state
-                                     (lib/->ray-source
-                                       {:intensity (+ 5 (rand 30))
-                                        :pos (lib/rand-on-canvas-gauss 0.6)
-                                        :z-index 10}))))]))}
-        spawn-them [{:amount 1 :kind :aggression} {:amount 3 :kind :love}
-                    {:amount 2 :kind :fear} {:amount 2 :kind :explore}]]
+                           (when-not (zero? (controls :ray-sources-spawn-rate))
+                             [(lib/every-n-seconds
+                               (/ 1 (controls :ray-sources-spawn-rate))
+                               (fn [state]
+                                 state
+                                 (lib/append-ents
+                                  state
+                                  (lib/->ray-source
+                                   {:intensity (+ 5 (rand 30))
+                                    :pos (lib/rand-on-canvas-gauss 0.2)
+                                    :scale 0.3
+                                    :z-index 10}))))]))}]
+
     (-> state
         (lib/append-ents
-          (->> spawn-them
-               (sequence
-                 (comp (mapcat (fn [{:keys [amount kind opts]}]
-                                 (repeatedly amount #((body-plans kind) opts))))
-                       (map (fn [i] (def i i) i))
-                       (map ->cart)
-                       cat))))
+         (->>
+          #{:fear :aggression :love :explore}
+          (sequence
+           (comp
+            (map (juxt identity controls))
+            (mapcat (fn [[kind {:keys [amount] :as opts}]]
+                      (let [opts (assoc opts :scale 0.4)]
+                        (repeatedly amount #((body-plans kind) opts)))))
+            (map ->cart)
+            cat))))
         (lib/append-ents (mapcat identity
-                           (repeatedly (:ray-source-count controls)
-                                       #(lib/->ray-source
-                                          {:intensity (+ 5 (rand 30))
-                                           :pos (lib/rand-on-canvas-gauss 0.8)
-                                           :z-index 10})))))))
+                                 (repeatedly
+                                  ;; (:ray-source-count controls)
+                                  0
+                                  #(lib/->ray-source
+                                    {:intensity (+ 5 (rand 30))
+                                     :pos (lib/rand-on-canvas-gauss 0.4)
+                                     :scale 0.3
+                                     :z-index 10})))))))
 
 (defn on-double-click
   [state id]
@@ -374,7 +380,5 @@
     [_]
     (some-> @restart-fn (apply nil))))
 
-(defmethod user-controls/action-button ::love [_] (swap! lib/event-queue conj :love))
-(defmethod user-controls/action-button ::explore [_] (swap! lib/event-queue conj :explore))
-(defmethod user-controls/action-button ::aggression [_] (swap! lib/event-queue conj :aggression))
-(defmethod user-controls/action-button ::fear [_] (swap! lib/event-queue conj :fear))
+(defmethod user-controls/action-button ::spawn [[_ what]]
+  (swap! lib/event-queue conj {:kind ::spawn :what what}))
