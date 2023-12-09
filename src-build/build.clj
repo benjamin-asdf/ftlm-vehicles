@@ -1,5 +1,5 @@
 (ns build
-  "build electric.jar library artifact and demos"
+  ""
   (:require
    [css-gen]
    [clojure.java.io :as io]
