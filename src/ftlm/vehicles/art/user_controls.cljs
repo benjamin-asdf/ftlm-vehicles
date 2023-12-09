@@ -32,16 +32,22 @@
                (action-button
                  :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}
       :sub-schemas
+      (let [->spawn-btn
+            (fn [k]
+              {:spawn!
+               (leva/button
+                (fn []
+                  (action-button
+                   :ftlm.vehicles.art.vehicles.fear-and-aggression/spawn
+                   k)))})]
         {:love
-         {:schema
-          {:spawn!
-           (leva/button
-            (fn []
-              (action-button
-               :ftlm.vehicles.art.vehicles.fear-and-aggression/love
-               :love)))}}
-
-         }}
+         {:schema (->spawn-btn :love)}
+         :fear
+         {:schema (->spawn-btn :fear)}
+         :aggression
+         {:schema (->spawn-btn :aggression)}
+         :explore
+         {:schema (->spawn-btn :explore)}})}
    "getting-around"
      {:schema {:dart! (leva/button
                         (fn []
@@ -63,8 +69,9 @@
        [leva/Controls
         {:schema
          (-> more-controls :sub-schemas k :schema)
-         :atom (:atom v) :folder {:name (name k) :settings {:collapsed false  ;; true
-                                                            }}}])
+         :atom (:atom v) :folder {:name (name k)
+                                  :settings
+                                  {:collapsed true}}}])
      (when more-controls [leva/Controls more-controls])]))
 
 (defn setup!

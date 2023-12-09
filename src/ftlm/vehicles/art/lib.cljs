@@ -436,7 +436,7 @@
   ([a b] (->transdution-model a b identity))
   ([a b f] {:source a :destination b :f f}))
 
-(def exite #(* 1 %))
+(def excite #(* 1 %))
 (def inhibit #(* -1 %))
 (defn ->weighted [weight] #(* weight %))
 
@@ -675,7 +675,6 @@
         explode-them
           (into #{}
                 (comp (remove (fn [[s b]]
-
                                 (< (* (scale s) 100) (distance (position s) (position b)))))
                       (map first)
                       (map :id))
@@ -733,7 +732,7 @@
 
 (def event-queue (atom []))
 
-(defmulti event! (fn [e _] (or :kind e e)))
+(defmulti event! (fn [e _] (or (:kind e) e)))
 
 (defn apply-events
   [state]

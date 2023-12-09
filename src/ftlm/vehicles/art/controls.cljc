@@ -40,20 +40,18 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "fear_and_aggression" {:aggression {:amount 2 :scale 0.5}
+   "fear_and_aggression" {:aggression {:amount 2 :scale 1}
                           :background-color {:h 0 :s 0 :v 89}
                           :brownian-factor 0.8
-                          :cart-scale 1
-                          :cart-shinyness 20
-                          :carts-shine? false
-                          :explore {:amount 3 :scale 0.5}
-                          :fear {:amount 2 :scale 0.5}
-                          :love {:amount 3 :scale 0.5}
+                          :explore {:amount 3 :scale 1}
+                          :fear {:amount 2 :scale 1}
+                          :love {:amount 3 :scale 1}
                           :make-trails? true
-                          :ray-source-color {:h 0 :s 200 :v 89}
                           :ray-source-count 15
                           :ray-sources-die? true
                           :ray-sources-spawn-rate 0.8
+                          :ray-source-spread 0.4
+                          :ray-source-scale 0.8
                           :sub-controls #{:aggression :fear :love :explore}
                           :time-speed 3
                           :trail-color {:h 0 :s 0 :v 89}
@@ -477,4 +475,11 @@
     "9" {:spawn-amount 20 :temp-zones-always-dart true}}
 
    "fear_and_aggression"
-   {"0" {}}})
+   {"0" {}
+
+
+    "1" {
+         ;; :scale 0.4
+         }
+
+    }})

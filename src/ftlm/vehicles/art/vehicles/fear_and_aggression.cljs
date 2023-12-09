@@ -41,9 +41,9 @@
                        :hidden? true
                        :source [:ref :arousal]}]
                      [:brain/connection :_
-                      {:destination [:ref :ma] :f :exite :source [:ref :sb]}]
+                      {:destination [:ref :ma] :f :excite :source [:ref :sb]}]
                      [:brain/connection :_
-                      {:destination [:ref :mb] :f :exite :source [:ref :sa]}]]})
+                      {:destination [:ref :mb] :f :excite :source [:ref :sa]}]]})
    :explore
      (fn [{:as opts}]
        {:body (assoc opts :color 200)
@@ -63,12 +63,12 @@
            [:brain/neuron :arousal {:on-update [(lib/->baseline-arousal 1)]}]
            [:brain/connection :_
             {:destination [:ref :ma]
-             :f :exite
+             :f :excite
              :hidden? true
              :source [:ref :arousal]}]
            [:brain/connection :_
             {:destination [:ref :mb]
-             :f :exite
+             :f :excite
              :hidden? true
              :source [:ref :arousal]}]
            [:brain/connection :_
@@ -131,12 +131,12 @@
                          ;; The love cart moves with arousal, but more focused
                          [:brain/connection :_
                           {:destination [:ref :ma]
-                           :f :exite
+                           :f :excite
                            :hidden? true
                            :source [:ref :arousal]}]
                          [:brain/connection :_
                           {:destination [:ref :mb]
-                           :f :exite
+                           :f :excite
                            :hidden? true
                            :source [:ref :arousal]}]
                          [:brain/connection :_
@@ -152,7 +152,7 @@
 (def builders
   {:brain/connection
    (comp lib/->connection
-         #(walk/prewalk-replace {:exite lib/exite :inhibit lib/inhibit} %))
+         #(walk/prewalk-replace {:excite lib/excite :inhibit lib/inhibit} %))
    :brain/neuron
    lib/->neuron
    :cart/body (fn [opts]
@@ -204,9 +204,13 @@
     (into [(assoc body :components (into [] (map :id) comps))]
           comps)))
 
-(defmethod lib/event! :love
-  [_ {:as state :keys [controls]}]
-  (lib/append-ents state (->cart ((body-plans :love) {}))))
+(defmethod lib/event! ::spawn
+  [{:keys [what]} {:as state :keys [controls]}]
+  (def what what)
+  (def state state)
+  (def controls controls)
+  (lib/append-ents state
+                   (->cart ((body-plans what) (controls :what)))))
 
 (defn draw-state
   [state]
@@ -259,8 +263,7 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls
-                               :background-color)))
+  (q/background (lib/->hsb (-> controls :background-color)))
   (let [state {:controls controls
                :on-update (concat
                            (when-not (zero? (controls :ray-sources-spawn-rate))
@@ -272,10 +275,9 @@
                                   state
                                   (lib/->ray-source
                                    {:intensity (+ 5 (rand 30))
-                                    :pos (lib/rand-on-canvas-gauss 0.2)
-                                    :scale 0.3
+                                    :pos (lib/rand-on-canvas-gauss (controls :ray-source-spread))
+                                    :scale (controls :ray-source-scale)
                                     :z-index 10}))))]))}]
-
     (-> state
         (lib/append-ents
          (->>
@@ -284,8 +286,7 @@
            (comp
             (map (juxt identity controls))
             (mapcat (fn [[kind {:keys [amount] :as opts}]]
-                      (let [opts (assoc opts :scale 0.4)]
-                        (repeatedly amount #((body-plans kind) opts)))))
+                      (repeatedly amount #((body-plans kind) opts))))
             (map ->cart)
             cat))))
         (lib/append-ents (mapcat identity
@@ -380,5 +381,5 @@
     [_]
     (some-> @restart-fn (apply nil))))
 
-(defmethod user-controls/action-button ::spawn [[_ what]]
+(defmethod user-controls/action-button ::spawn [_ what]
   (swap! lib/event-queue conj {:kind ::spawn :what what}))
