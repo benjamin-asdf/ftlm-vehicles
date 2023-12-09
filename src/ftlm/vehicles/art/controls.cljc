@@ -46,16 +46,13 @@
                           :explore {:amount 3 :scale 1}
                           :fear {:amount 2 :scale 1}
                           :love {:amount 3 :scale 1}
-                          :make-trails? true
-                          :ray-source-count 15
+                          :ray-source-count 0
                           :ray-sources-die? true
                           :ray-sources-spawn-rate 0.8
                           :ray-source-spread 0.4
                           :ray-source-scale 0.8
                           :sub-controls #{:aggression :fear :love :explore}
-                          :time-speed 3
-                          :trail-color {:h 0 :s 0 :v 89}
-                          :trail-size 20}
+                          :time-speed 3}
    "getting-around" {:background-color {:h 0 :s 0 :v 89}
                      :brownian-factor 0.8
                      :cart-scale 1
@@ -476,10 +473,59 @@
 
    "fear_and_aggression"
    {"0" {}
-
-
-    "1" {
-         ;; :scale 0.4
-         }
-
-    }})
+    "1" {:love {:amount 15 :scale 0.4}
+         :ray-source-scale 0.4
+         :fear {:amount 0 :scale 0.4}
+         :explore {:amount 0 :scale 0.4}
+         :aggression {:amount 0 :scale 0.4}
+         :ray-sources-die? false
+         :ray-sources-spawn-rate 0
+         :ray-source-count 8}
+    "2" {:love {:amount 0 :scale 0.4}
+         :ray-source-scale 0.4
+         :fear {:amount 0 :scale 0.4}
+         :explore {:amount 0 :scale 0.4}
+         :aggression {:amount 10 :scale 0.4}
+         :ray-sources-die? false
+         :ray-sources-spawn-rate 0
+         :ray-source-count 8}
+    "3" {:love {:amount 0 :scale 0.4}
+         :ray-source-scale 0.3
+         :fear {:amount 0 :scale 0.4}
+         :explore {:amount 0 :scale 0.4}
+         :aggression {:amount 4 :scale 1}
+         :ray-sources-die? true
+         :ray-sources-spawn-rate 0.8
+         :ray-source-count 0}
+    "4" {:love {:amount 0 :scale 0.4}
+         :ray-source-scale 0.3
+         :fear {:amount 3 :scale 1}
+         :explore {:amount 0 :scale 0.4}
+         :aggression {:amount 0 :scale 1}
+         :ray-sources-die? true
+         :ray-sources-spawn-rate 0
+         :ray-source-count 10}
+    "5" {:love {:amount 0 :scale 0.4}
+         :ray-source-scale 0.8
+         :fear {:amount 0 :scale 1}
+         :explore {:amount 3 :scale 1}
+         :aggression {:amount 0 :scale 1}
+         :ray-sources-die? true
+         :ray-sources-spawn-rate 0
+         :ray-source-count 10}
+    "6" {:love {:amount 10 :scale 0.4}
+         :ray-source-scale 0.4
+         :fear {:amount 2 :scale 0.4}
+         :explore {:amount 3 :scale 0.4}
+         :aggression {:amount 2 :scale 0.4}
+         :ray-sources-die? true
+         :ray-sources-spawn-rate 0.8
+         :ray-source-count 0}
+    "7" {:love {:amount 3 :scale 1}
+         :ray-source-scale 0.6
+         :fear {:amount 0 :scale 0.4}
+         :explore {:amount 0 :scale 0.4}
+         :aggression {:amount 8 :scale 0.4}
+         :ray-sources-die? true
+         :ray-sources-spawn-rate 0.8
+         :ray-source-count 0}}})

@@ -12,8 +12,8 @@
 (defn controls []
   (q/state :controls))
 
-(let [c (atom 0)
-      ->eid #(swap! c inc)]
+(defonce eid-counter (atom 0))
+(let [->eid #(swap! eid-counter inc)]
   (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis)}))
 
 (defn ->transform [pos width height scale]
@@ -734,10 +734,14 @@
 
 (defmulti event! (fn [e _] (or (:kind e) e)))
 
+
+
 (defn apply-events
   [state]
   (reduce (fn [s e] (event! e s))
           state
           (let [r @event-queue]
             (reset! event-queue [])
-            r)))
+            r))
+
+  )

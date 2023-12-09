@@ -30,7 +30,7 @@
            (leva/button
              (fn []
                (action-button
-                 :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}
+                :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}
       :sub-schemas
       (let [->spawn-btn
             (fn [k]

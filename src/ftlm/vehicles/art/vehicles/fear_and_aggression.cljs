@@ -291,12 +291,11 @@
             cat))))
         (lib/append-ents (mapcat identity
                                  (repeatedly
-                                  ;; (:ray-source-count controls)
-                                  0
+                                  (:ray-source-count controls)
                                   #(lib/->ray-source
                                     {:intensity (+ 5 (rand 30))
                                      :pos (lib/rand-on-canvas-gauss 0.4)
-                                     :scale 0.3
+                                     :scale (:ray-source-scale controls)
                                      :z-index 10})))))))
 
 (defn on-double-click
@@ -308,7 +307,7 @@
                                     :size 10
                                     :spread 10})]
     (-> state
-        (assoc-in [:eid->entity id :lifetime] 0.8)
+        (assoc-in [:eid->entity id :lifetime] 0.6)
         (update-in [:eid->entity id :on-update] conj (lib/->grow 0.2))
         (lib/append-ents explosion))))
 
@@ -363,23 +362,20 @@
               :mouse-wheel mouse-wheel
               :frame-rate 30)))
 
-(let [restart-fn (atom nil)]
-  (defmethod art/view "fear_and_aggression"
-    [{:keys [place version] :as opts}]
-    (let
-        [f (fn []
-             (sketch
-              place
-              opts
-              (merge
-               (controls/default-versions "fear_and_aggression")
-               (get-in versions ["fear_and_aggression" version])
-               @user-controls/!app)))]
-        (reset! restart-fn f)
-        (f)))
-  (defmethod user-controls/action-button ::restart
-    [_]
-    (some-> @restart-fn (apply nil))))
+(defonce restart-fn (atom nil))
+(defmethod art/view "fear_and_aggression"
+  [{:as opts :keys [place version]}]
+  (let [f (fn []
+            (sketch place
+                    opts
+                    (merge (controls/default-versions "fear_and_aggression")
+                           (get-in versions ["fear_and_aggression" version])
+                           @user-controls/!app)))]
+    (reset! restart-fn f)
+    (f)))
+(defmethod user-controls/action-button ::restart
+  [_]
+  (some-> @restart-fn (apply nil)))
 
 (defmethod user-controls/action-button ::spawn [_ what]
   (swap! lib/event-queue conj {:kind ::spawn :what what}))
