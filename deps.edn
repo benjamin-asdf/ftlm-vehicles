@@ -1,5 +1,6 @@
 {:paths ["src" "resources"]
- :deps {integrant/integrant {:mvn/version "0.8.1"}
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        integrant/integrant {:mvn/version "0.8.1"}
         ring/ring-jetty-adapter {:mvn/version "1.10.0"}
         ring/ring-defaults {:mvn/version "0.3.4"}
         metosin/reitit-middleware {:mvn/version "0.7.0-alpha5"}
