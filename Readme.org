@@ -14,6 +14,17 @@ Clicking on the canvas moves one of the temperature bubbles.
 - [[https://faster-than-light-memes.xyz/vehicles.html][Overview blog post]]
 - [[https://faster-than-light-memes.xyz/getting-around.html][Getting Around Blog Post]]
 
+** Chapter II - Fear, Agression, Love
+
+- Clicking now moves around vehicles, too.
+- Double clicking kills it.
+- Mouse wheel rotates it.
+
+- [[https://faster-than-light-memes.xyz/fear-aggression-love.html][Blog Post]]
+- [[https://youtu.be/LIhU1WOPnDI?si=FggSNo8kte7ZHAAo][Screencast]]
+
+
+
 * Art
 
 ** Brownians
