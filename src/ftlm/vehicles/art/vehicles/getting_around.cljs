@@ -168,6 +168,7 @@
              +
              (env :temperature-zones)))
 
+
 (defmethod update-sensor :temp
   [sensor env]
   (let [temp (->temp (position sensor) env)
@@ -175,53 +176,14 @@
         activation (* sensitivity (max 0 temp))]
     (assoc sensor :activation activation)))
 
-(defn ->connection
-  ([a b] (->connection a b identity))
-  ([a b f] {:source a :destination b :f f}))
-
-(defn ->connection-line [entity-a entity-b]
-  (merge
-   (lib/->connection-line entity-a entity-b)
-   {:connection-model (->connection (:id entity-a) (:id entity-b))
-    :connection? true}))
-
-(def connection->source (comp :source :connection-model))
-(def connection->destination (comp :destination :connection-model))
-
-(defn transduce-signal [destination source {:keys [f]}]
-  (update destination :activation + (f (:activation source))))
-
-(defn activation-decay [{:keys [activation] :as entity}]
-  (if activation
-    (let [sign (lib/signum activation)
-          activation (* sign (- (abs activation) 0.2) 0.8)]
-      (assoc entity :activation activation))
-    entity))
-
-(defn transduce-signals
-  [state]
-  (let [connection-by-destination (into {}
-                                        (comp (filter :connection?)
-                                              (map (juxt connection->destination
-                                                         identity)))
-                                        (lib/entities state))
-        ent-lut (lib/entities-by-id state)]
-    (lib/update-ents
-     state
-     (fn [e]
-       (if-let [conn-e (connection-by-destination (:id e))]
-         (let [source (ent-lut (connection->source conn-e))]
-           (transduce-signal e source (:connection-model conn-e)))
-         e)))))
-
 (defn ->trail
   [pos size color]
   (assoc (lib/->entity :circle)
-    :transform (lib/->transform pos size size 0.2)
-    :trail? true
-    :particle? true
-    :lifetime 0.8
-    :color color))
+         :transform (lib/->transform pos size size 0.2)
+         :trail? true
+         :particle? true
+         :lifetime 0.8
+         :color color))
 
 (defn ->brain [& connections] connections)
 (defn ->body [])
@@ -239,7 +201,7 @@
   (let [body (->cart pos scale rot color)
         sensor (->sensor :top-middle)
         motor (->motor :bottom-middle)
-        line (->connection-line sensor motor)
+        line (lib/->connection {:source sensor :destination motor})
         body (assoc body
                     :components (map :id [motor sensor])
                     :motors (map :id [motor])
@@ -481,9 +443,9 @@
       update-rotation
       update-position
 
-      (update-sensors state)
-      activation-decay
-      activation-shine
+      (update-sensors (env state))
+      lib/activation-decay
+      lib/activation-shine
       lib/shine
       lib/update-lifetime))
 
@@ -524,7 +486,7 @@
         (-> state
             (assoc :last-tick current-tick)
             (lib/update-ents #(update-entity % state))
-            transduce-signals
+            lib/transduce-signals
             track-components
             track-conn-lines
             make-trails

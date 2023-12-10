@@ -434,7 +434,7 @@
 
 (defn ->transdution-model
   ([a b] (->transdution-model a b identity))
-  ([a b f] {:source a :destination b :f f}))
+  ([a b f] {:source a :destination b :f (or f identity)}))
 
 (def excite #(* 1 %))
 (def inhibit #(* -1 %))
