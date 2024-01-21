@@ -14,7 +14,7 @@
 
 (defonce eid-counter (atom 0))
 (let [->eid #(swap! eid-counter inc)]
-  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis)}))
+  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true}))
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
@@ -28,9 +28,14 @@
 (defn update-ents [state f]
   (update state :eid->entity (fn [s] (update-vals s f))))
 
+(defn validate-entity [e]
+  (if-not (:entity? e)
+    (throw (js/Error. (str "Not an entity: " (prn-str e))))
+    e))
+
 (defn append-ents [state ents]
   (-> state
-      (update :eid->entity merge (into {} (map (juxt :id identity)) ents))))
+      (update :eid->entity merge (into {} (map (juxt :id validate-entity)) ents))))
 
 (defn update--entities
   [state f]
@@ -78,17 +83,21 @@
       (* 255 (/ (:v color) 100))]
      (sequential? color) color
      (number? color) [color 255 255]
+     (nil? color) [0 0 0 0]
      :else [color])))
 
 (defn shine
   [{:as entity :keys [shine shinyness]}]
+
   (if-not shinyness
     entity
-    (let [shine (mod (+  (or shine 0) (* *dt* shinyness)) 255)]
-      (-> entity
-          (assoc :shine shine)
-          (update :color
-                  (fn [c] (q/color shine 255 255)))))))
+    (do
+      (q/print-every-n-millisec shinyness)
+      (let [shine (mod (+  (or shine 0) (* *dt* shinyness)) 255)]
+        (-> entity
+            (assoc :shine shine)
+            (update :color
+                    (fn [c] (q/color shine 255 255))))))))
 
 (defn signum [x]
   (cond
@@ -540,12 +549,15 @@
       (swap! s update :next - *dt*)
       (when (<= (:next @s) 0)
         (swap! s assoc :next (normal-distr freq freq))
-        (let [se (->circular-shine-1 (position entity)
-                                     (q/color (q/hue (:color entity))
-                                              (q/lightness (:color entity))
-                                              (q/saturation (:color entity))
-                                              100)
-                                     speed)]
+        (let [c (->hsb (:color entity))
+              se (->circular-shine-1
+                  (position entity)
+                  (q/color
+                   (q/hue c)
+                   (q/saturation c)
+                   (q/brightness c)
+                   100)
+                  speed)]
           {:updated-state (-> state
                               (update-in [:eid->entity (:id entity) :components]
                                          (fnil conj [])
@@ -553,14 +565,19 @@
                               (append-ents [se]))})))))
 
 (defn ->ray-source
-  [{:as opts :keys [pos intensity scale]}]
+  [{:as opts
+    :keys [pos intensity scale shinyness]}]
   [(merge (->entity :circle)
-          {:color 0
+          {:color {:h 67 :s 7 :v 95}
            :draggable? true
            :particle? true
            :ray-source? true
            :makes-circular-shines? true
-           :shinyness intensity
+           :shinyness
+           (if-not
+               (nil? shinyness)
+             shinyness
+               intensity)
            :on-update [(->circular-shine 1.5 (/ intensity 3))]
            :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
           opts)])
@@ -578,7 +595,7 @@
   (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
     (->> state
          entities
-         (filter :draggable?)
+
          (sort-by (comp (fn [b] (distance mouse-position b)) position))
          (first))))
 
@@ -620,11 +637,22 @@
               +
               (* 0.3 (q/random-gaussian) kinetic-energy))))
 
+(defn calculate-center-point [entities]
+  (let [positions (map position entities)
+        count (count positions)
+        [x y] (reduce (fn [[sum-x sum-y] [x y]] [(+ sum-x x) (+ sum-y y)]) [0 0] positions)]
+    [(/ x count)
+     (/ y count)]))
+
 (defn brownian-motion
   [e]
   (if-not (:particle? e)
     e
-    (kinetic-energy-motion e (:brownian-factor (controls)))))
+    (kinetic-energy-motion
+     e
+     (or
+      (:kinetic-energy e)
+      (:brownian-factor (controls))))))
 
 (defn ->explosion
   [{:keys [n size pos color spread]}]
@@ -638,12 +666,12 @@
                              :lifetime (normal-distr 1 0.5)
                              :transform
                                (assoc (->transform spawn-pos size size 1)
-                                 :rotation (angle-between spawn-pos pos))})))))
+                                      :rotation (angle-between spawn-pos pos))})))))
         (range n)))
 
 (defn ->wobble-anim [duration magnitute]
   (let [s (atom {:time-since 0})]
-    (fn [e state]
+    (fn [e _state]
       (if (= :done @s)
         e
         (do
@@ -734,14 +762,53 @@
 
 (defmulti event! (fn [e _] (or (:kind e) e)))
 
-
-
 (defn apply-events
   [state]
   (reduce (fn [s e] (event! e s))
           state
           (let [r @event-queue]
             (reset! event-queue [])
-            r))
+            r)))
 
-  )
+(defn ->brownian-lump
+  [{:keys [spread particle-size pos togethernes-threshold count]
+    :or {particle-size 10
+         spread 8
+         count 10
+         togethernes-threshold (or spread (* 2 spread))}}]
+  (let [lump (assoc (->entity :lump)
+               :hidden? true
+               :lump? true
+               :position pos
+               :spread spread)]
+    (into
+     [lump]
+     (map
+      (fn []
+        (let [spawn-pos [(normal-distr (first pos) spread)
+                         (normal-distr (second pos) spread)]]
+          (->
+           (merge
+            (->entity :circle)
+            {:color [0 255 255]
+             :kinetic-energy 0.05
+             :on-update [(fn [e]
+                           (let [threshold togethernes-threshold
+                                 dist (distance (position e) pos)]
+                             (if (< threshold dist)
+                               (assoc (orient-towards e pos)
+                                      :acceleration 2
+                                      :angular-acceleration 0)
+                               e)))]
+             :particle? true
+             :transform
+             (assoc
+              (->transform spawn-pos particle-size particle-size 1)
+              :rotation (angle-between spawn-pos pos))
+             :z-index -10})))))
+     (range count))))
+
+
+;; (calculate-center-point ents)
+
+;; ents

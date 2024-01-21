@@ -76,7 +76,7 @@
 
 (defn setup!
   [c]
-  (let [sub-control? (:sub-controls c)
+  (let [sub-control? (or (:sub-controls c) #{})
         sub-controls (into {} (filter (comp sub-control? key)) c)
         sub-controls (update-vals sub-controls ->sub-control)
         _ (reset! !state {:sub-controls sub-controls})
@@ -93,3 +93,6 @@
     (setup! (merge (controls/default-versions piece)
                    (get-in controls/versions [piece version])))
     (rdom/render [ui opts] place)))
+
+(comment
+  @!app)

@@ -53,6 +53,12 @@
                           :ray-source-scale 0.8
                           :sub-controls #{:aggression :fear :love :explore}
                           :time-speed 3}
+   "logic"
+   {:background-color {:h 0 :s 0 :v 89}
+    :brownian-factor 0.8
+    :ray-source-count 0
+    :ray-sources-die? true
+    :time-speed 1}
    "getting-around" {:background-color {:h 0 :s 0 :v 89}
                      :brownian-factor 0.8
                      :cart-scale 1
@@ -66,7 +72,20 @@
                      :temp-zone-count 10
                      :time-speed 2
                      :trail-color {:h 0 :s 0 :v 89}
-                     :trail-size 20}})
+                     :trail-size 20}
+   "taste"
+   {:multi-sensory {:amount 1 :scale 1}
+    :background-color {:h 0 :s 0 :v 89}
+    :brownian-factor 0.8
+    :ray-source-count 0
+    :ray-sources-die? true
+    :ray-sources-spawn-rate 0.8
+    :ray-source-spread 0.4
+    :ray-source-scale 0.8
+    :time-speed 3}
+   "assembly"
+   {:background-color {:h 0 :s 0 :v 0}
+    :time-speed 3}})
 
 
 (def page-layouts
@@ -74,7 +93,12 @@
    "getting-around" {:per-page 1
                      :default-width 900
                      :default-height 900
-                     :show-fullscreen-links? true}})
+                     :show-fullscreen-links? true}
+   "fear_and_aggression"
+   {:per-page 1
+    :default-width 900
+    :default-height 900
+    :show-fullscreen-links? true}})
 
 (def versions
   {"brownians" {"0" {}
@@ -528,4 +552,11 @@
          :aggression {:amount 8 :scale 0.4}
          :ray-sources-die? true
          :ray-sources-spawn-rate 0.8
-         :ray-source-count 0}}})
+         :ray-source-count 0}}
+   "logic"
+   {"0" {}}
+   "taste"
+   {"0" {:multi-sensory {:amount 1 :scale 1}}}
+   "assembly"
+   {"0" {}}}
+  )
