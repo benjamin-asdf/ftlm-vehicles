@@ -348,7 +348,11 @@
                       u/ascending
                       :id
                       u/ascending)
-                (sequence (remove :hidden?) (entities state)))]
+                (sequence
+                 (comp
+                  (remove :hidden?)
+                  (map validate-entity))
+                 (entities state)))]
     (draw-color color)
     (draw-entity entity)))
 
@@ -531,16 +535,45 @@
          env)]
     (assoc sensor :activation (min ray-intensity 14))))
 
+
+(defn ->odor-source
+  [{:keys [intensity decay-rate pos] :as opts}]
+  (merge
+   (->entity :odor)
+   {:odor-source? true
+    :intensity intensity
+    :decay-rate decay-rate
+    :hidden? true?
+    :transform (->transform pos 0 0 0)}
+   opts))
+
+(defmethod update-sensor :smell
+  [sensor env]
+  (let
+      ;; odor sensor activiy is a function of the distance
+      ;; only. So smell doesn't have a direction. Inverse power law
+      [new-activation
+       (transduce (map (fn [odor-source]
+                         (let [distance (distance (position sensor)
+                                                  (position odor-source))]
+                           (/
+                            (* 200 (:intensity odor-source))
+                            (* distance distance (:decay-rate odor-source))))))
+                  +
+                  (-> env
+                      :odor-sources))]
+    (assoc sensor :activation (min new-activation 14))))
+
 (defn ->circular-shine-1
   [pos color speed]
   (assoc (->entity :circle)
          :transform (assoc
                      (->transform pos 20 20 0.5)
                      :absolute-scale 0.5)
-    :lifetime 1
-    :color color
-    :z-index -4
-    :on-update [(->grow speed) (->clamp-scale 20)]))
+         :lifetime 1
+         :color color
+         :z-index -4
+         :on-update [(->grow speed) (->clamp-scale 20)]))
 
 (defn ->circular-shine
   [freq speed]
@@ -791,7 +824,7 @@
            (merge
             (->entity :circle)
             {:color [0 255 255]
-             :kinetic-energy 0.05
+             :kinetic-energy 0.2
              :on-update [(fn [e]
                            (let [threshold togethernes-threshold
                                  dist (distance (position e) pos)]
@@ -807,6 +840,15 @@
               :rotation (angle-between spawn-pos pos))
              :z-index -10})))))
      (range count))))
+
+
+(defn ->organic-matter [opts]
+  (into
+   (->brownian-lump opts)
+   [(->odor-source
+     (merge
+      opts
+      (:odor opts)))]))
 
 
 ;; (calculate-center-point ents)

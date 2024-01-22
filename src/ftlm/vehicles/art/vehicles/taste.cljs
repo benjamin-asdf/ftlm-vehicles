@@ -24,7 +24,9 @@
 
 (defn env [state]
   {:ray-sources
-   (into [] (filter :ray-source?) (lib/entities state))})
+   (into [] (filter :ray-source?) (lib/entities state))
+   :odor-sources
+   (into [] (filter :odor-source?) (lib/entities state))})
 
 
 ;; --- make rand body plan?
@@ -43,8 +45,8 @@
          :corner-r 5
          :on-update [(lib/->cap-activation)]
          :rotational-power 0.02}]
-       [:cart/sensor :sa {:anchor :top-right :modality :rays}]
-       [:cart/sensor :sb {:anchor :top-left :modality :rays}]
+       [:cart/sensor :sa {:anchor :top-right :modality :smell}]
+       [:cart/sensor :sb {:anchor :top-left :modality :smell}]
        [:brain/neuron :arousal
         {:on-update [(lib/->baseline-arousal (or baseline-arousal
                                                  0.8))]}]
@@ -200,17 +202,21 @@
                }]
     (-> state
         (lib/append-ents
-         (->>
-          #{:multi-sensory}
-          (sequence
-           (comp
-            (map (juxt identity controls))
-            (mapcat (fn [[kind {:keys [amount] :as opts}]]
-                      (repeatedly amount #((body-plans kind) opts))))
-            (map ->cart)
-            cat))))
+         (let [r (->>
+                  #{:multi-sensory}
+                  (sequence
+                   (comp
+                    (map (juxt identity controls))
+                    (mapcat (fn [[kind {:keys [amount] :as opts}]]
+                              (repeatedly amount #((body-plans kind) opts))))
+                    (map ->cart)
+                    cat)))]
+           (def r r)
+           r))
         (lib/append-ents
-         (lib/->brownian-lump {:pos (lib/rand-on-canvas-gauss 0.1)})))))
+         (lib/->organic-matter
+          {:pos (lib/rand-on-canvas-gauss 0.1)
+           :odor {:intensity 20 :decay-rate (/ 1 10)}})))))
 
 (defn on-double-click
   [state id]
