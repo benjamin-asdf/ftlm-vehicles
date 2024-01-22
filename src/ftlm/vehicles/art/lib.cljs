@@ -1,6 +1,5 @@
 (ns ftlm.vehicles.art.lib
   (:require [quil.core :as q :include-macros true]
-            [quil.middleware :as m]
             [ftlm.vehicles.art.util :as u])
   (:require-macros [ftlm.vehicles.art.util :as u]))
 
@@ -34,8 +33,25 @@
     e))
 
 (defn append-ents [state ents]
-  (-> state
-      (update :eid->entity merge (into {} (map (juxt :id validate-entity)) ents))))
+  (let [ents
+        (into ents
+              (comp
+               (mapcat :components)
+               (filter :entity?))
+              ents)
+        ]
+    (-> state
+        (update :eid->entity merge (into {} (map (juxt :id validate-entity)) ents)))))
+
+(defn flatten-components
+  [ents]
+  (let [ents (into ents (comp (mapcat :components) (filter :entity?)) ents)
+        ents (map (fn [{:as e :keys [components]}]
+                    (if (:entity? (peek components))
+                      (assoc e :components (map :id components))
+                      e))
+               ents)]
+    ents))
 
 (defn update--entities
   [state f]
@@ -97,7 +113,7 @@
         (-> entity
             (assoc :shine shine)
             (update :color
-                    (fn [c] (q/color shine 255 255))))))))
+                    (fn [_c] (q/color shine 255 255))))))))
 
 (defn signum [x]
   (cond
@@ -301,10 +317,13 @@
 (defn track-components
   [state]
   (let [parent-by-id (into {}
-                           (mapcat (fn [ent]
-                                     (map (juxt identity (constantly ent))
-                                       (:components ent)))
-                             (filter :components (entities state))))]
+                           (comp
+                            (remove :hidden?)
+                            (filter :components)
+                            (mapcat (fn [ent]
+                                      (map (juxt identity (constantly ent))
+                                           (:components ent)))))
+                           (entities state))]
     (->
       state
       (update-ents
@@ -717,13 +736,12 @@
               (do
                 (reset! s :done)
                 (assoc-in e [:transform :scale] initial-scale))
-              (do
-                (assoc-in e
-                          [:transform :scale]
-                          (q/lerp
-                           (:initial-scale @s)
-                           (* (:initial-scale @s) magnitute)
-                           (q/sin (float (* q/PI progress)))))))))))))
+              (assoc-in e
+                        [:transform :scale]
+                        (q/lerp
+                         (:initial-scale @s)
+                         (* (:initial-scale @s) magnitute)
+                         (q/sin (float (* q/PI progress))))))))))))
 
 (defn ray-source-collision-burst
   [state]
@@ -770,12 +788,12 @@
              (completing (fn [s {:keys [on-update id]}]
                            (reduce (fn [s f]
                                      (let [{:as e :keys [updated-state]}
-                                           (f ((entities-by-id s) id) s)]
+                                             (f ((entities-by-id s) id) s)]
                                        (cond updated-state updated-state
                                              e (assoc-in s [:eid->entity id] e)
                                              :else s)))
-                                   s
-                                   on-update)))
+                             s
+                             on-update)))
              state
              (entities state)))
 
@@ -842,13 +860,14 @@
      (range count))))
 
 
-(defn ->organic-matter [opts]
-  (into
-   (->brownian-lump opts)
-   [(->odor-source
-     (merge
-      opts
-      (:odor opts)))]))
+(defn ->organic-matter
+  [opts]
+  (flatten-components
+   [(merge
+     (->odor-source (merge opts (:odor opts)))
+     {:components (->brownian-lump opts)
+      :food? true
+      :organic-matter? true})]))
 
 
 ;; (calculate-center-point ents)
