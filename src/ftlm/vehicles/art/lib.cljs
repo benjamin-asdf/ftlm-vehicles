@@ -251,13 +251,12 @@
    :bottom-middle -1})
 
 (defn ->sensor
-  [{:keys [anchor modality]}]
-  (assoc (->entity :circle)
-         :transform (->transform [0 0] 20 20 1)
-         :anchor anchor
-         :modality modality
-         :sensor? true
-         :color (q/color 40 96 255 255)))
+  [{:as opts :keys [anchor modality]}]
+  (merge (->entity :circle)
+         {:color (q/color 40 96 255 255)
+          :sensor? true
+          :transform (->transform [0 0] 20 20 1)}
+         opts))
 
 (defn ->motor
   [opts]
@@ -290,8 +289,12 @@
     (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
 
 (defn relative-position [parent ent]
+  (q/print-every-n-millisec (:anchor-position ent))
   (let [{:keys [width height]} (transform parent)
-        m (anchor->trans-matrix (:anchor ent))]
+        m
+        (or
+         (:anchor-position ent)
+         (anchor->trans-matrix (:anchor ent)))]
     (v* m [(/ width 2) (/ height 2)])))
 
 (defn rotate-point [rotation [x y]]
@@ -566,6 +569,7 @@
     :transform (->transform pos 0 0 0)}
    opts))
 
+;; later, smell has a fragrances set
 (defmethod update-sensor :smell
   [sensor env]
   (let
@@ -581,7 +585,7 @@
                   +
                   (-> env
                       :odor-sources))]
-    (assoc sensor :activation (min new-activation 14))))
+      (assoc sensor :activation (min new-activation 14))))
 
 (defn ->circular-shine-1
   [pos color speed]
@@ -856,20 +860,18 @@
              (assoc
               (->transform spawn-pos particle-size particle-size 1)
               :rotation (angle-between spawn-pos pos))
-             :z-index -10})))))
+             :z-index 10
+             })))))
      (range count))))
-
 
 (defn ->organic-matter
   [opts]
   (flatten-components
    [(merge
-     (->odor-source (merge opts (:odor opts)))
+     (->odor-source
+      (merge opts
+             {:fragrances #{:organic-matter}}
+             (:odor opts)))
      {:components (->brownian-lump opts)
       :food? true
       :organic-matter? true})]))
-
-
-;; (calculate-center-point ents)
-
-;; ents

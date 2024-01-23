@@ -45,11 +45,16 @@
          :corner-r 5
          :on-update [(lib/->cap-activation)]
          :rotational-power 0.02}]
-       [:cart/sensor :sa {:anchor :top-right :modality :smell}]
-       [:cart/sensor :sb {:anchor :top-left :modality :smell}]
+       ;; [:cart/sensor :sa {:anchor :top-right :modality :smell}]
+       ;; [:cart/sensor :sb {:anchor :top-left :modality :smell}]
+       [:cart/sensor :sa {:anchor :top-left :modality :smell :shuffle-anchor? true}]
+       [:cart/sensor :sb {:anchor :top-left :modality :smell :shuffle-anchor? true}]
+       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
+       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
+       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
+       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
        [:brain/neuron :arousal
-        {:on-update [(lib/->baseline-arousal (or baseline-arousal
-                                                 0.8))]}]
+        {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
        [:brain/connection :_
         {:destination [:ref :mb]
          :f rand
@@ -65,6 +70,14 @@
        [:brain/connection :_
         {:destination [:ref :mb] :f :excite :source [:ref :sa]}]]})})
 
+(defn shuffle-anchor [{:keys [shuffle-anchor?] :as e}]
+  (if-not shuffle-anchor?
+    e
+    (let [[x y] (lib/anchor->trans-matrix (:anchor e))
+          anch-pos
+          [(lib/normal-distr x 0.4)
+           (lib/normal-distr y 0.12)]]
+      (assoc e :anchor-position anch-pos))))
 
 (def builders
   {:brain/connection
@@ -82,7 +95,7 @@
                                     :scale 1}
                                    opts)))
    :cart/motor lib/->motor
-   :cart/sensor lib/->sensor})
+   :cart/sensor (comp shuffle-anchor lib/->sensor)})
 
 (defmulti build-entity first)
 
