@@ -53,9 +53,11 @@
      [:cart/sensor sensor-right-id sensor-right-opts]
      [:brain/connection :_
       {:destination [:ref motor-left]
+       :f transduction-fn
        :source [:ref (if decussates? sensor-right-id sensor-left-id)]}]
      [:brain/connection :_
       {:destination [:ref motor-right]
+       :f transduction-fn
        :source [:ref (if decussates? sensor-left-id sensor-right-id)]}]]))
 
 (defn random-multi-sensory
@@ -97,7 +99,7 @@
     e
     (let [[x y] (lib/anchor->trans-matrix (:anchor e))
           anch-pos
-          [(lib/normal-distr x 0.25)
+          [(lib/normal-distr x 0.12)
            (lib/normal-distr y 0.12)]]
       (assoc e :anchor-position anch-pos))))
 
@@ -247,8 +249,9 @@
         (lib/append-ents (lib/->organic-matter
                           {:odor {:decay-rate (/ 1 10) :intensity 20}
                            :pos (lib/rand-on-canvas-gauss 0.5)}))
-        (lib/append-ents (lib/->oxygen {:odor {:decay-rate (/ 1 4)
-                                               :intensity 50}
+        (lib/append-ents (lib/->oxygen {:odor
+                                        {:decay-rate (/ 1 5)
+                                         :intensity 30}
                                         :pos (lib/rand-on-canvas-gauss 0.5)}))
         (lib/append-ents
          (->ray-source
