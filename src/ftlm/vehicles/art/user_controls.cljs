@@ -95,4 +95,6 @@
     (rdom/render [ui opts] place)))
 
 (comment
-  @!app)
+  @!app
+  (swap! !app assoc :background-color {:h 255, :s 255, :v 89})
+  )

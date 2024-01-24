@@ -251,12 +251,16 @@
    :bottom-middle -1})
 
 (defn ->sensor
-  [{:as opts :keys [anchor modality]}]
-  (merge (->entity :circle)
-         {:color (q/color 40 96 255 255)
-          :sensor? true
-          :transform (->transform [0 0] 20 20 1)}
-         opts))
+  [{:as opts :keys [anchor modality scale]}]
+  (let [scale (cond scale scale
+                    (= modality :smell) 0.8
+                    :else 1)]
+    (merge (->entity :circle)
+           {:color (q/color 40 96 255 255)
+            :particle? true
+            :sensor? true
+            :transform (->transform [0 0] 20 20 scale)}
+           opts)))
 
 (defn ->motor
   [opts]
@@ -576,16 +580,18 @@
       ;; odor sensor activiy is a function of the distance
       ;; only. So smell doesn't have a direction. Inverse power law
       [new-activation
-       (transduce (map (fn [odor-source]
-                         (let [distance (distance (position sensor)
-                                                  (position odor-source))]
-                           (/
-                            (* 200 (:intensity odor-source))
-                            (* distance distance (:decay-rate odor-source))))))
-                  +
-                  (-> env
-                      :odor-sources))]
-      (assoc sensor :activation (min new-activation 14))))
+       (transduce
+        (comp
+         (filter (comp :oxygen :fragrances))
+         (map (fn [odor-source]
+                (let [distance (distance (position sensor)
+                                         (position odor-source))]
+                  (/
+                   (* 200 (:intensity odor-source))
+                   (* distance distance (:decay-rate odor-source)))))))
+        +
+        (-> env :odor-sources))]
+    (assoc sensor :activation (min new-activation 14))))
 
 (defn ->circular-shine-1
   [pos color speed]
@@ -826,43 +832,42 @@
             r)))
 
 (defn ->brownian-lump
-  [{:keys [spread particle-size pos togethernes-threshold count]
-    :or {particle-size 10
-         spread 8
+  [{:keys [spread particle-size pos togethernes-threshold count colors]
+    :or {colors [[0 255 255]]
          count 10
+         particle-size 10
+         spread 8
          togethernes-threshold (or spread (* 2 spread))}}]
   (let [lump (assoc (->entity :lump)
                :hidden? true
                :lump? true
                :position pos
                :spread spread)]
-    (into
-     [lump]
-     (map
-      (fn []
-        (let [spawn-pos [(normal-distr (first pos) spread)
-                         (normal-distr (second pos) spread)]]
-          (->
-           (merge
-            (->entity :circle)
-            {:color [0 255 255]
-             :kinetic-energy 0.2
-             :on-update [(fn [e]
-                           (let [threshold togethernes-threshold
-                                 dist (distance (position e) pos)]
-                             (if (< threshold dist)
-                               (assoc (orient-towards e pos)
-                                      :acceleration 2
-                                      :angular-acceleration 0)
-                               e)))]
-             :particle? true
-             :transform
-             (assoc
-              (->transform spawn-pos particle-size particle-size 1)
-              :rotation (angle-between spawn-pos pos))
-             :z-index 10
-             })))))
-     (range count))))
+    (into [lump]
+          (map
+            (fn []
+              (let [spawn-pos [(normal-distr (first pos) spread)
+                               (normal-distr (second pos) spread)]]
+                (->
+                  (merge (->entity :circle)
+                         {:color (rand-nth colors)
+                          :kinetic-energy 0.2
+                          :on-update [(fn [e]
+                                        (let [threshold togethernes-threshold
+                                              dist (distance (position e) pos)]
+                                          (if (< threshold dist)
+                                            (assoc (orient-towards e pos)
+                                              :acceleration 2
+                                              :angular-acceleration 0)
+                                            e)))]
+                          :particle? true
+                          :transform (assoc (->transform spawn-pos
+                                                         particle-size
+                                                         particle-size
+                                                         1)
+                                       :rotation (angle-between spawn-pos pos))
+                          :z-index 10})))))
+          (range count))))
 
 (defn ->organic-matter
   [opts]
@@ -875,3 +880,28 @@
      {:components (->brownian-lump opts)
       :food? true
       :organic-matter? true})]))
+
+(defn ->oxygen
+  [opts]
+  (flatten-components
+    [(merge (->odor-source
+              (merge opts
+                     {:fragrances #{:oxygen}}
+                     (:odor opts)))
+            {:components
+             (->brownian-lump
+              (assoc opts
+                     :colors
+                     (into []
+                           (repeatedly
+                            4
+                            (fn []
+                              {:h 130
+                               :s (normal-distr 30 10)
+                               :v (normal-distr 100 10)})))
+                     :spread 20
+                     :count 15
+                     :particle-size 8
+                     :togethernes-threshold 50
+                     ))
+             :oxygen? true})]))

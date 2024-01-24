@@ -30,52 +30,74 @@
 
 
 ;; --- make rand body plan?
+
+
+;; make it symetrical
+;;
+
+(defn ->rand-sensor-pair-plans
+  [motor-left motor-right]
+  (let [modality (rand-nth [:rays :smell])
+        sensor-left-opts
+          {:anchor :top-left :modality modality :shuffle-anchor? true}
+        sensor-left-opts (merge sensor-left-opts
+                                (when (= modality :smell)
+                                  {:fragrance (rand-nth [:oxygen
+                                                         :organic-matter])}))
+        sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
+        decussates? (rand-nth [true false])
+        sensor-left-id (random-uuid)
+        sensor-right-id (random-uuid)
+        transduction-fn (rand-nth [:excite :inhibit])]
+    [[:cart/sensor sensor-left-id sensor-left-opts]
+     [:cart/sensor sensor-right-id sensor-right-opts]
+     [:brain/connection :_
+      {:destination [:ref motor-left]
+       :source [:ref (if decussates? sensor-right-id sensor-left-id)]}]
+     [:brain/connection :_
+      {:destination [:ref motor-right]
+       :source [:ref (if decussates? sensor-left-id sensor-right-id)]}]]))
+
+(defn random-multi-sensory
+  []
+  (fn [{:as opts :keys [baseline-arousal]}]
+    {:body opts
+     :components
+       (into [[:cart/motor :ma
+               {:anchor :bottom-right
+                :corner-r 5
+                :on-update [(lib/->cap-activation)]
+                :rotational-power 0.02}]
+              [:cart/motor :mb
+               {:anchor :bottom-left
+                :corner-r 5
+                :on-update [(lib/->cap-activation)]
+                :rotational-power 0.02}]
+              [:brain/neuron :arousal
+               {:on-update [(lib/->baseline-arousal (or baseline-arousal
+                                                        0.8))]}]
+              [:brain/connection :_
+               {:destination [:ref :mb]
+                :f rand
+                :hidden? true
+                :source [:ref :arousal]}]
+              [:brain/connection :_
+               {:destination [:ref :ma]
+                :f rand
+                :hidden? true
+                :source [:ref :arousal]}]]
+             (mapcat identity
+               (repeatedly 6 (fn [] (->rand-sensor-pair-plans :ma :mb)))))}))
+
 (def body-plans
-  {:multi-sensory
-   (fn [{:as opts :keys [baseline-arousal]}]
-     {:body opts
-      :components
-      [[:cart/motor :ma
-        {:anchor :bottom-right
-         :corner-r 5
-         :on-update [(lib/->cap-activation)]
-         :rotational-power 0.02}]
-       [:cart/motor :mb
-        {:anchor :bottom-left
-         :corner-r 5
-         :on-update [(lib/->cap-activation)]
-         :rotational-power 0.02}]
-       ;; [:cart/sensor :sa {:anchor :top-right :modality :smell}]
-       ;; [:cart/sensor :sb {:anchor :top-left :modality :smell}]
-       [:cart/sensor :sa {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:cart/sensor :sb {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:cart/sensor :_ {:anchor :top-left :modality :smell :shuffle-anchor? true}]
-       [:brain/neuron :arousal
-        {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
-       [:brain/connection :_
-        {:destination [:ref :mb]
-         :f rand
-         :hidden? true
-         :source [:ref :arousal]}]
-       [:brain/connection :_
-        {:destination [:ref :ma]
-         :f rand
-         :hidden? true
-         :source [:ref :arousal]}]
-       [:brain/connection :_
-        {:destination [:ref :ma] :f :excite :source [:ref :sb]}]
-       [:brain/connection :_
-        {:destination [:ref :mb] :f :excite :source [:ref :sa]}]]})})
+  {:multi-sensory (random-multi-sensory)})
 
 (defn shuffle-anchor [{:keys [shuffle-anchor?] :as e}]
   (if-not shuffle-anchor?
     e
     (let [[x y] (lib/anchor->trans-matrix (:anchor e))
           anch-pos
-          [(lib/normal-distr x 0.4)
+          [(lib/normal-distr x 0.25)
            (lib/normal-distr y 0.12)]]
       (assoc e :anchor-position anch-pos))))
 
@@ -193,43 +215,46 @@
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls :background-color)))
-  (let [state {:controls controls
-               :on-update []
-               ;; (concat
-               ;;  (when-not (zero? (controls :ray-sources-spawn-rate))
-               ;;    [(lib/every-n-seconds
-               ;;      (/ 1
-               ;;         0.3
-               ;;         ;; (controls :ray-sources-spawn-rate)
-               ;;         )
-               ;;      (fn [state]
+  (q/background (lib/->hsb (-> controls
+                               :background-color)))
+  (let [state {;; (when-not (zero? (controls :ray-sources-spawn-rate))
+               ;;   [(lib/every-n-seconds
+               ;;     (/ 1
+               ;;        0.3
+               ;;        ;; (controls :ray-sources-spawn-rate)
+               ;;        )
+               ;;     (fn [state]
+               ;;       state
+               ;;       (lib/append-ents
                ;;        state
-               ;;        (lib/append-ents
-               ;;         state
-               ;;         (->ray-source
-               ;;          {:intensity (+ 5 (rand 30))
-               ;;           :pos (lib/rand-on-canvas-gauss (controls :ray-source-spread))
-               ;;           :scale (controls :ray-source-scale)
-               ;;           :z-index 10}))))]))
-               }]
+               ;;        (->ray-source
+               ;;         {:intensity (+ 5 (rand 30))
+               ;;          :pos (lib/rand-on-canvas-gauss
+               ;;                (controls :ray-source-spread))
+               ;;          :scale (controls :ray-source-scale)
+               ;;          :z-index 10}))))])
+               :controls controls
+               :on-update []}]
     (-> state
         (lib/append-ents
-         (let [r (->>
-                  #{:multi-sensory}
-                  (sequence
-                   (comp
-                    (map (juxt identity controls))
-                    (mapcat (fn [[kind {:keys [amount] :as opts}]]
-                              (repeatedly amount #((body-plans kind) opts))))
-                    (map ->cart)
-                    cat)))]
-           (def r r)
-           r))
+         (->> #{:multi-sensory}
+              (sequence
+               (comp (map (juxt identity controls))
+                     (mapcat (fn [[kind {:as opts :keys [amount]}]]
+                               (repeatedly amount #((body-plans kind) opts))))
+                     (map ->cart)
+                     cat))))
+        (lib/append-ents (lib/->organic-matter
+                          {:odor {:decay-rate (/ 1 10) :intensity 20}
+                           :pos (lib/rand-on-canvas-gauss 0.5)}))
+        (lib/append-ents (lib/->oxygen {:odor {:decay-rate (/ 1 4)
+                                               :intensity 50}
+                                        :pos (lib/rand-on-canvas-gauss 0.5)}))
         (lib/append-ents
-         (lib/->organic-matter
-          {:pos (lib/rand-on-canvas-gauss 0.1)
-           :odor {:intensity 20 :decay-rate (/ 1 10)}})))))
+         (->ray-source
+          {:intensity 20
+           :pos (lib/rand-on-canvas-gauss 0.5)
+           :z-index 10})))))
 
 (defn on-double-click
   [state id]
