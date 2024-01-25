@@ -21,78 +21,107 @@
 ;; non-linear activation functions (transduction functions)
 ;; and abrupt ones -> `will`
 
-
 (defn env [state]
   {:ray-sources
    (into [] (filter :ray-source?) (lib/entities state))
    :odor-sources
-   (into [] (filter :odor-source?) (lib/entities state))})
-
+   (into [] (filter :odor-source?) (lib/entities state))
+   :temperature-bubbles
+   (into [] (filter :temperature-bubble?) (lib/entities state))})
 
 ;; --- make rand body plan?
 
-
-;; make it symetrical
-;;
-
 (defn ->rand-sensor-pair-plans
   [motor-left motor-right]
-  (let [modality (rand-nth [:rays :smell])
+  (let [modality :temperature
+        ;; (rand-nth [:rays :smell])
         sensor-left-opts
-          {:anchor :top-left :modality modality :shuffle-anchor? true}
+        {:anchor :top-left :modality modality :shuffle-anchor? (#{:smell} modality)}
         sensor-left-opts (merge sensor-left-opts
                                 (when (= modality :smell)
                                   {:fragrance (rand-nth [:oxygen
-                                                         :organic-matter])}))
+                                                         :organic-matter])})
+                                (when (= modality :temperature)
+                                  ;; {:hot-or-cold (rand-nth [:hot :cold])}
+                                  {:hot-or-cold? :hot}))
         sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
         sensor-right-id (random-uuid)
         transduction-fn (rand-nth [:excite :inhibit])]
+    (case modality
+      :temperature
+      [[:cart/sensor sensor-left-id
+        (assoc sensor-left-opts :anchor :middle-middle)]
+       [:brain/connection :_ {:destination [:ref motor-left] :f transduction-fn :source [:ref sensor-left-id]}]
+       [:brain/connection :_ {:destination [:ref motor-right] :f transduction-fn :source [:ref sensor-left-id]}]]
+      [[:cart/sensor sensor-left-id sensor-left-opts]
+       [:cart/sensor sensor-right-id sensor-right-opts]
+       [:brain/connection :_
+        {:destination [:ref motor-left]
+         :f transduction-fn
+         :source [:ref (if decussates? sensor-right-id sensor-left-id)]}]
+       [:brain/connection :_
+        {:destination [:ref motor-right]
+         :f transduction-fn
+         :source [:ref (if decussates? sensor-left-id sensor-right-id)]}]])))
+
+(defn ->love-wires
+  [motor-left motor-right sensor-opts]
+  (let [sensor-left-opts (merge sensor-opts {:anchor :top-left})
+        sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
+        sensor-left-id (random-uuid)
+        sensor-right-id (random-uuid)
+        decussates? false]
     [[:cart/sensor sensor-left-id sensor-left-opts]
      [:cart/sensor sensor-right-id sensor-right-opts]
      [:brain/connection :_
       {:destination [:ref motor-left]
-       :f transduction-fn
+       :f :inhibit
        :source [:ref (if decussates? sensor-right-id sensor-left-id)]}]
      [:brain/connection :_
       {:destination [:ref motor-right]
-       :f transduction-fn
+       :f :inhibit
        :source [:ref (if decussates? sensor-left-id sensor-right-id)]}]]))
 
 (defn random-multi-sensory
-  []
+  [sensor-pair-count]
   (fn [{:as opts :keys [baseline-arousal]}]
     {:body opts
      :components
-       (into [[:cart/motor :ma
-               {:anchor :bottom-right
-                :corner-r 5
-                :on-update [(lib/->cap-activation)]
-                :rotational-power 0.02}]
-              [:cart/motor :mb
-               {:anchor :bottom-left
-                :corner-r 5
-                :on-update [(lib/->cap-activation)]
-                :rotational-power 0.02}]
-              [:brain/neuron :arousal
-               {:on-update [(lib/->baseline-arousal (or baseline-arousal
-                                                        0.8))]}]
-              [:brain/connection :_
-               {:destination [:ref :mb]
-                :f rand
-                :hidden? true
-                :source [:ref :arousal]}]
-              [:brain/connection :_
-               {:destination [:ref :ma]
-                :f rand
-                :hidden? true
-                :source [:ref :arousal]}]]
-             (mapcat identity
-               (repeatedly 6 (fn [] (->rand-sensor-pair-plans :ma :mb)))))}))
+     (into [[:cart/motor :motor-left
+             {:anchor :bottom-left
+              :corner-r 5
+              :on-update [(lib/->cap-activation)]
+              :rotational-power 0.02}]
+            [:cart/motor :motor-right
+             {:anchor :bottom-right
+              :corner-r 5
+              :on-update [(lib/->cap-activation)]
+              :rotational-power 0.02}]
+            [:brain/neuron :arousal
+             {:on-update [(lib/->baseline-arousal (or baseline-arousal
+                                                      0.8))]}]
+            [:brain/connection :_
+             {:destination [:ref :motor-left]
+              :f rand
+              :hidden? true
+              :source [:ref :arousal]}]
+            [:brain/connection :_
+             {:destination [:ref :motor-right]
+              :f rand
+              :hidden? true
+              :source [:ref :arousal]}]]
+           ;; (->love-wires :motor-left :motor-right {:modality :smell :fragrance :oxygen})
+
+           (mapcat identity
+                   (repeatedly
+                    sensor-pair-count
+                    (fn []
+                      (->rand-sensor-pair-plans :motor-right :motor-left)))))}))
 
 (def body-plans
-  {:multi-sensory (random-multi-sensory)})
+  {:multi-sensory (random-multi-sensory 1)})
 
 (defn shuffle-anchor [{:keys [shuffle-anchor?] :as e}]
   (if-not shuffle-anchor?
@@ -219,7 +248,8 @@
   (q/color-mode :hsb)
   (q/background (lib/->hsb (-> controls
                                :background-color)))
-  (let [state {;; (when-not (zero? (controls :ray-sources-spawn-rate))
+  (let [state {
+               ;; (when-not (zero? (controls :ray-sources-spawn-rate))
                ;;   [(lib/every-n-seconds
                ;;     (/ 1
                ;;        0.3
@@ -246,18 +276,27 @@
                                (repeatedly amount #((body-plans kind) opts))))
                      (map ->cart)
                      cat))))
-        (lib/append-ents (lib/->organic-matter
-                          {:odor {:decay-rate (/ 1 10) :intensity 20}
-                           :pos (lib/rand-on-canvas-gauss 0.5)}))
-        (lib/append-ents (lib/->oxygen {:odor
-                                        {:decay-rate (/ 1 5)
-                                         :intensity 30}
-                                        :pos (lib/rand-on-canvas-gauss 0.5)}))
-        (lib/append-ents
-         (->ray-source
-          {:intensity 20
-           :pos (lib/rand-on-canvas-gauss 0.5)
-           :z-index 10})))))
+
+        ;; (lib/append-ents (lib/->organic-matter
+        ;;                   {:odor {:decay-rate (/ 1 10) :intensity 20}
+        ;;                    :pos (lib/rand-on-canvas-gauss 0.5)}))
+
+        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
+                                        :pos (lib/rand-on-canvas-gauss 0.2)}))
+        ;; (lib/append-ents
+        ;;  (->ray-source
+        ;;   {:intensity 20
+        ;;    :pos (lib/rand-on-canvas-gauss 0.4)
+        ;;    :z-index 10}))
+
+        (lib/append-ents (lib/->temperature-bubble
+                          {:d (lib/normal-distr 300 50)
+                           :high-color {:a 1 :h 0 :s 68 :v 89}
+                           :hot-or-cold? :hot
+                           :low-color {:a 0.1 :h 0 :s 68 :v 89}
+                           :max-temp 10
+                           :pos (lib/rand-on-canvas-gauss 0.2)
+                           :temp 5})))))
 
 (defn on-double-click
   [state id]

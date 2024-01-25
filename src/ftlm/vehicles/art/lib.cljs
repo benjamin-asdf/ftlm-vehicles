@@ -229,6 +229,7 @@
   {:top-right [0.8 -1.2]
    :top-left [-0.8 -1.2]
    :top-middle [0 -1.2]
+   :middle-middle [0 0]
    :bottom-left [-0.8 1]
    :bottom-right [0.8 1]
    :bottom-middle [0 1]})
@@ -293,7 +294,6 @@
     (+ new-min (* (/ (- value old-min) (- old-max old-min)) (- new-max new-min)))))
 
 (defn relative-position [parent ent]
-  (q/print-every-n-millisec (:anchor-position ent))
   (let [{:keys [width height]} (transform parent)
         m
         (or
@@ -573,7 +573,6 @@
     :transform (->transform pos 0 0 0)}
    opts))
 
-;; later, smell has a fragrances set
 (defmethod update-sensor :smell
   [sensor env]
   (let
@@ -582,7 +581,7 @@
       [new-activation
        (transduce
         (comp
-         (filter (comp :oxygen :fragrances))
+         (filter (comp (:fragrance sensor) :fragrances))
          (map (fn [odor-source]
                 (let [distance (distance (position sensor)
                                          (position odor-source))]
@@ -591,6 +590,21 @@
                    (* distance distance (:decay-rate odor-source)))))))
         +
         (-> env :odor-sources))]
+    (assoc sensor :activation (min new-activation 14))))
+
+(defmethod update-sensor :temperature
+  [sensor env]
+  (let [new-activation (transduce
+                         (comp (filter (comp #{(:hot-or-cold? sensor)}
+                                             :hot-or-cold?))
+                               (filter (fn [{:as bubble :keys [temp d]}]
+                                         (point-inside-circle? (position sensor)
+                                                               (position bubble)
+                                                               d)))
+                               (map :temp))
+                         +
+                         (-> env
+                             :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
 
 (defn ->circular-shine-1
@@ -905,3 +919,18 @@
                      :togethernes-threshold 50
                      ))
              :oxygen? true})]))
+
+(defn ->temperature-bubble
+  [{:keys [pos d temp max-temp low-color high-color hot-or-cold?]}]
+  [(assoc (->entity :circle)
+          :transform (->transform pos d d 1)
+          :color (q/lerp-color (->hsb low-color)
+                               (->hsb high-color)
+                               (normalize-value-1 0 max-temp temp))
+          :temperature-bubble? true
+          :hot-or-cold? hot-or-cold?
+          :d d
+          :temp temp
+          :z-index -10
+          :particle? true
+          :draggable? true)])

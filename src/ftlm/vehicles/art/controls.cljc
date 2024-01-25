@@ -68,7 +68,7 @@
                      :spawn-amount 30
                      :spawn-spread 0.4
                      :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-                     :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+                     :temp-color-low  {:a 0.1 :h 0 :s 68 :v 89}
                      :temp-zone-count 10
                      :time-speed 2
                      :trail-color {:h 0 :s 0 :v 89}
