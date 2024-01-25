@@ -595,8 +595,8 @@
 (defmethod update-sensor :temperature
   [sensor env]
   (let [new-activation (transduce
-                         (comp (filter (comp #{(:hot-or-cold? sensor)}
-                                             :hot-or-cold?))
+                         (comp (filter (comp #{(:hot-or-cold sensor)}
+                                             :hot-or-cold))
                                (filter (fn [{:as bubble :keys [temp d]}]
                                          (point-inside-circle? (position sensor)
                                                                (position bubble)
@@ -920,17 +920,21 @@
                      ))
              :oxygen? true})]))
 
-(defn ->temperature-bubble
-  [{:keys [pos d temp max-temp low-color high-color hot-or-cold?]}]
+(defn ->temperature-bubble-1
+  [{:keys [pos d temp max-temp low-color high-color hot-or-cold]}]
   [(assoc (->entity :circle)
           :transform (->transform pos d d 1)
           :color (q/lerp-color (->hsb low-color)
                                (->hsb high-color)
                                (normalize-value-1 0 max-temp temp))
           :temperature-bubble? true
-          :hot-or-cold? hot-or-cold?
+          :hot-or-cold hot-or-cold
           :d d
           :temp temp
           :z-index -10
           :particle? true
           :draggable? true)])
+
+(defn ->temperature-bubble [opts]
+  (fn [opts-1]
+    (->temperature-bubble-1 (merge opts opts-1))))

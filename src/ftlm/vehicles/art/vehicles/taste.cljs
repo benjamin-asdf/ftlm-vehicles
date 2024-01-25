@@ -15,6 +15,16 @@
 ;; 4. random vehicle 3.
 ;; so that it can love temp or be aggressive towards light etc.
 
+(defn rand-temperature-bubble [controls]
+  (let [hot-or-cold (rand-nth [:hot :cold])
+        max-temp 10]
+    (merge
+     (hot-or-cold controls)
+     {:hot-or-cold hot-or-cold}
+     {:d (lib/normal-distr 200 100)
+      :max-temp max-temp
+      :pos (lib/rand-on-canvas-gauss 0.7)
+      :temp (rand-int (inc max-temp))})))
 
 
 ;; === vehicle 4 ===
@@ -42,8 +52,8 @@
                                   {:fragrance (rand-nth [:oxygen
                                                          :organic-matter])})
                                 (when (= modality :temperature)
-                                  ;; {:hot-or-cold (rand-nth [:hot :cold])}
-                                  {:hot-or-cold? :hot}))
+                                  {:hot-or-cold (rand-nth [:hot :cold])}
+                                  ))
         sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
@@ -281,22 +291,29 @@
         ;;                   {:odor {:decay-rate (/ 1 10) :intensity 20}
         ;;                    :pos (lib/rand-on-canvas-gauss 0.5)}))
 
-        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
-                                        :pos (lib/rand-on-canvas-gauss 0.2)}))
+        (lib/append-ents
+         (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
+                        :pos (lib/rand-on-canvas-gauss 0.2)}))
+        (lib/append-ents
+         (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
+                        :pos (lib/rand-on-canvas-gauss 0.3)}))
+
+
         ;; (lib/append-ents
         ;;  (->ray-source
         ;;   {:intensity 20
         ;;    :pos (lib/rand-on-canvas-gauss 0.4)
         ;;    :z-index 10}))
 
-        (lib/append-ents (lib/->temperature-bubble
-                          {:d (lib/normal-distr 300 50)
-                           :high-color {:a 1 :h 0 :s 68 :v 89}
-                           :hot-or-cold? :hot
-                           :low-color {:a 0.1 :h 0 :s 68 :v 89}
-                           :max-temp 10
-                           :pos (lib/rand-on-canvas-gauss 0.2)
-                           :temp 5})))))
+        (lib/append-ents
+         (lib/->temperature-bubble-1
+          (rand-temperature-bubble controls)))
+        (lib/append-ents
+         (lib/->temperature-bubble-1
+          (rand-temperature-bubble controls)))
+        (lib/append-ents
+         (lib/->temperature-bubble-1
+          (rand-temperature-bubble controls))))))
 
 (defn on-double-click
   [state id]
@@ -335,7 +352,6 @@
   (-> state
       (assoc :pressed false)
       (lib/update-ents (fn [e] (dissoc e :dragged?)))))
-
 (defn rotate-entity
   [state id rotation]
   (update-in state [:eid->entity id :transform :rotation] + rotation))

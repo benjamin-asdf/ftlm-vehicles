@@ -82,7 +82,14 @@
     :ray-sources-spawn-rate 0.8
     :ray-source-spread 0.4
     :ray-source-scale 0.8
-    :time-speed 3}
+    :time-speed 3
+    :sub-controls #{:hot :cold}
+    :hot
+    {:high-color {:a 1 :h 0 :s 68 :v 89}
+     :low-color {:a 0.1 :h 0 :s 68 :v 89}}
+    :cold
+    {:high-color {:h 212, :s 100, :v 71}
+     :low-color {:h 205, :s 33, :v 100}}}
    "assembly"
    {:background-color {:h 0 :s 0 :v 0}
     :time-speed 3}})

@@ -57,7 +57,7 @@
                  (leva/button
                    (fn []
                      (action-button
-                       :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
+                      :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
 
 (defn ui
   [{:keys [version piece more-controls]}]
