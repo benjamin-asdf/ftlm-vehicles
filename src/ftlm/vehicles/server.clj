@@ -38,10 +38,13 @@
                                :query
                                :controls))]
     (page-resp
-      [:div [:div {:id "main"}]
-       (graft "art"
-              :prev-sibling
-              {:height height :piece piece :version version :width width})
+      [:div
+       [:div {:id "main"}]
+       (graft
+        "art"
+        :prev-sibling
+        {:height height :piece piece :version version :width width})
+       [:div {:id "art-place-2"}]
        (when controls?
          [:div
           (graft "controls-app" :parent {:piece piece :version version})])])))

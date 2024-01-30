@@ -367,8 +367,8 @@
                   (assoc-in [:transform :scale] scale)))
             ent))))))
 
-(defn draw-entities
-  [state]
+(defn draw-entities-1
+  [entities]
   (doseq [{:as entity :keys [color]}
           (sort (u/by (some-fn :z-index (constantly 0))
                       u/ascending
@@ -378,9 +378,13 @@
                  (comp
                   (remove :hidden?)
                   (map validate-entity))
-                 (entities state)))]
+                 entities))]
     (draw-color color)
     (draw-entity entity)))
+
+(defn draw-entities
+  [state]
+  (draw-entities-1 (entities state)))
 
 (defn effector->angular-acceleration
   [{:keys [anchor activation rotational-power]}]
@@ -590,7 +594,7 @@
                    (* distance distance (:decay-rate odor-source)))))))
         +
         (-> env :odor-sources))]
-    (assoc sensor :activation (min new-activation 14))))
+      (assoc sensor :activation (min new-activation 14))))
 
 (defmethod update-sensor :temperature
   [sensor env]
@@ -671,7 +675,7 @@
   (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
     (->> state
          entities
-
+         (filter :draggable?)
          (sort-by (comp (fn [b] (distance mouse-position b)) position))
          (first))))
 
@@ -694,14 +698,6 @@
   [[x y]]
   (and (< 0 x (q/width))
        (< 0 y (q/height))))
-
-(defn dart-distants-to-middle
-  [{:as entity :keys [darts?]}]
-  (if (and
-       darts?
-       (not (inside-screen? (position entity))))
-    (dart-to-middle entity)
-    entity))
 
 (defn kinetic-energy-motion
   [entity kinetic-energy]
@@ -766,6 +762,14 @@
                          (:initial-scale @s)
                          (* (:initial-scale @s) magnitute)
                          (q/sin (float (* q/PI progress))))))))))))
+
+(defn wobble-entity
+  [entity]
+  (update
+   entity
+   :on-update
+   conj
+   (->wobble-anim 1 3)))
 
 (defn ray-source-collision-burst
   [state]
@@ -871,53 +875,47 @@
                                               dist (distance (position e) pos)]
                                           (if (< threshold dist)
                                             (assoc (orient-towards e pos)
-                                              :acceleration 2
-                                              :angular-acceleration 0)
+                                                   :acceleration 2
+                                                   :angular-acceleration 0)
                                             e)))]
                           :particle? true
+                          :draggable? false
                           :transform (assoc (->transform spawn-pos
                                                          particle-size
                                                          particle-size
                                                          1)
-                                       :rotation (angle-between spawn-pos pos))
+                                            :rotation (angle-between spawn-pos pos))
                           :z-index 10})))))
           (range count))))
 
 (defn ->organic-matter
   [opts]
   (flatten-components
-   [(merge
-     (->odor-source
-      (merge opts
-             {:fragrances #{:organic-matter}}
-             (:odor opts)))
-     {:components (->brownian-lump opts)
-      :food? true
-      :organic-matter? true})]))
+    [(merge (->odor-source
+              (merge opts {:fragrances #{:organic-matter}} (:odor opts)))
+            {:components (->brownian-lump opts)
+             :draggable? false
+             :food? true
+             :organic-matter? true})]))
 
 (defn ->oxygen
   [opts]
   (flatten-components
-    [(merge (->odor-source
-              (merge opts
-                     {:fragrances #{:oxygen}}
-                     (:odor opts)))
-            {:components
-             (->brownian-lump
-              (assoc opts
-                     :colors
-                     (into []
-                           (repeatedly
-                            4
-                            (fn []
-                              {:h 130
-                               :s (normal-distr 30 10)
-                               :v (normal-distr 100 10)})))
-                     :spread 20
-                     :count 15
-                     :particle-size 8
-                     :togethernes-threshold 50
-                     ))
+    [(merge (->odor-source (merge opts {:fragrances #{:oxygen}} (:odor opts)))
+            {:components (->brownian-lump
+                           (assoc opts
+                             :colors (into []
+                                           (repeatedly
+                                             4
+                                             (fn []
+                                               {:h 130
+                                                :s (normal-distr 30 10)
+                                                :v (normal-distr 100 10)})))
+                             :spread 20
+                             :count 15
+                             :particle-size 8
+                             :togethernes-threshold 50))
+             :draggable? false
              :oxygen? true})]))
 
 (defn ->temperature-bubble-1
@@ -938,3 +936,11 @@
 (defn ->temperature-bubble [opts]
   (fn [opts-1]
     (->temperature-bubble-1 (merge opts opts-1))))
+
+(defn dart-distants-to-middle
+  [{:as entity :keys [darts?]}]
+  (if (and
+       darts?
+       (not (inside-screen? (position entity))))
+    (-> entity dart-to-middle)
+    entity))

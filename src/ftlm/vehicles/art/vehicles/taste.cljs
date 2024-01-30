@@ -5,7 +5,11 @@
             [quil.core :as q :include-macros true]
             [quil.middleware :as m]
             [ftlm.vehicles.art.controls :as controls :refer [versions]]
-            [ftlm.vehicles.art.user-controls :as user-controls]))
+            [ftlm.vehicles.art.user-controls :as user-controls]
+            [goog.style]))
+
+;;
+
 
 ;; === Vehicle 3c.  ===
 ;; multi sensory
@@ -21,7 +25,7 @@
     (merge
      (hot-or-cold controls)
      {:hot-or-cold hot-or-cold}
-     {:d (lib/normal-distr 200 100)
+     {:d (lib/normal-distr 150 20)
       :max-temp max-temp
       :pos (lib/rand-on-canvas-gauss 0.7)
       :temp (rand-int (inc max-temp))})))
@@ -43,28 +47,37 @@
 
 (defn ->rand-sensor-pair-plans
   [motor-left motor-right]
-  (let [modality :temperature
-        ;; (rand-nth [:rays :smell])
-        sensor-left-opts
-        {:anchor :top-left :modality modality :shuffle-anchor? (#{:smell} modality)}
+  (let [modality
+        (rand-nth [:rays :smell :temperature])
+        sensor-left-opts {:anchor :top-left
+                          :modality modality
+                          :shuffle-anchor? (#{:smell} modality)}
         sensor-left-opts (merge sensor-left-opts
                                 (when (= modality :smell)
-                                  {:fragrance (rand-nth [:oxygen
-                                                         :organic-matter])})
+                                  {:fragrance
+                                   (rand-nth [:oxygen
+                                              :organic-matter])
+                                   })
                                 (when (= modality :temperature)
-                                  {:hot-or-cold (rand-nth [:hot :cold])}
-                                  ))
+                                  {:hot-or-cold (rand-nth [:hot :cold])}))
         sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
         sensor-right-id (random-uuid)
-        transduction-fn (rand-nth [:excite :inhibit])]
+        transduction-fn
+        (rand-nth [:excite :inhibit])
+        ]
     (case modality
-      :temperature
-      [[:cart/sensor sensor-left-id
-        (assoc sensor-left-opts :anchor :middle-middle)]
-       [:brain/connection :_ {:destination [:ref motor-left] :f transduction-fn :source [:ref sensor-left-id]}]
-       [:brain/connection :_ {:destination [:ref motor-right] :f transduction-fn :source [:ref sensor-left-id]}]]
+      :temperature [[:cart/sensor sensor-left-id
+                     (assoc sensor-left-opts :anchor :middle-middle)]
+                    [:brain/connection :_
+                     {:destination [:ref motor-left]
+                      :f transduction-fn
+                      :source [:ref sensor-left-id]}]
+                    [:brain/connection :_
+                     {:destination [:ref motor-right]
+                      :f transduction-fn
+                      :source [:ref sensor-left-id]}]]
       [[:cart/sensor sensor-left-id sensor-left-opts]
        [:cart/sensor sensor-right-id sensor-right-opts]
        [:brain/connection :_
@@ -123,7 +136,6 @@
               :hidden? true
               :source [:ref :arousal]}]]
            ;; (->love-wires :motor-left :motor-right {:modality :smell :fragrance :oxygen})
-
            (mapcat identity
                    (repeatedly
                     sensor-pair-count
@@ -131,14 +143,14 @@
                       (->rand-sensor-pair-plans :motor-right :motor-left)))))}))
 
 (def body-plans
-  {:multi-sensory (random-multi-sensory 1)})
+  {:multi-sensory (random-multi-sensory 6)})
 
 (defn shuffle-anchor [{:keys [shuffle-anchor?] :as e}]
   (if-not shuffle-anchor?
     e
     (let [[x y] (lib/anchor->trans-matrix (:anchor e))
           anch-pos
-          [(lib/normal-distr x 0.12)
+          [(lib/normal-distr x 0.2)
            (lib/normal-distr y 0.12)]]
       (assoc e :anchor-position anch-pos))))
 
@@ -233,87 +245,76 @@
         lib/shine
         lib/update-lifetime)))
 
+(def the-state (atom {}))
 
 (defn update-state
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge (user-controls/controls))
-        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))]
-    (binding [*dt* dt]
-      (-> state
-          (assoc :last-tick current-tick)
-          lib/update-update-functions
-          lib/update-state-update-functions
-          lib/apply-events
-          (lib/update-ents #(update-entity % state))
-          lib/transduce-signals
-          lib/track-components
-          lib/track-conn-lines
-          lib/ray-source-collision-burst
-          lib/kill-entities))))
+        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))
+        state
+        (binding [*dt* dt]
+          (-> state
+              (assoc :last-tick current-tick)
+              lib/update-update-functions
+              lib/update-state-update-functions
+              lib/apply-events
+              (lib/update-ents #(update-entity % state))
+              lib/transduce-signals
+              lib/track-components
+              lib/track-conn-lines
+              lib/ray-source-collision-burst
+              lib/kill-entities))]
+    (reset! the-state state)
+    state))
+
 
 (defn setup
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls
-                               :background-color)))
-  (let [state {
-               ;; (when-not (zero? (controls :ray-sources-spawn-rate))
-               ;;   [(lib/every-n-seconds
-               ;;     (/ 1
-               ;;        0.3
-               ;;        ;; (controls :ray-sources-spawn-rate)
-               ;;        )
-               ;;     (fn [state]
-               ;;       state
-               ;;       (lib/append-ents
-               ;;        state
-               ;;        (->ray-source
-               ;;         {:intensity (+ 5 (rand 30))
-               ;;          :pos (lib/rand-on-canvas-gauss
-               ;;                (controls :ray-source-spread))
-               ;;          :scale (controls :ray-source-scale)
-               ;;          :z-index 10}))))])
-               :controls controls
-               :on-update []}]
+  (q/background (lib/->hsb (-> controls :background-color)))
+  (let [state {:controls controls
+               :on-update
+               [(lib/every-n-seconds
+                 1
+                 (fn [state]
+                   (let [sources (filter :ray-source? (lib/entities state))]
+                     (if (< (count sources) 3)
+                       (lib/append-ents
+                        state
+                        (->ray-source {:intensity (+ 5 (rand 30))
+                                       :pos (lib/rand-on-canvas-gauss
+                                             (controls :ray-source-spread))
+                                       :scale (controls :ray-source-scale)
+                                       :z-index 10}))
+                       state))))]}]
     (-> state
         (lib/append-ents
-         (->> #{:multi-sensory}
+         (->> ;; [:multi-sensory :multi-sensory :multi-sensory]
+              [:multi-sensory]
               (sequence
                (comp (map (juxt identity controls))
                      (mapcat (fn [[kind {:as opts :keys [amount]}]]
                                (repeatedly amount #((body-plans kind) opts))))
                      (map ->cart)
                      cat))))
-
-        ;; (lib/append-ents (lib/->organic-matter
-        ;;                   {:odor {:decay-rate (/ 1 10) :intensity 20}
-        ;;                    :pos (lib/rand-on-canvas-gauss 0.5)}))
-
-        (lib/append-ents
-         (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
-                        :pos (lib/rand-on-canvas-gauss 0.2)}))
-        (lib/append-ents
-         (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
-                        :pos (lib/rand-on-canvas-gauss 0.3)}))
-
-
-        ;; (lib/append-ents
-        ;;  (->ray-source
-        ;;   {:intensity 20
-        ;;    :pos (lib/rand-on-canvas-gauss 0.4)
-        ;;    :z-index 10}))
-
-        (lib/append-ents
-         (lib/->temperature-bubble-1
-          (rand-temperature-bubble controls)))
-        (lib/append-ents
-         (lib/->temperature-bubble-1
-          (rand-temperature-bubble controls)))
-        (lib/append-ents
-         (lib/->temperature-bubble-1
-          (rand-temperature-bubble controls))))))
+        (lib/append-ents (lib/->organic-matter
+                          {:odor {:decay-rate 2 :intensity 40}
+                           :pos (lib/rand-on-canvas-gauss 0.5)}))
+        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
+                                        :pos (lib/rand-on-canvas-gauss 0.2)}))
+        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
+                                        :pos (lib/rand-on-canvas-gauss 0.3)}))
+        (lib/append-ents (->ray-source {:intensity 20
+                                        :pos (lib/rand-on-canvas-gauss 0.4)
+                                        :z-index 10}))
+        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
+                                                      controls)))
+        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
+                                                      controls)))
+        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
+                                                      controls))))))
 
 (defn on-double-click
   [state id]
@@ -368,7 +369,6 @@
         height (cond (= height "max") screen-height height height :else screen-height)
         width 1000
         height 800]
-
     (q/sketch :host host
               :size [width height]
               :setup (partial setup controls)
@@ -381,6 +381,38 @@
               :mouse-wheel mouse-wheel
               :frame-rate 30)))
 
+(defn draw-inspect
+  [state]
+  (q/rect-mode :center)
+  (q/color-mode :hsb)
+  (q/background (lib/->hsb {:h 30 :s 9 :v 73})
+                ;; (lib/->hsb)
+  )
+  (def state state)
+  (when-let [selection (:selection state)]
+    (def selection selection)
+    (lib/draw-entities-1 [(update-in ((lib/entities-by-id state)
+                                       (:id selection))
+                                     [:transform :pos]
+                                     (constantly [500 200]))])))
+
+(defn update-inspect [state]
+  @the-state)
+
+(defn sketch-inspect
+  [host]
+  (q/sketch :host host
+            :size [1000 400]
+            :setup (constantly {})
+            :update #'update-inspect
+            :draw #'draw-inspect
+            :features [:keep-on-top]
+            :middleware [m/fun-mode]
+            ;; :mouse-pressed mouse-pressed
+            ;; :mouse-released mouse-released
+            ;; :mouse-wheel mouse-wheel
+            :frame-rate 10))
+
 (defonce restart-fn (atom nil))
 (defmethod art/view "taste"
   [{:as opts :keys [place version]}]
@@ -389,9 +421,14 @@
                     opts
                     (merge (controls/default-versions "taste")
                            (get-in versions ["taste" version])
-                           @user-controls/!app)))]
+                           @user-controls/!app))
+            (sketch-inspect
+              (let [e (js/document.getElementById "art-place-2")]
+                (goog.style/setStyle e (clj->js {:margin-top "16px"}))
+                e)))]
     (reset! restart-fn f)
     (f)))
+
 (defmethod user-controls/action-button ::restart
   [_]
   (some-> @restart-fn (apply nil)))
