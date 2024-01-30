@@ -18,6 +18,23 @@
    {:h 240 :s 191 :b 166}
    {:h 290 :s 179 :b 153}])
 
+(def color-map
+  {:red {:h 0 :s 255 :v 100}
+   :green-yellow {:h 84 :s 82 :v 100}
+   :mint {:h 116 :s 18 :v 100}
+   :hit-pink {:h 20 :s 44 :v 100}
+   :amethyst-smoke {:h 272 :s 20 :v 75}
+   :navajo-white {:h 36 :s 32 :v 100}
+   :horizon {:h 206 :s 44 :v 66}
+   :fruit-salad {:h 133 :s 54 :v 61}
+   :orange {:h 39 :s 100 :v 100}
+   :purple {:h 271 :s 81 :v 100}
+   :cyan {:h 180 :s 100 :v 100}
+   :heliotrope {:h 295 :s 46 :v 100}
+   :sweet-pink {:h 356 :s 39 :v 100}
+   :anakiwa {:h 206 :s 44 :v 100}
+   :woodsmoke {:h 240 :s 26 :v 9}})
+
 (def quite-green {:h 135 :s 100 :v 100})
 (def olive-lime-green {:h 72 :s 100 :v 100})
 
@@ -91,9 +108,9 @@
     {:high-color {:h 212, :s 100, :v 71}
      :low-color {:h 205, :s 33, :v 100}}}
    "assembly"
-   {:background-color {:h 0 :s 0 :v 0}
+   {:background-color
+    (:woodsmoke color-map)
     :time-speed 3}})
-
 
 (def page-layouts
   {"brownians" {:per-page 3}
@@ -565,5 +582,9 @@
    "taste"
    {"0" {:multi-sensory {:amount 1 :scale 1}}}
    "assembly"
-   {"0" {}}}
+   {"0" {}}})
+
+(comment
+  (:background-color @ftlm.vehicles.art.user-controls/!app)
+  {:h 356, :s 39, :v 100}
   )
