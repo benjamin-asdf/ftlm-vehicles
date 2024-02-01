@@ -115,6 +115,14 @@
             (update :color
                     (fn [_c] (q/color shine 255 255))))))))
 
+(defn v* [[a b] [a' b']]
+  [(* a a')
+   (* b b')])
+
+(defn v+ [[a b] [a' b']]
+  [(+ a a')
+   (+ b b')])
+
 (defn signum [x]
   (cond
     (<= x 0) -1
@@ -194,14 +202,53 @@
         {:keys [width height scale]} transform]
     (q/ellipse x y (* scale width) (* scale height))))
 
+;; returns a fn that returns the args to q/bezier
+(defn ->bezier
+  [rel-control-point-1 rel-control-point-2]
+  (fn [[x y] [x1 y1 :as end-pos]]
+    (let [direction (mapv - end-pos [x y])
+          midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
+          control-point-1
+          (v+ rel-control-point-1 midpoint)
+          control-point-2
+          (v+ rel-control-point-2 midpoint)
+          ]
+      [x y
+       (first control-point-1)
+       (second control-point-1)
+       (first control-point-2)
+       (second control-point-2)
+       x1 y1])))
+
+(def my-bezier (delay (->bezier [(normal-distr 0 5)
+                                 (normal-distr 0 5)]
+                                [(normal-distr 0 5)
+                                 (normal-distr 0 5)])))
+
 (defmethod draw-entity :line
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
-        {:keys [_scale]} transform]
+        {:keys [_scale]} transform
+        direction (mapv - end-pos [x y])
+        midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
+        control-point-1 (mapv #(normal-distr % 15) midpoint)
+        control-point-2 (mapv #(normal-distr % 15) midpoint)]
+    (q/begin-shape)
     (q/stroke-weight 2)
-    (q/with-stroke (->hsb color)
-      (q/line [x y] end-pos))
-    (q/stroke-weight 1)))
+    (q/with-stroke
+      (->hsb color)
+      (apply q/bezier (@my-bezier [x y] end-pos))
+      ;; (q/bezier x
+      ;;           y
+      ;;           (first control-point-1)
+      ;;           (second control-point-1)
+      ;;           (first control-point-2)
+      ;;           (second control-point-2)
+      ;;           (first end-pos)
+      ;;           (second end-pos))
+      )
+    (q/stroke-weight 1)
+    (q/end-shape)))
 
 (defmethod draw-entity :rect [{:keys [transform corner-r]}]
   (let [[x y] (:pos transform)
@@ -214,16 +261,12 @@
   (let [w (.-innerWidth js/window)
         h (.-innerHeight js/window)]
     [w h]))
-
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
+
 (defn rand-on-canvas-gauss
   [distr]
   [(normal-distr (/ (q/width) 2) (* distr (/ (q/width) 2)))
    (normal-distr (/ (q/height) 2) (* distr (/ (q/height) 2)))])
-
-(defn v* [[a b] [a' b']]
-  [(* a a')
-   (* b b')])
 
 (def anchor->trans-matrix
   {:top-right [0.8 -1.2]

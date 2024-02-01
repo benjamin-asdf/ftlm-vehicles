@@ -63,20 +63,9 @@
           lib/ray-source-collision-burst
           lib/kill-entities))))
 
-(defn ->block []
-  [ ;; (merge
-   ;;  (lib/->entity :rect)
-   ;;  {:color {:b 100 :h 100 :s 100}
-   ;;   :transform (lib/->transform [200 200] 100 100 1)})
-   (merge
-    (lib/->entity :rect)
-    {
-     :color
-     ;; (:orange color-map)
-     ;; (:hit-pink color-map)
-     (:heliotrope color-map)
-     :corner-r 10
-     :transform (lib/->transform [200 200] 40 40 1)})])
+
+(defn ->block [])
+
 
 (defn setup
   [controls]

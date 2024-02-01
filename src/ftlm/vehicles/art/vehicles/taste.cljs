@@ -8,8 +8,146 @@
             [ftlm.vehicles.art.user-controls :as user-controls]
             [goog.style]))
 
+;; ===
+;; I am after toy models of cognition (for starters)
+;; -----------------------------------------------------------------------
+;; 1. Everything looks as if cognitioon is what the cortex is doing
+;; 2. Thalamus has 10^8 neurons, upper limit for cortical inputs
+;; 3. Cortex has 10^10 inputs. This means that at least 10 or maybe 100x more
+;; inputs to the cortex are from the cortex. (Braitenberg 1986)
+;; 4. The stuff that cognition is is mostly stuff _about the mind itself_ (reflexive)
+;; No wonder hallucinations are a thing.
+;;
+;;
+;; I. "Bacteria brain" (vehicle 1)
+;; sensor -> motor
+;;
+;; II. "Insect brain" (vehicle 2...5, 6, ... )
+;;
+;; sensor -> [ a few interneurons ] -> motor
+;;
+;; III. "Frog brain" (vehicle 8, ... 13/14, ... )
+;;
+;;
+;;   +   +                      +-+
+;;   +-|-+                      | |
+;;     |                        +++
+;;     | sensors                 | actuators
+;;     |                         |
+;;     |                         |
+;;   realistic brain          dreamer brain (vehicle 14)
+;;     |                         |
+;; +---+------ tectum? -----------+
+;; |                              |
+;; |  predictor-comparator(s)     | vehicle 13
+;; |                              | association learners (vehicle 7), regularity learners (vehicle 11)
+;; +---+-------------------^------+ values (vehicle 6)
+;;     |                   |        surprise (vehicle 13)
+;;     |                   |        distant futures (vehicle 14, vehicle 12)
+;;     |                   |
+;;     |                   |
+;;     +-------------------+
+;;       prediction loops etc.
+;;
+;;
+;; IV. Vehicle 15
+;;
+;; predictor-compartor with confabulation (future blog post)
+;;
+;; Key idea: predictors are allowed to modify the short term memory too,
+;; in order to get more `harmony`.
+;; We get confabulation.
+;; -> mechanism for magic tricks
+;; -> mechanism for multiple drafts and tale-tale brain
+;;
+;; .. and then some stuff... vehicle 16, 17, 18... (?), future blog posts.
+;;
+;; Like a magic trick we look back and we think, where did cognition come from?
+;; It somehow sneaked up on us and suddenly we have this rich system that is constantly about itself.
+;; Analyzing the situations in ever more finegrained details.
+;;
 ;;
 
+
+;; ===
+;; The mind is...
+;; hierachical, dynamic, self-assembled
+;; This is similar to "complex adaptive system" but different emphasis.
+;;
+;; `hierachical`: because abstraction is key.
+;; A map can be better than the territory.
+;; Building blocks are useful.
+;; If you can get more things done in the same amount of steps,
+;; that is power.
+;;
+;; -> Plans and multiple drafts model, a recipie can be power for
+;; it can be revised.
+;;
+;; `dynamic`:
+;; 1. navigate ever more complex environments
+;; Consider cells, then cells with gene regulation
+;; -> stable across more enviroments, because more dynamic.
+;; 2. Allow to acrete your content.
+;; (plans and intermediate representations again).
+;; Cognition is the content of the mind.
+;; The way lisp code is the content of a lisp program.
+;; 3. Allow to become specialized.
+;; Allocate resources, have attention mechanisms etc.
+;;
+;; `self-assembled`:
+;; It needs to bootsrap from nothing.
+;; - Its fundamental algorithms need to be simple enough so they can
+;; be computed by reality.
+;; - It grows without a loss function or fitness function specified from outside
+;; - Makes we wonder about local rules that allow useful 'brain' to grow.
+;; - And later, the mind is a programmer, discovering the resources of the computer
+;; it is running on; And building its resourcefulness.
+;; - When thinking about Cognition you are allowed to go in loops
+;; - We are allowed to do this, if we have a path from something simple to something more complex.
+;;
+;; ===
+
+
+;;
+;;
+;; ===                             ---+
+;;                                    | vehicles 1-5
+;; -- the world of the neurons --     |
+;;    |    |       |        |         |
+;;    v    v       v        v         | vehicle 8
+;; +---------------------------+      |
+;; | toolbox of cognition      |------+---------------- vehicle 7, vehicle 11, 8
+;; +---------------------------+      |
+;;                                    | vehilce 11
+;; -- the world of cognition --    ---+ vehicle 14
+;;                                 ---+
+;; perception                         | vehicle 8,11,...
+;; action                             |
+;; imagination                        | vehicle 15,16,17,...
+;;                                    | Forsesight
+;; -- the world of intelligence --    |
+;;                                    | Vague Programmer
+;;                                 ---+
+;;
+;;
+;; The spirit of vehicle 7 (Concepts, Mnemotrix) and 8 (Space, Things and Movements)
+;; and 11 (Rules and Regularities, Ergotrix) is to observe what do neurons do,
+;; and then use reasoning from the realm of psychology, from top-down, what does the system need,
+;; what could be things that the neurons are providing?
+;;
+;; I less interested in scaling vehicle 5 (Artificial neurons) into cognition.
+;; I am interested in thinking about what is the stuff that you need to make cognition.
+;; To find a toolbox of cognition that is higher level than the neurons.
+;; This way we come up with Mnemotrix (m-lines), Ergotrix (e-lines), vague and concrete states, maps,
+;; predictor-comparators (vehicle 13).
+;;
+;; I have a vague idea of a predictor-comparator-box, that uses m-lines and e-lines to reason,
+;; that is allowed to dynamically query the rest of the system for states (modeling A-Stream pyramidal cell inputs).
+;;
+;;
+
+
+;; ===
 
 ;; === Vehicle 3c.  ===
 ;; multi sensory
@@ -18,6 +156,59 @@
 ;; 3. temperature bubbles
 ;; 4. random vehicle 3.
 ;; so that it can love temp or be aggressive towards light etc.
+
+
+;; === Interlude 1: ===
+;; assemble connections
+
+;; === Interlude 2: ===
+;; - interneurons -> visible in inspection window
+;; - another small kind of effect: change the color of the vehicle
+;; - Now we make interneurons that change the weight of what
+;; each of your sensors are contributing
+;; - We can do this randomly just for proof of concept
+;; - Call these 'mood' neurons
+;; - Wire them also to the color of the vehicle
+;; - Now, depending on mood the color changes,
+;; and the vehicle might now love light and be red
+;; and then fear light and be green etc.
+;; -> we have created dynamism where before there where versions
+;;
+;; -> it is like taking a stack of paper of possible vehicle configs
+;; and dyanmically moving in the third dimension of this stack of paper
+;;
+;; -> consider genetic regulation of cells, a dynamic version of different versions of cells
+;; -> we are tackling here a little bit both the hierachical and the dyanmic part.
+
+
+;; === vehicle 4 ===
+;; non-linear activation functions (transduction functions)
+;; and abrupt ones -> `will`
+
+;; === Interlude 3: ===
+;; The Breath
+;; Question how to hook up your mood neurons to something so you can
+;; abruptly decide to do something else?
+;; The inputs, yes.
+;; Consider the day night cycle, a periodic sensory input.
+;; Good enough to hook in parts of your cognition,
+;; and you are complected to time!
+;;
+;; - lets take vehicle 4, with the mood interneurons, and add a breath
+;; - The breath is something like a sine wave
+;; - Your mood is allowed to subtly change with in and out breath
+;; -> Your cognition has a little bit of time in it!
+;;
+;; -> compare to deep learning positional encoding
+;; -> The Soul is also called the breath. Maybe there is something deep about this.
+;; The rythm of life that connects you to the real world.
+;; If time is a concept to you, resource constraintnes is allowed to be a concept to you.
+;; -> On of the fundamental aspects of cybernetics and intelligence I think.
+;;
+
+
+
+
 
 (defn rand-temperature-bubble [controls]
   (let [hot-or-cold (rand-nth [:hot :cold])
@@ -31,9 +222,7 @@
       :temp (rand-int (inc max-temp))})))
 
 
-;; === vehicle 4 ===
-;; non-linear activation functions (transduction functions)
-;; and abrupt ones -> `will`
+
 
 (defn env [state]
   {:ray-sources
@@ -161,7 +350,7 @@
    :brain/neuron
    lib/->neuron
    :cart/body (fn [opts]
-                (lib/->body (merge {:color {:h 200 :s 100 :v 100}
+                (lib/->body (merge {:color (:sweet-pink controls/color-map)
                                     :corner-r 10
                                     :draggable? true
                                     :darts? true
@@ -251,7 +440,9 @@
   [state]
   (let [current-tick (q/millis)
         state (update state :controls merge (user-controls/controls))
-        dt (* (:time-speed (lib/controls)) (/ (- current-tick (:last-tick state)) 1000.0))
+        dt (*
+            (:time-speed (lib/controls))
+            (/ (- current-tick (:last-tick state)) 1000.0))
         state
         (binding [*dt* dt]
           (-> state
@@ -267,7 +458,6 @@
               lib/kill-entities))]
     (reset! the-state state)
     state))
-
 
 (defn setup
   [controls]
@@ -292,13 +482,13 @@
     (-> state
         (lib/append-ents
          (->> ;; [:multi-sensory :multi-sensory :multi-sensory]
-              [:multi-sensory]
-              (sequence
-               (comp (map (juxt identity controls))
-                     (mapcat (fn [[kind {:as opts :keys [amount]}]]
-                               (repeatedly amount #((body-plans kind) opts))))
-                     (map ->cart)
-                     cat))))
+          [:multi-sensory]
+          (sequence
+           (comp (map (juxt identity controls))
+                 (mapcat (fn [[kind {:as opts :keys [amount]}]]
+                           (repeatedly amount #((body-plans kind) opts))))
+                 (map ->cart)
+                 cat))))
         (lib/append-ents (lib/->organic-matter
                           {:odor {:decay-rate 2 :intensity 40}
                            :pos (lib/rand-on-canvas-gauss 0.5)}))
@@ -383,11 +573,8 @@
 
 (defn draw-inspect
   [state]
-  (q/rect-mode :center)
-  (q/color-mode :hsb)
-  (q/background (lib/->hsb {:h 30 :s 9 :v 73})
-                ;; (lib/->hsb)
-  )
+
+  (q/background (lib/->hsb (-> state :controls :background-color)))
   (def state state)
   (when-let [selection (:selection state)]
     (def selection selection)
@@ -399,11 +586,16 @@
 (defn update-inspect [state]
   @the-state)
 
+(defn setup-inspect [controls]
+  (q/rect-mode :center)
+  (q/color-mode :hsb)
+  (q/background (lib/->hsb (-> controls :background-color))))
+
 (defn sketch-inspect
-  [host]
+  [host controls]
   (q/sketch :host host
             :size [1000 400]
-            :setup (constantly {})
+            :setup (partial setup controls)
             :update #'update-inspect
             :draw #'draw-inspect
             :features [:keep-on-top]
@@ -417,15 +609,15 @@
 (defmethod art/view "taste"
   [{:as opts :keys [place version]}]
   (let [f (fn []
-            (sketch place
-                    opts
-                    (merge (controls/default-versions "taste")
-                           (get-in versions ["taste" version])
-                           @user-controls/!app))
-            (sketch-inspect
-              (let [e (js/document.getElementById "art-place-2")]
-                (goog.style/setStyle e (clj->js {:margin-top "16px"}))
-                e)))]
+            (let [controls (merge (controls/default-versions "taste")
+                                  (get-in versions ["taste" version])
+                                  @user-controls/!app)]
+              (sketch place opts controls)
+              (sketch-inspect
+                (let [e (js/document.getElementById "art-place-2")]
+                  (goog.style/setStyle e (clj->js {:margin-top "16px"}))
+                  e)
+                controls)))]
     (reset! restart-fn f)
     (f)))
 

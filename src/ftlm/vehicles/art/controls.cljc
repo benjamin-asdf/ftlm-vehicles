@@ -25,6 +25,7 @@
    :hit-pink {:h 20 :s 44 :v 100}
    :amethyst-smoke {:h 272 :s 20 :v 75}
    :navajo-white {:h 36 :s 32 :v 100}
+   :misty-rose {:h 6, :s 12, :v 100}
    :horizon {:h 206 :s 44 :v 66}
    :fruit-salad {:h 133 :s 54 :v 61}
    :orange {:h 39 :s 100 :v 100}
@@ -92,7 +93,7 @@
                      :trail-size 20}
    "taste"
    {:multi-sensory {:amount 1 :scale 1}
-    :background-color {:h 0 :s 0 :v 89}
+    :background-color (:misty-rose color-map)
     :brownian-factor 0.8
     :ray-source-count 0
     :ray-sources-die? true
@@ -586,5 +587,6 @@
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)
+  nil
   {:h 356, :s 39, :v 100}
   )
