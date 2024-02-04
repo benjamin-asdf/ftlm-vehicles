@@ -16,3 +16,31 @@
 
 
   )
+
+(defn type [obj]
+  (-> obj meta :type))
+
+(defn union [& types] {:type (set types)})
+
+(def alltypes (atom {}))
+
+(defn def-a-type [typename type]
+  (swap! alltypes assoc typename type))
+
+(def-a-type :int :int)
+
+(defn lookup-type [typename]
+  (get @alltypes typename))
+
+
+(require '[clojure.string :as str])
+
+
+(defn replace-special-chars [text]
+  (-> text
+      (str/replace #"…" "...")
+      (str/replace #"“" "\"")
+      (str/replace #"”" "\"")
+      (str/replace #"‟" "\"")))
+
+(update-vals (fn [v] (if (string? v) (replace-special-chars v) v)) obj)

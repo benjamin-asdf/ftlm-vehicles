@@ -1,36 +1,39 @@
-{:paths ["src" "resources"]
- :deps {integrant/integrant {:mvn/version "0.8.1"}
-        ring/ring-jetty-adapter {:mvn/version "1.10.0"}
-        ring/ring-defaults {:mvn/version "0.3.4"}
-        metosin/reitit-middleware {:mvn/version "0.7.0-alpha5"}
-        metosin/reitit {:mvn/version "0.7.0-alpha5"}
-        metosin/reitit-malli {:mvn/version "0.7.0-alpha5"}
-        com.fbeyer/reitit-ring-defaults {:mvn/version "0.1.0"}
-        com.thheller/shadow-graft {:mvn/version "0.9.0"}
-        hiccup/hiccup {:mvn/version "2.0.0-RC1"}
-        com.thheller/shadow-css {:mvn/version "0.4.4"}
-        amalloy/ring-gzip-middleware {:mvn/version "0.1.4"}}
- :aliases
- {:server {}
-  :dev {:extra-paths ["dev"]
-        :extra-deps
-        {binaryage/devtools {:mvn/version "1.0.3"}
-         cider/cider-nrepl {:mvn/version "0.45.0"}}}
-  :+css-gen {:extra-paths ["css"]
-             :ns-default css-gen}
-  :cljs {:extra-paths ["src" "resources"]
-         :extra-deps
-         {thheller/shadow-cljs {:mvn/version "2.24.1"}
-          quil/quil {:mvn/version "4.0.0-SNAPSHOT-1"}
-          org.mentat/leva.cljs {:mvn/version "0.3.0"}
-          reagent/reagent {:mvn/version "1.2.0"}
-          cljsjs/react {:mvn/version "17.0.2-0"}
-          cljsjs/react-dom {:mvn/version "17.0.2-0"}}}
-  :test {:extra-paths []
-         :extra-deps {}}
-  :build
-  {:extra-paths ["src-build"]
-   :ns-default build
-   :extra-deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
-                io.github.seancorfield/build-clj {:git/tag "v0.8.0" :git/sha "9bd8b8a"}
-                babashka/fs {:mvn/version "0.4.19"}}}}}
+{:aliases
+   {:+css-gen {:extra-paths ["css"] :ns-default css-gen}
+    :build {:extra-deps
+              {babashka/fs {:mvn/version "0.4.19"}
+               io.github.clojure/tools.build
+                 {:git/sha "ba1a2bf" :git/tag "v0.8.2"}
+               io.github.seancorfield/build-clj
+                 {:git/sha "9bd8b8a" :git/tag "v0.8.0"}}
+            :extra-paths ["src-build"]
+            :ns-default build}
+    :cljs {:extra-deps
+             {cljsjs/react {:mvn/version "17.0.2-0"}
+              cljsjs/react-dom {:mvn/version "17.0.2-0"}
+              com.cnuernber/tmdjs {:mvn/version
+                                     "2.000-beta-10"}
+              org.mentat/leva.cljs {:mvn/version "0.3.0"}
+              quil/quil {:mvn/version "4.0.0-SNAPSHOT-1"}
+              reagent/reagent {:mvn/version "1.2.0"}
+              thheller/shadow-cljs {:mvn/version "2.24.1"}}
+           :extra-paths ["src" "resources"]}
+    :dev {:extra-deps
+            {binaryage/devtools {:mvn/version "1.0.3"}
+             cider/cider-nrepl {:mvn/version "0.45.0"}}
+          :extra-paths ["dev"]}
+    :server {}
+    :test {:extra-deps {} :extra-paths []}}
+ :deps
+   {amalloy/ring-gzip-middleware {:mvn/version "0.1.4"}
+    com.fbeyer/reitit-ring-defaults {:mvn/version "0.1.0"}
+    com.thheller/shadow-css {:mvn/version "0.4.4"}
+    com.thheller/shadow-graft {:mvn/version "0.9.0"}
+    hiccup/hiccup {:mvn/version "2.0.0-RC1"}
+    integrant/integrant {:mvn/version "0.8.1"}
+    metosin/reitit {:mvn/version "0.7.0-alpha5"}
+    metosin/reitit-malli {:mvn/version "0.7.0-alpha5"}
+    metosin/reitit-middleware {:mvn/version "0.7.0-alpha5"}
+    ring/ring-defaults {:mvn/version "0.3.4"}
+    ring/ring-jetty-adapter {:mvn/version "1.10.0"}}
+ :paths ["src" "resources"]}

@@ -8,25 +8,22 @@
             [ftlm.vehicles.art.user-controls :as user-controls]
             [goog.style]))
 
+;;--------------------------------------------------------------------------------
+;; THE HIGHER VEHICLES
+;;--------------------------------------------------------------------------------
+
 ;; ===
 ;; I am after toy models of cognition (for starters)
 ;; -----------------------------------------------------------------------
-;; 1. Everything looks as if cognitioon is what the cortex is doing
-;; 2. Thalamus has 10^8 neurons, upper limit for cortical inputs
-;; 3. Cortex has 10^10 inputs. This means that at least 10 or maybe 100x more
-;; inputs to the cortex are from the cortex. (Braitenberg 1986)
-;; 4. The stuff that cognition is is mostly stuff _about the mind itself_ (reflexive)
-;; No wonder hallucinations are a thing.
 ;;
-;;
-;; I. "Bacteria brain" (vehicle 1)
+;; I. "Bacteria brain", "tiny, tiny brain" (vehicle 1)
 ;; sensor -> motor
 ;;
-;; II. "Insect brain" (vehicle 2...5, 6, ... )
+;; II. "Nematode brain", "very small brain" (vehicle 2...5, 6, ... )
 ;;
 ;; sensor -> [ a few interneurons ] -> motor
 ;;
-;; III. "Frog brain" (vehicle 8, ... 13/14, ... )
+;; III. Insect -> frog brain, "small brain" (vehicle 8, ... 13/14, ... )
 ;;
 ;;
 ;;   +   +                      +-+
@@ -43,29 +40,333 @@
 ;; |                              | association learners (vehicle 7), regularity learners (vehicle 11)
 ;; +---+-------------------^------+ values (vehicle 6)
 ;;     |                   |        surprise (vehicle 13)
-;;     |                   |        distant futures (vehicle 14, vehicle 12)
-;;     |                   |
+;;     |                   |        distant futures (vehicle 14, vehicle 12) (maybe minimally for a frog)
+;;     |                   |        thought pumps (vehicle 12)
 ;;     |                   |
 ;;     +-------------------+
-;;       prediction loops etc.
+;;       prediction loops etc. ?
+;;
+;; There is probably not much cognition going on in a frog brain, considering there is no cortex.
+;; The number of neurons in the tectum is roughly the number of fibers entering the tectum (Braitenberg 1986).
+;; So there is probably not much reflexivity happening.
+;;
+;; IV. Cortex
+;;
+;; I am in the camp of people assuming that the interesting part of cognition happens in the cortex.
+;; In other words, it looks like modeling the function of the cortex will give me a model of cognition.
+;;
+;; Givens:
+;;
+;; 0. Injuring cortex makes a person lose specific capabilities.
+;; 1. The cortex is the thing that explosively blew up in human evolution.
+;;    1a. What ever is special about us is almost certainly special because of the cortex.
+;; 2. Thalamus has 10^8 neurons; this is an upper limit for cortical inputs.
+;; 3. Cortex neurons have 10^10 inputs.
+;;    -> this means that 10x maybe event 100x more connections to the cortex are /from/ the cortex. (Braitenberg 1986)
+;;    The stuff that cognition is is mostly stuff _about the mind itself_ (reflexive).
+;;    No wonder hallucinations are a thing.
+;; 5. The cortex is more generic than other parts of the brain, it looks as if evolution
+;;    found some basic building block (cortical columns?) which when duplicated,
+;;    made more useful intelligence in the animal.
+;;    -> both the given that the cortex is generic/uniform and the given that areas are different is interesting.
+;; 6. To explain cognition means to also explain altered states, out of body experiences, dreaming,
+;;    mental pathologies, etc. (Metzinger).
+;; 7. Everything with a brain also sleeps afaik. Roughly half of a good model of what the brain does
+;;    concerns itself with stuff that happens during sleep.
+;;    (we will see that this move makes us able to happily to move this or that part of a cognition mechanism
+;;    into a dream phase).
+;; 8. The mind is self-assembled, without an external loss function.
+;; 9. The mind is online and has resource constraints.
+;;    Unlike a computer, there is generally not a pause when you ask a person something.
+;;    The mind cannot stop reality in order to process some input.
+;;    (But the existence of attentional blink shows us that a tradeoff in this space is being made).
+;; 10. Whatever the basic building block of the cortex, it grows in in the first 2 dimensions but not the height.
+;;    Otherwise we would have evolved more cortex volume, not surface area (Braitenberg ...)
+;;
+;; --------------------
+;; Reasonings / Intuitions:
+;;
+;; The cortext is a information mixing machine - Braitenberg
+;;
+;; What I call explanation juggle balls somebody might call the 'puzzle pieces' of a problem.
+;; A explanation juggle ball can be pulled out, and considered, together with another such ball.
+;; Or balls, if one is already juggleling some, and capable of putting multiple at once in their head.
+;;
+;; - When making explanations about the mind and brain, you cannot know the whole picture all
+;;    at once.
+;; - You have to put single juggle balls in your mind, and only juggle 1 or 2 at the time
+;;    See Rich Hickey Hammock Driven Development.
+;; - When thinking about the cortex:
+;;   a. We are allowed to use the rest of the system as explanation. The cortex is about itself.
+;;      -> The explanation is allowed to go in a loop.
+;;   b. We are allowed to use an abstraction barrier, and explain a part (a juggle ball) in terms of stuff
+;;      to be figured out somewhere else. (this too is just a programming insight.)
+;;   For this reason I will every now and then come up with this or that magic substance,
+;;   'Imagine we had the magic substance xyz...'
+;;    Braitenberg did this when he cam up with Mnemotrix and Ergotrix.
+;; - The cortex is like an ocean. This is part of the point.
+;;   One does not go an and explain the ocean by looking at all the drops of water.
+;;   The better way to understand the ocean is to consider a drop of water, while not forgetting
+;;   the ocean.
 ;;
 ;;
-;; IV. Vehicle 15
+;; ==================================== CORTEX ==============================================
+;; +----------------------------------------------------------------------------------------+
+;; |                                                                                        |
+;; |             Cortex                                                                  <--+-----+
+;; |                                                                                        |     |
+;; |                   ---------------------------------------------------------------------+     | mostly about itself
+;; |                                                                                        |     |
+;; |                                                                                        |     |
+;; |                                                                                        |     |
+;; |                                                                                        |     |
+;; |   -------------------------------------------------------------------------------      |     |
+;; |                                                                                        |     |
+;; |    inputs                                       |                                   ---+-----+
+;; |    ^   ^                                        | motor output                         |
+;; |    |   |                                        |                                      |
+;; +====|===|========================================|=======================================+----+
+;;  |   |   |          |                             |                                       |    |-
+;;  +------------------+                             v                                       +----+
+;;                  rest of the brain                 actuators                                 eyes
+;;
+;; Why is there a big fat cake of stuff that is about itself on top of the brain?
+;; And it seems to have to have to do with what we call cognition and intelligence.
+;;
+;; To explain the cortex is to explain an ocean.
+;; The most beatiful way to explain an ocean is to consider a drop of water, without loosing sight of the ocean.
+;; -> Hence the vehicles and the small toy ideas about how things _could_ work.
+;; Once we see a substance that makes sense to grow for a vehilce, if this substance looks like you can grow
+;; more of it and have it turn out nice, just from its wiring.
+;;
+;; ---------------------------------------------------------------------------------------------
+;; 1. Excitatory activation pyramidal cells looks like the main biological function of the cortex
+;; 2. Short term memory looks like cell activation going back and forth.
+;; 3. Everything fits with the idea that cells in hippocampus go back and forth for longer,
+;;    producing mid-term memory (future blog posts)
+;; 4. Vague ideas / mixed ideas / ideas with a little bit of concreteness and else vaguenss,
+;;    I feel like this is a nice building material out of which to make cognition out of.
+;;    -----------------------------------------------------------------
+;;    The concept of confabulation and 'filling in the blanks':
+;;    -----------------------------------------------------------------
+;;    This is very important for the kind of mechanisms I want to build.
+;;
+;;    (also similarly called hallucination hypothesis, predictive coding: https://en.wikipedia.org/wiki/Predictive_coding)
+;;    Similar: Dennetts multiple drafts.
+;;    Many people had such intutions before me.
+;;    What I bring to the table is being able to program, and doing so sensually, with a sense of aesthetics.
+;;    If you think about it, this would be really great aspect to emphasize for the creators of machine intelligence.
+;;
+;;
+;; V. Vehicle 15
+;; CONFABULATION
 ;;
 ;; predictor-compartor with confabulation (future blog post)
 ;;
-;; Key idea: predictors are allowed to modify the short term memory too,
-;; in order to get more `harmony`.
-;; We get confabulation.
-;; -> mechanism for magic tricks
-;; -> mechanism for multiple drafts and tale-tale brain
+;; 15a.
+;; From the comparator, we get surprise.
+;; If you are in surprise, you do a double take, you make your short term memory
+;; be about the real past.
 ;;
-;; .. and then some stuff... vehicle 16, 17, 18... (?), future blog posts.
+;; Key idea: predictors are allowed to modify the short term memory too, in order to get more `harmony`.
+;;
+;; a predictor harmony loop
+;; re-arrange, confabulate, modify predictions, until a stop condition is met.
+;; The stop condition could come from a comparator
+;;
+;; (defn predictor-loop [predictor stop? input-mental-states]
+;;   (loop [mental-states input-mental-states]
+;;     (or
+;;      (stop? mental-states)
+;;      (recur (predictor mental-states)))))
+;;
+;; (defn predictor-comparator-harmony-loop [comparator predictor input-mental-states]
+;;   (let [trusted-states (trusted input-mental-states)]
+;;     (predictor-loop
+;;      predictor
+;;      (fn [prediction-mental-states]
+;;        (cond
+;;          (enough-harmony?
+;;           (comparator trusted-states prediction-mental-states))
+;;          prediction-mental-states
+;;          (give-up? prediction-mental-states)
+;;          [:unresolved input-mental-states prediction-mental-states]
+;;          :else nil)))))
+;;
+;; enough-harmony? Could be guided by a hyperparameter. (dopamine?)
+;;
+;; Lets say there are some real states comming from short term memory.
+;; The predictor is adding some prediction states at the end.
+;; This then might be a little bit of a self-contained story snippet.
+;; I call this a story-line henceforth.
+;;
+;;
+;;     +-----------------+-----------------------+
+;;     |                 |                       | story line
+;;     +-----------------+-----------------------+
+;;      real states        prediction states
+;;                         thought / dream
+;;      (purple)           (blue)
+;;
+;;
+;; Since we have 2 kinds of mental states in this system, lets give them colors.
+;; Tint everything touched by the realistic brain a bit more purple. And everything by the
+;; predictor / perception brain as blue.
+;;
+;; These colors come from the colors I chose to draw this on the whiteboard.
+;;
+;; 15b:
+;; If we are still surprised after a double take (our system was not able to make sense of
+;; the short term memory) - we mark the state as unresolved.
+;; Imagining for a moment we already have mid-term memory.
+;; Alternatively, we can reverbarate those unresolved states very frequently in the system,
+;; to make sure we don't forget them.
+;; -> sounds a bit like a default mode network for this vehicle to me.
+;; This vehicle might be somewhat neurotic, going back to some memory it can't make sense of over and over.
+;;
+;; In a sleep phase, we pick some unresolved, and try different predictors. Maybe some novel,
+;; 'fresh perspective' will allow the vehicle to understand the situation it was facing.
+;;
+;; VI. Vehicle 16
+;;
+;; 16a: dimensions of input, event streams, higher order predictors
+;;
+;; We can start to swap our language away from "prediction states" to "perception" for the blue snippets.
+;; Higher order story lines are now driving, in part, the predictions of the lower level ones.
+;;
+;; We might even start tinting some of the furthest derived resources of this growing layer of cake green,
+;; for we are firmly crossing the threshold into imagination and day dreaming now.
+;; Not merely blue anymore, not merely perception.
+;;
+;; This vehicle starts having the capacity for a LCD trip, to be in awe about its input;
+;; (double takes).
+;; It dreams up potential interpretations and sees its perceptions from different angles.
+;;
+;;
+;; 16b: The mental arranger
+;;
+;; We already got the same thing from the higher order predictors.
+;;
+;; Lets imagine a resource with a bigger picture of the ongoings in this system in the vehicle.
+;; One might imagine flying across the vast city of predictors we have created.
+;; We can draw each predictor, or each dimension (not sure yet) on the abscissa of a coordinate system
+;; on the ordinate there is something that is roughly time, but not actually time.
+;; I call this the event-flow. It is the ordering of the stories in something like time,
+;; but since it is up to the vehicle to make up the mental stories, this is more like some rough best guess attempt.
+;;
+;; The resulting picture I call mind mosaik, because you see these color full snippets being arranged there now.
+;; And they are mostly rectangles, spreading over different amounts of event flow.
+;;
+;;
+;;                               "synchronization barrier"
+;;
+;;                               |  - say you see a ball falling
+;;                               |  - ball on floor event
+;;                               |  - you expect to not hear the ball falling afterwards
+;;                               |  - the ball-hit-floor event is a sync barrier
+;;                               |
+;;  p-streams                    |
+;;                               |
+;;          +--------------------+-----------------------+
+;;          | +----------+       |                       |                --+
+;; ---->    | | story1   |       |        +--------------+----+             | Situations
+;;          +-+----------+-------+--------+--------------+    |             | (areas in the mind mosaik)
+;;          |      +-----------+ |        |              |    |             |
+;; ---->    |      | story2    | |        |              |    |             |
+;;          +------+-----------+-+--------+--------------+    |             |
+;;          |                    |        |              |    |             |
+;; ---->    |                    |        |              |    |             |
+;;          +--------------------+--------+--------------+    |             |
+;;          |                    |        +--------------+----+             |
+;;          |                    |                       |               ---+
+;;          +---X-----X-----X----+-----------------------+
+;;          |  / \   / \   / \   |                       |
+;; ---->    | /   \ /   \ /   \  |                       |  ? time givers ?  -> see interlude 3: The breath
+;;          +/-----X-----X-----\-+-----------------------+
+;;                               +                          - a rhythmic event stream for instance
+;;                           ^   |           ^              - heartbeat, breathing, walking movements
+;;                           |               |              - day cycle, hormone cycles (cortisol), ...
+;;                           |               |              - time givers allow the system to order events
+;;            event flow     |               |              - You can also generate an ever changing random event stream,
+;;                           |               |              - as anchors for the rest of the system to locate in time
+;;                                                          - this is similar to positional encoding in machine learning
+;;                           e1              e2             - in fact, putting in a positional encoder into our vehicles
+;;                                                            sounds useful
+;;
+;;
+;;   Such a vehicle can see a ball falling and produce a vague story line:
+;;
+;;  +-----------+-----------------+
+;;  |           |                 |
+;;  +-----------+-----------------+
+;;   e1                          e2
+;; ball-started-falling , random-noise + ball-falling + ongoing... , ball-on-floor
+;;
+;; The cool thing is that the mind arranger can bully the auditory system into hearing a ball-on-floor event.
+;; In other words the auditory sytem can be biased towawrds hearing such a sound.
+;; The ball-on-floor-event is a moment in time for which some ongoings are allowed to before, and some after, and some at the same time.
+;; A synchronization barrier in programming is a construct that /ensures that some ongoings are done at a particular moment in the timelines/.
+;; We need this only if there is more than 1 timeline. If there is only 1, then everything happens in order (called synchronously).
+;; If things are allowed to happen at the same time, called concurrently, that is called having mutliple timelines.
+;; -> One way to coordinate timelines is with sync barries. So certain ongoings are guaranteed to be over on both timelines.
+;;
+;; If our vehicle has an auditory system with some story timelines and a visual system with some story timeliness, then a synchronization barrier
+;; might be useful, after hearing the ball fall, I don't expect it to see falling still. If I would perceive these things out of order, I
+;; would think something is seriously wrong.
+;; (are drugs and pathologies where ordering is off?)
+;;
+;;
+;; Maybe here is a reason why some (cheaper?) magic tricks incoorparate loud bangs.
+;; Maybe here is a reason why hypnotists incoorparate snappping.
+;;
+;;
+;; A magician can make a sound roughly like ball hitting floor and the user will observe, literally see perhaps a ball hitting the floor.
+;;
+;;
+;; One can now wonder about different shapes of stories and events.
+;; Steven Pinker (2007), points some of this out to us: (see reading)
+;;
+
+;; Vehicle 17:
+;; Red cognition
+;; actuation
+;; The predictor - actuator loop of power:
+;; - I predict I have an interesting effect the world
+;; - I percieve my effects in the world
+;; - If I can have interesting effects, that is power, and worth developing.
+;;
+;; I sort of see these 2 arms of cognition then bootstrapping this thing into higher
+;; and higher cognition.
+;; The blue arm (perception) driving ever more sophisticated predictions, including the action of the vehicle itself,
+;; The red arm (actuation) driving the ever more sophisticated plans and models and capabilities  - the reach.
+;; And then the 'self', the thing the vehicle starts percieving as the doer, both in the world and its internal world.
+;;
+;; The world comes into the mind of the vehicle,
+;; and the vehicle becomes a part of the world
+;;
+;; 17b: internal actuators:
+;; -> imagination is a action of a kind
+;;
+;; - throwing one out there: If all that fits, then maybe the neuronal layer in the cortext that has motor output
+;; also has outputs to hippocampus for 'remember something'
+;; also has outputs to parietal and temporal cortex 'imagine something'
+;;
+;; These things would be red of a kind.
+;;
+;; 17c: Just some ideas on the functionings of the hippocampus
+;;
+;;
+;; Vehicle 18:
+;;
+;; A vehicle with a story to tell
+;;
+;;
+;; ...
 ;;
 ;; Like a magic trick we look back and we think, where did cognition come from?
 ;; It somehow sneaked up on us and suddenly we have this rich system that is constantly about itself.
-;; Analyzing the situations in ever more finegrained details.
-;;
+;; Analyzing the situations in ever more finegrained details. Wondering about itself in the world,
+;; Dreaming, being subject to pathologies and capable of substance abuse and psychodelic trips.
 ;;
 
 
@@ -80,8 +381,10 @@
 ;; If you can get more things done in the same amount of steps,
 ;; that is power.
 ;;
-;; -> Plans and multiple drafts model, a recipie can be power for
+;; -> Plans and multiple drafts model, a recipie can be powerful, for
 ;; it can be revised.
+;;
+;;
 ;;
 ;; `dynamic`:
 ;; 1. navigate ever more complex environments
@@ -93,6 +396,11 @@
 ;; The way lisp code is the content of a lisp program.
 ;; 3. Allow to become specialized.
 ;; Allocate resources, have attention mechanisms etc.
+;; 4. Consider the Von Neuman Machine, the program is dynamic in the computer
+;; The existence of dynamic content is power.
+;; 5. Maybe Ideas? Memes? are the dynamic content out of which the mind
+;; is made out of.
+;; Dynamism is what makes ideas a great building material.
 ;;
 ;; `self-assembled`:
 ;; It needs to bootsrap from nothing.
@@ -107,7 +415,6 @@
 ;;
 ;; ===
 
-
 ;;
 ;;
 ;; ===                             ---+
@@ -117,36 +424,110 @@
 ;;    v    v       v        v         | vehicle 8
 ;; +---------------------------+      |
 ;; | toolbox of cognition      |------+---------------- vehicle 7, vehicle 11, 8
-;; +---------------------------+      |
+;; +---------------------------+      |                 rhythm, thought pumps (12)
 ;;                                    | vehilce 11
-;; -- the world of cognition --    ---+ vehicle 14
+;; -- the world of cognition --    ---+ vehicle 14        <- what is the cortex doing?
 ;;                                 ---+
-;; perception                         | vehicle 8,11,...
-;; action                             |
+;; perception                         | vehicle 8,11,15,...
+;; action, reach                      | vehicle 17
 ;; imagination                        | vehicle 15,16,17,...
-;;                                    | Forsesight
+;; fine grained communication         | vehicle 16, 18?          vehicles that have stories to tell
+;; the self                           | vehicle 17
+;; internal actuators                 |
+;; the mind                           | vehicle 16,
+;; higher goals                       | (what kind of vehicle do I want to be?)
+;; orchestration                      |
+;;                                    |
+;;                                    | Forsesight      (candidate machine intelligence mechanisms)
 ;; -- the world of intelligence --    |
+;; specialization                     |
+;;                                    |
+;; Hofstadter essences finding?       |
+;; explanation perfusers?             |
+;;                                    |
+;;                                    | Harmony
 ;;                                    | Vague Programmer
-;;                                 ---+
+;;                                    | Cakemaker
+;;                                 ---+ Soul
+;;
+;; -- the world of civilization --      technology?
 ;;
 ;;
 ;; The spirit of vehicle 7 (Concepts, Mnemotrix) and 8 (Space, Things and Movements)
 ;; and 11 (Rules and Regularities, Ergotrix) is to observe what do neurons do,
 ;; and then use reasoning from the realm of psychology, from top-down, what does the system need,
 ;; what could be things that the neurons are providing?
+;; Once we know some things the neurons are doing, we can make higher order abstractions that
+;; represent such things, I call it the toolbox of cognition.
+;; Nowhere it is written down that artificial neurons are the best level of abstraction to make
+;; cognition.
+;;
 ;;
 ;; I less interested in scaling vehicle 5 (Artificial neurons) into cognition.
 ;; I am interested in thinking about what is the stuff that you need to make cognition.
 ;; To find a toolbox of cognition that is higher level than the neurons.
-;; This way we come up with Mnemotrix (m-lines), Ergotrix (e-lines), vague and concrete states, maps,
+;; This way we come up with Mnemotrix (m-lines), Ergotrix (e-lines), vague and concrete states (vehicle 15), maps,
 ;; predictor-comparators (vehicle 13).
-;;
-;; I have a vague idea of a predictor-comparator-box, that uses m-lines and e-lines to reason,
-;; that is allowed to dynamically query the rest of the system for states (modeling A-Stream pyramidal cell inputs).
+;; Thought pumps (vehicle 12), event flow assemblers (vehicle 16?).
 ;;
 ;;
-
-
+;; Vehicle 15:
+;; My idea for vehicle 15 is that deriving from vehicle 14, we allow the predictors to modify the short term memory states.
+;;
+;;
+;; 15a: The predictor is allowed to modify the short term memory, and thereby make the system go in harmony
+;; With this move, we enable confabulation.
+;;
+;; 15b: Allow the comparator to be relaxed about which predictor states fit.
+;;
+;; There is a kind of hyperparameter in the system, the comparator now has a choice, how important are realistic states?
+;; In the limit we get the plain vehicle 14, it is strict about the predictor states fitting the realistic states,
+;; but the perception of this vehicle is less perfused with meaning.
+;; In the other extreme, you would not pay attention to reality at all anymore, you would simply percieve everything
+;; the way you dream it up.
+;; My hunch is that dopamine in part serves the role of setting this balance in humans.
+;; From this mechanistic model, it looks as if a cocain trip could be described such:
+;; /Everything clicks into place/.
+;; /Everything is they way I imagine it to be/.
+;;
+;; ---
+;; Do magic tricks work better on high dopmaine people?
+;; Do autists have a different perception of the blind spot? Maybe there is some meassure of how hard it is
+;; to reveal the blind spot that would be some meassure of this balance in the system.
+;;
+;;
+;;       how much you trust your imagination (confubulation without reality check)
+;;
+;;        <------------------------------------------>
+;;
+;;          autistic                    cocain trip
+;;
+;; <-- vehicle 14 is way over to this side.
+;;
+;;
+;; ---
+;; This vagueness move is very important in my thinking. I think the possibility of vague ideas is key for cognition.
+;; Where the rest of the system is allowed to fill in the blanks.
+;; Also: multiple drafts model (Dennett), tale-tale brain, the existence of magic tricks, the way the mind fill in
+;; the blind spot, the story confabulations of split brain persons, many things that point to the same underlying way
+;; of how it works, I think.
+;;
+;; Confabulation seems to be intertwined with the nature cognition.
+;; One cannot separate cognition and perception with solid lines. The way perception is self-assembled in the first place
+;; is via these vague prediciton / blank filling mechanisms.
+;;
+;; No wonder that..
+;; Psychosis exists, rather than being evolved away, you cannot evolve away some fundamental functioning of the mind.
+;;
+;; I discuss my pet theory candidate of psychosis in vehicle 17(? future).
+;; (although there are many possible etiologies of psychosis in such a system).
+;; There is something that needs to detect  /x happenend because of me/ - and that is in overdrive for instance.
+;; The rest of the mind will fill in the blanks - Even if doing so means creating absurd believes.
+;;
+;; ---
+;;
+;;
+;;
 ;; ===
 
 ;; === Vehicle 3c.  ===
@@ -158,28 +539,34 @@
 ;; so that it can love temp or be aggressive towards light etc.
 
 
-;; === Interlude 1: ===
+;; === Interlude 1: === (maybe)
 ;; assemble connections
 
 ;; === Interlude 2: ===
 ;; - interneurons -> visible in inspection window
-;; - another small kind of effect: change the color of the vehicle
+;; - another small kind of effect (another actuator): change the color of the vehicle
 ;; - Now we make interneurons that change the weight of what
 ;; each of your sensors are contributing
-;; - We can do this randomly just for proof of concept
+;; - We can do this randomly just for proof of concept (they would be engineered by evolution, vehicle 6)
 ;; - Call these 'mood' neurons
 ;; - Wire them also to the color of the vehicle
 ;; - Now, depending on mood the color changes,
 ;; and the vehicle might now love light and be red
 ;; and then fear light and be green etc.
-;; -> we have created dynamism where before there where versions
 ;;
-;; -> it is like taking a stack of paper of possible vehicle configs
-;; and dyanmically moving in the third dimension of this stack of paper
+;; -> we have created dynamism where before there were static versions
+;; -> it is like taking a stack of paper of possible vehicle configs.
+;; Then stacking this paper on top of each other in a thick block.
+;; The dynamism here allows the system to move in a new dimension along the thickness
+;; of this stack of paper. (I like how there are new dimensions of behaviour available to the system now)
 ;;
 ;; -> consider genetic regulation of cells, a dynamic version of different versions of cells
 ;; -> we are tackling here a little bit both the hierachical and the dyanmic part.
-
+;;
+;; The colors are just so we have a more striking effect.
+;; In reality, mood is signaled via many (subtle..) body actuators
+;; - smell (sweat), pupil size, body posture, blood in the skin (visual), etc.
+;;
 
 ;; === vehicle 4 ===
 ;; non-linear activation functions (transduction functions)
@@ -206,10 +593,6 @@
 ;; -> On of the fundamental aspects of cybernetics and intelligence I think.
 ;;
 
-
-
-
-
 (defn rand-temperature-bubble [controls]
   (let [hot-or-cold (rand-nth [:hot :cold])
         max-temp 10]
@@ -220,9 +603,6 @@
       :max-temp max-temp
       :pos (lib/rand-on-canvas-gauss 0.7)
       :temp (rand-int (inc max-temp))})))
-
-
-
 
 (defn env [state]
   {:ray-sources
@@ -236,26 +616,21 @@
 
 (defn ->rand-sensor-pair-plans
   [motor-left motor-right]
-  (let [modality
-        (rand-nth [:rays :smell :temperature])
+  (let [modality (rand-nth [:rays :smell :temperature])
         sensor-left-opts {:anchor :top-left
                           :modality modality
                           :shuffle-anchor? (#{:smell} modality)}
         sensor-left-opts (merge sensor-left-opts
                                 (when (= modality :smell)
-                                  {:fragrance
-                                   (rand-nth [:oxygen
-                                              :organic-matter])
-                                   })
+                                  {:fragrance (rand-nth [:oxygen
+                                                         :organic-matter])})
                                 (when (= modality :temperature)
                                   {:hot-or-cold (rand-nth [:hot :cold])}))
         sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
         sensor-right-id (random-uuid)
-        transduction-fn
-        (rand-nth [:excite :inhibit])
-        ]
+        transduction-fn (rand-nth [:excite :inhibit])]
     (case modality
       :temperature [[:cart/sensor sensor-left-id
                      (assoc sensor-left-opts :anchor :middle-middle)]
@@ -301,35 +676,35 @@
   (fn [{:as opts :keys [baseline-arousal]}]
     {:body opts
      :components
-     (into [[:cart/motor :motor-left
-             {:anchor :bottom-left
-              :corner-r 5
-              :on-update [(lib/->cap-activation)]
-              :rotational-power 0.02}]
-            [:cart/motor :motor-right
-             {:anchor :bottom-right
-              :corner-r 5
-              :on-update [(lib/->cap-activation)]
-              :rotational-power 0.02}]
-            [:brain/neuron :arousal
-             {:on-update [(lib/->baseline-arousal (or baseline-arousal
-                                                      0.8))]}]
-            [:brain/connection :_
-             {:destination [:ref :motor-left]
-              :f rand
-              :hidden? true
-              :source [:ref :arousal]}]
-            [:brain/connection :_
-             {:destination [:ref :motor-right]
-              :f rand
-              :hidden? true
-              :source [:ref :arousal]}]]
-           ;; (->love-wires :motor-left :motor-right {:modality :smell :fragrance :oxygen})
-           (mapcat identity
-                   (repeatedly
-                    sensor-pair-count
-                    (fn []
-                      (->rand-sensor-pair-plans :motor-right :motor-left)))))}))
+       (into
+         [[:cart/motor :motor-left
+           {:anchor :bottom-left
+            :corner-r 5
+            :on-update [(lib/->cap-activation)]
+            :rotational-power 0.02}]
+          [:cart/motor :motor-right
+           {:anchor :bottom-right
+            :corner-r 5
+            :on-update [(lib/->cap-activation)]
+            :rotational-power 0.02}]
+          [:brain/neuron :arousal
+           {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
+          [:brain/connection :_
+           {:destination [:ref :motor-left]
+            :f rand
+            :hidden? true
+            :source [:ref :arousal]}]
+          [:brain/connection :_
+           {:destination [:ref :motor-right]
+            :f rand
+            :hidden? true
+            :source [:ref :arousal]}]]
+         ;; (->love-wires :motor-left :motor-right {:modality :smell
+         ;; :fragrance :oxygen})
+         (mapcat identity
+           (repeatedly
+             sensor-pair-count
+             (fn [] (->rand-sensor-pair-plans :motor-right :motor-left)))))}))
 
 (def body-plans
   {:multi-sensory (random-multi-sensory 6)})
@@ -481,8 +856,9 @@
                        state))))]}]
     (-> state
         (lib/append-ents
-         (->> ;; [:multi-sensory :multi-sensory :multi-sensory]
-          [:multi-sensory]
+         (->>
+          [:multi-sensory :multi-sensory :multi-sensory]
+          ;; [:multi-sensory]
           (sequence
            (comp (map (juxt identity controls))
                  (mapcat (fn [[kind {:as opts :keys [amount]}]]

@@ -208,22 +208,23 @@
   (fn [[x y] [x1 y1 :as end-pos]]
     (let [direction (mapv - end-pos [x y])
           midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
-          control-point-1
-          (v+ rel-control-point-1 midpoint)
-          control-point-2
-          (v+ rel-control-point-2 midpoint)
-          ]
-      [x y
-       (first control-point-1)
-       (second control-point-1)
-       (first control-point-2)
-       (second control-point-2)
-       x1 y1])))
+          control-point-1 (v+ rel-control-point-1 midpoint)
+          control-point-2 (v+ rel-control-point-2 midpoint)]
+      [x y (first control-point-1) (second control-point-1)
+       (first control-point-2) (second control-point-2) x1
+       y1])))
 
 (def my-bezier (delay (->bezier [(normal-distr 0 5)
                                  (normal-distr 0 5)]
                                 [(normal-distr 0 5)
                                  (normal-distr 0 5)])))
+
+(defn rand-bezier
+  [distr]
+  (->bezier [(normal-distr 0 distr)
+              (normal-distr 0 distr)]
+             [(normal-distr 0 distr)
+              (normal-distr 0 distr)]))
 
 (defmethod draw-entity :line
   [{:keys [transform end-pos color]}]
