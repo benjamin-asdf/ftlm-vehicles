@@ -206,8 +206,7 @@
 (defn ->bezier
   [rel-control-point-1 rel-control-point-2]
   (fn [[x y] [x1 y1 :as end-pos]]
-    (let [direction (mapv - end-pos [x y])
-          midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
+    (let [midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
           control-point-1 (v+ rel-control-point-1 midpoint)
           control-point-2 (v+ rel-control-point-2 midpoint)]
       [x y (first control-point-1) (second control-point-1)
@@ -229,25 +228,21 @@
 (defmethod draw-entity :line
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
-        {:keys [_scale]} transform
-        direction (mapv - end-pos [x y])
-        midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
-        control-point-1 (mapv #(normal-distr % 15) midpoint)
-        control-point-2 (mapv #(normal-distr % 15) midpoint)]
+        {:keys [_scale]} transform]
+    (q/stroke-weight 2)
+    (q/with-stroke (->hsb color)
+      (q/line [x y] end-pos))
+    (q/stroke-weight 1)))
+
+(defmethod draw-entity :bezier-line
+  [{:keys [transform end-pos color bezier]}]
+  (let [[x y] (:pos transform)
+        {:keys [_scale]} transform]
     (q/begin-shape)
     (q/stroke-weight 2)
     (q/with-stroke
       (->hsb color)
-      (apply q/bezier (@my-bezier [x y] end-pos))
-      ;; (q/bezier x
-      ;;           y
-      ;;           (first control-point-1)
-      ;;           (second control-point-1)
-      ;;           (first control-point-2)
-      ;;           (second control-point-2)
-      ;;           (first end-pos)
-      ;;           (second end-pos))
-      )
+      (apply q/bezier (bezier [x y] end-pos)))
     (q/stroke-weight 1)
     (q/end-shape)))
 
@@ -411,9 +406,11 @@
                   (assoc-in [:transform :scale] scale)))
             ent))))))
 
+
+
 (defn draw-entities-1
   [entities]
-  (doseq [{:as entity :keys [color]}
+  (doseq [{:as entity :keys [color draw-functions]}
           (sort (u/by (some-fn :z-index (constantly 0))
                       u/ascending
                       :id
@@ -424,7 +421,8 @@
                   (map validate-entity))
                  entities))]
     (draw-color color)
-    (draw-entity entity)))
+    (draw-entity entity)
+    (doall (map (fn [op] (op entity)) (vals draw-functions)))))
 
 (defn draw-entities
   [state]
