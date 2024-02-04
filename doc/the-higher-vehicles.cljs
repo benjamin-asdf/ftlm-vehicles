@@ -448,6 +448,9 @@
 ;; higher goals                       | (what kind of vehicle do I want to be?)
 ;; orchestration                      |
 ;;                                    |
+;; +------------------------------+   |
+;; |                         ???  |   | <--- toolbox of intelligence?
+;; +------------------------------+   |
 ;;                                    | Forsesight      (candidate machine intelligence mechanisms)
 ;; -- the world of intelligence --    |
 ;; specialization                     |
@@ -458,7 +461,7 @@
 ;;                                    | Harmony
 ;;                                    | Vague Programmer
 ;;                                    | Cakemaker
-;;                                 ---+ Soul
+;;                                 ---+ Soul (alternative names: Curious Hacker, Slowly waking up Computer)
 ;;
 ;; -- the world of civilization --      technology?
 ;;
