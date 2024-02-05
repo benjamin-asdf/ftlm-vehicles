@@ -73,16 +73,17 @@
 ;; -> On of the fundamental aspects of cybernetics and intelligence I think.
 ;;
 
-(defn rand-temperature-bubble [controls]
-  (let [hot-or-cold (rand-nth [:hot :cold])
-        max-temp 10]
-    (merge
-     (hot-or-cold controls)
-     {:hot-or-cold hot-or-cold}
-     {:d (lib/normal-distr 150 20)
-      :max-temp max-temp
-      :pos (lib/rand-on-canvas-gauss 0.7)
-      :temp (rand-int (inc max-temp))})))
+(defn rand-temperature-bubble
+  ([controls]
+   (rand-temperature-bubble (rand-nth [:hot :cold])))
+  ([controls hot-or-cold]
+   (let [max-temp 10]
+     (merge (hot-or-cold controls)
+            {:hot-or-cold hot-or-cold}
+            {:d (lib/normal-distr 150 20)
+             :max-temp max-temp
+             :pos (lib/rand-on-canvas-gauss 0.7)
+             :temp (rand-int (inc max-temp))}))))
 
 (defn env [state]
   {:ray-sources
@@ -92,46 +93,63 @@
    :temperature-bubbles
    (into [] (filter :temperature-bubble?) (lib/entities state))})
 
-;; --- make rand body plan?
-
 (defn ->rand-sensor-pair-plans
   [motor-left motor-right]
   (let [modality (rand-nth [:rays :smell :temperature])
         sensor-left-opts {:anchor :top-left
                           :modality modality
-                          :shuffle-anchor? (#{:smell} modality)}
-        sensor-left-opts (merge sensor-left-opts
-                                (when (= modality :smell)
-                                  {:fragrance (rand-nth [:oxygen
-                                                         :organic-matter])})
-                                (when (= modality :temperature)
-                                  {:hot-or-cold (rand-nth [:hot :cold])}))
-        sensor-right-opts (assoc sensor-left-opts :anchor :top-right)
+                          :shuffle-anchor? (#{:smell}
+                                            modality)}
+        sensor-left-opts
+          (merge sensor-left-opts
+                 (when (= modality :smell)
+                   {:fragrance
+                      (rand-nth [:oxygen :organic-matter])})
+                 (when (= modality :temperature)
+                   {:hot-or-cold (rand-nth [:hot :cold])}))
+        sensor-right-opts (assoc sensor-left-opts
+                            :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
         sensor-right-id (random-uuid)
         transduction-fn (rand-nth [:excite :inhibit])]
     (case modality
-      :temperature [[:cart/sensor sensor-left-id
-                     (assoc sensor-left-opts :anchor :middle-middle)]
-                    [:brain/connection :_
-                     {:destination [:ref motor-left]
-                      :f transduction-fn
-                      :source [:ref sensor-left-id]}]
-                    [:brain/connection :_
-                     {:destination [:ref motor-right]
-                      :f transduction-fn
-                      :source [:ref sensor-left-id]}]]
+      :temperature
+        [[:cart/sensor sensor-left-id
+          (assoc sensor-left-opts
+            :anchor :middle-middle
+            :activation-shine-colors
+            ({:cold {:high {:h 196, :s 26, :v 100} :low controls/white}
+               :hot {:high (:hit-pink controls/color-map) :low controls/white}}
+               (:hot-or-cold sensor-left-opts)))]
+         [:brain/connection :_
+          {:bezier-line (lib/rand-bezier 5)
+           :destination [:ref motor-left]
+           :f transduction-fn
+           :source [:ref sensor-left-id]}]
+         [:brain/connection :_
+          {:bezier-line (lib/rand-bezier 5)
+           :destination [:ref motor-right]
+           :f transduction-fn
+           :source [:ref sensor-left-id]}]]
       [[:cart/sensor sensor-left-id sensor-left-opts]
        [:cart/sensor sensor-right-id sensor-right-opts]
        [:brain/connection :_
-        {:destination [:ref motor-left]
+        {:bezier-line (lib/rand-bezier 5)
+         :destination [:ref motor-left]
          :f transduction-fn
-         :source [:ref (if decussates? sensor-right-id sensor-left-id)]}]
+         :source [:ref
+                  (if decussates?
+                    sensor-right-id
+                    sensor-left-id)]}]
        [:brain/connection :_
-        {:destination [:ref motor-right]
+        {:bezier-line (lib/rand-bezier 5)
+         :destination [:ref motor-right]
          :f transduction-fn
-         :source [:ref (if decussates? sensor-left-id sensor-right-id)]}]])))
+         :source [:ref
+                  (if decussates?
+                    sensor-left-id
+                    sensor-right-id)]}]])))
 
 (defn ->love-wires
   [motor-left motor-right sensor-opts]
@@ -255,7 +273,9 @@
 
 (defn ->ray-source [opts]
   (lib/->ray-source
-   (assoc opts :shinyness false)))
+   (assoc opts
+          :shinyness false
+          :color controls/white)))
 
 (defmethod lib/event! ::spawn
   [{:keys [what]} {:as state :keys [controls]}]
@@ -269,20 +289,17 @@
   (q/stroke 0.3)
   (lib/draw-entities state))
 
-(defn update-entity [entity state]
+(defn update-entity
+  [entity state]
   (let [env (env state)]
     (-> entity
-
         (lib/update-body state)
         lib/brownian-motion
         lib/friction
-
         lib/dart-distants-to-middle
-
         lib/move-dragged
         lib/update-rotation
         lib/update-position
-
         (lib/update-sensors env)
         lib/activation-decay
         lib/activation-shine
@@ -314,53 +331,74 @@
     (reset! the-state state)
     state))
 
+(defn some-rand-environment-things
+  [controls n]
+  (let [stuff (repeatedly n
+                          #(rand-nth [:temp-cold :temp-hot
+                                      :organic-matter
+                                      :oxygen]))
+        ->make
+          {:organic-matter
+             (fn []
+               (lib/->organic-matter
+                 {:odor {:decay-rate 2 :intensity 40}
+                  :pos (lib/rand-on-canvas-gauss 0.5)}))
+           :oxygen (fn []
+                     (lib/->oxygen
+                       {:odor {:decay-rate 2 :intensity 40}
+                        :pos (lib/rand-on-canvas-gauss
+                               0.2)}))
+           :temp-cold (fn []
+                        (lib/->temperature-bubble-1
+                          (rand-temperature-bubble controls
+                                                   :cold)))
+           :temp-hot (fn []
+                       (lib/->temperature-bubble-1
+                         (rand-temperature-bubble controls
+                                                  :hot)))}]
+    (mapcat (fn [op] (op)) (map ->make stuff))))
+
 (defn setup
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls :background-color)))
+  (q/background (lib/->hsb (-> controls
+                               :background-color)))
   (let [state {:controls controls
                :on-update
-               [(lib/every-n-seconds
-                 1
-                 (fn [state]
-                   (let [sources (filter :ray-source? (lib/entities state))]
-                     (if (< (count sources) 3)
-                       (lib/append-ents
-                        state
-                        (->ray-source {:intensity (+ 5 (rand 30))
-                                       :pos (lib/rand-on-canvas-gauss
-                                             (controls :ray-source-spread))
-                                       :scale (controls :ray-source-scale)
-                                       :z-index 10}))
-                       state))))]}]
+                 [(lib/every-n-seconds
+                    1
+                    (fn [state]
+                      (let [sources (filter :ray-source?
+                                      (lib/entities state))]
+                        (if (< (count sources) 2)
+                          (lib/append-ents
+                            state
+                            (->ray-source
+                              {:intensity (+ 5 (rand 30))
+                               :pos
+                                 (lib/rand-on-canvas-gauss
+                                   (controls
+                                     :ray-source-spread))
+                               :scale (controls
+                                        :ray-source-scale)
+                               :z-index 10}))
+                          state))))]}]
     (-> state
         (lib/append-ents
-         (->>
-          [:multi-sensory :multi-sensory :multi-sensory]
-          ;; [:multi-sensory]
-          (sequence
-           (comp (map (juxt identity controls))
-                 (mapcat (fn [[kind {:as opts :keys [amount]}]]
-                           (repeatedly amount #((body-plans kind) opts))))
-                 (map ->cart)
-                 cat))))
-        (lib/append-ents (lib/->organic-matter
-                          {:odor {:decay-rate 2 :intensity 40}
-                           :pos (lib/rand-on-canvas-gauss 0.5)}))
-        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
-                                        :pos (lib/rand-on-canvas-gauss 0.2)}))
-        (lib/append-ents (lib/->oxygen {:odor {:decay-rate 2 :intensity 40}
-                                        :pos (lib/rand-on-canvas-gauss 0.3)}))
-        (lib/append-ents (->ray-source {:intensity 20
-                                        :pos (lib/rand-on-canvas-gauss 0.4)
-                                        :z-index 10}))
-        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
-                                                      controls)))
-        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
-                                                      controls)))
-        (lib/append-ents (lib/->temperature-bubble-1 (rand-temperature-bubble
-                                                      controls))))))
+          (->>
+            [:multi-sensory :multi-sensory :multi-sensory]
+            (sequence
+              (comp (map (juxt identity controls))
+                    (mapcat
+                      (fn [[kind {:as opts :keys [amount]}]]
+                        (repeatedly amount
+                                    #((body-plans kind)
+                                        opts))))
+                    (map ->cart)
+                    cat))))
+        (lib/append-ents
+          (some-rand-environment-things controls 6)))))
 
 (defn on-double-click
   [state id]

@@ -98,5 +98,6 @@
   @!app
   (swap! !app assoc :background-color {:h 255, :s 255, :v 89})
   (:background-color @!app)
-  {:h 6, :s 12, :v 100}
-  {:h 36, :s 32, :v 100})
+  {:h 196, :s 26, :v 100}
+  {:h 178, :s 12, :v 100}
+  )

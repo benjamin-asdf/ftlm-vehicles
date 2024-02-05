@@ -63,17 +63,21 @@
 (defn scale [e] (-> e transform :scale))
 
 
+(defn ->connection-line-1 [entity-a entity-b]
+  {:connection-line? true
+   :entity-a (:id entity-a)
+   :entity-b (:id entity-b)
+   :transform (->transform (position entity-a) 1 1 1)
+   :color (:color entity-a)
+   :end-pos (position entity-b)
+   :children [(:id entity-b)
+              (:id entity-b)]})
+
 (defn ->connection-line [entity-a entity-b]
-  (merge
-   (->entity :line)
-   {:connection-line? true
-    :entity-a (:id entity-a)
-    :entity-b (:id entity-b)
-    :transform (->transform (position entity-a) 1 1 1)
-    :color (:color entity-a)
-    :end-pos (position entity-b)
-    :children [(:id entity-b)
-               (:id entity-b)]}))
+  (merge (->entity :line) (->connection-line-1 entity-a entity-b)))
+
+(defn ->connection-bezier-line [entity-a entity-b]
+  (merge (->entity :bezier-line) (->connection-line-1 entity-a entity-b)))
 
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
@@ -213,17 +217,12 @@
        (first control-point-2) (second control-point-2) x1
        y1])))
 
-(def my-bezier (delay (->bezier [(normal-distr 0 5)
-                                 (normal-distr 0 5)]
-                                [(normal-distr 0 5)
-                                 (normal-distr 0 5)])))
-
 (defn rand-bezier
   [distr]
   (->bezier [(normal-distr 0 distr)
-              (normal-distr 0 distr)]
-             [(normal-distr 0 distr)
-              (normal-distr 0 distr)]))
+             (normal-distr 0 distr)]
+            [(normal-distr 0 distr)
+             (normal-distr 0 distr)]))
 
 (defmethod draw-entity :line
   [{:keys [transform end-pos color]}]
@@ -235,14 +234,14 @@
     (q/stroke-weight 1)))
 
 (defmethod draw-entity :bezier-line
-  [{:keys [transform end-pos color bezier]}]
+  [{:keys [transform end-pos color bezier-line]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
     (q/begin-shape)
     (q/stroke-weight 2)
-    (q/with-stroke
-      (->hsb color)
-      (apply q/bezier (bezier [x y] end-pos)))
+    (q/with-stroke (->hsb color)
+                   (apply q/bezier
+                     (bezier-line [x y] end-pos)))
     (q/stroke-weight 1)
     (q/end-shape)))
 
@@ -478,14 +477,21 @@
                              (+ (second position) y)))))))
 
 (defn activation-shine
-  [{:as entity :keys [activation shine]}]
+  [{:as entity :keys [activation shine activation-shine-colors]}]
   (if activation
     (let [shine (+ shine (* *dt* activation))]
       (assoc entity
              :shine shine
-             :color (q/lerp-color (q/color 40 96 255 255)
-                                  (q/color 100 255 255)
-                                  (normalize-value-1 0 1 (Math/sin shine)))))
+             :color (q/lerp-color
+                     (->hsb
+                      (or
+                       (:low activation-shine-colors)
+                       (q/color 40 96 255 255)))
+                     (->hsb
+                      (or
+                       (:high activation-shine-colors)
+                       (q/color 100 255 255)))
+                     (normalize-value-1 0 1 (Math/sin shine)))))
     entity))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
@@ -525,11 +531,15 @@
 (def inhibit #(* -1 %))
 (defn ->weighted [weight] #(* weight %))
 
-(defn ->connection [{:keys [source destination hidden? f]}]
+(defn ->connection [{:keys [source destination hidden? bezier-line f] :as opts}]
   (merge
-   (if hidden?
+   opts
+   (cond
+     hidden?
      (->entity :hidden-connection)
-     (->connection-line source destination))
+     bezier-line
+     (->connection-bezier-line source destination)
+     :else (->connection-line source destination))
    {:transduction-model (->transdution-model (:id source) (:id destination) f)
     :connection? true
     :hidden? hidden?}))
@@ -640,17 +650,19 @@
 
 (defmethod update-sensor :temperature
   [sensor env]
-  (let [new-activation (transduce
-                         (comp (filter (comp #{(:hot-or-cold sensor)}
-                                             :hot-or-cold))
-                               (filter (fn [{:as bubble :keys [temp d]}]
-                                         (point-inside-circle? (position sensor)
-                                                               (position bubble)
-                                                               d)))
-                               (map :temp))
-                         +
-                         (-> env
-                             :temperature-bubbles))]
+  (let [new-activation
+          (transduce
+            (comp (filter (comp #{(:hot-or-cold sensor)}
+                                :hot-or-cold))
+                  (filter (fn [{:as bubble :keys [d]}]
+                            (point-inside-circle?
+                              (position sensor)
+                              (position bubble)
+                              d)))
+                  (map :temp))
+            +
+            (-> env
+                :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
 
 (defn ->circular-shine-1
@@ -943,22 +955,25 @@
 (defn ->oxygen
   [opts]
   (flatten-components
-    [(merge (->odor-source (merge opts {:fragrances #{:oxygen}} (:odor opts)))
-            {:components (->brownian-lump
-                           (assoc opts
-                             :colors (into []
-                                           (repeatedly
-                                             4
-                                             (fn []
-                                               {:h 130
-                                                :s (normal-distr 30 10)
-                                                :v (normal-distr 100 10)})))
-                             :spread 20
-                             :count 15
-                             :particle-size 8
-                             :togethernes-threshold 50))
-             :draggable? false
-             :oxygen? true})]))
+    [(merge
+       (->odor-source
+         (merge opts {:fragrances #{:oxygen}} (:odor opts)))
+       {:components (->brownian-lump
+                      (assoc opts
+                        :colors
+                          (into []
+                                (repeatedly
+                                  4
+                                  (fn []
+                                    {:h 178
+                                     :s (normal-distr 20 10)
+                                     :v 255})))
+                        :spread 20
+                        :count 15
+                        :particle-size 8
+                        :togethernes-threshold 50))
+        :draggable? false
+        :oxygen? true})]))
 
 (defn ->temperature-bubble-1
   [{:keys [pos d temp max-temp low-color high-color hot-or-cold]}]
