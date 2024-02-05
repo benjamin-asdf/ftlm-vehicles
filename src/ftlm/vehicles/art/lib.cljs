@@ -201,10 +201,18 @@
 
 (defmulti draw-entity :kind)
 
-(defmethod draw-entity :circle [{:keys [transform]}]
+(defmethod draw-entity :circle
+  [{:keys [transform no-stroke? stroke]}]
   (let [[x y] (:pos transform)
-        {:keys [width height scale]} transform]
-    (q/ellipse x y (* scale width) (* scale height))))
+        {:keys [width height scale]} transform
+        drw (fn []
+              (q/ellipse x
+                         y
+                         (* scale width)
+                         (* scale height)))]
+    (cond stroke (q/with-stroke (->hsb stroke) (drw))
+          no-stroke? (q/with-stroke nil (drw))
+          :else (drw))))
 
 ;; returns a fn that returns the args to q/bezier
 (defn ->bezier
@@ -239,11 +247,29 @@
         {:keys [_scale]} transform]
     (q/begin-shape)
     (q/stroke-weight 2)
-    (q/with-stroke (->hsb color)
-                   (apply q/bezier
-                     (bezier-line [x y] end-pos)))
+    (q/with-stroke
+      (->hsb color)
+      (apply q/bezier
+             (bezier-line [x y] end-pos)))
     (q/stroke-weight 1)
     (q/end-shape)))
+
+(defmethod draw-entity :triangle
+  [{:keys [transform color]}]
+  (let [{:keys [pos scale width height rotation]} transform
+        [w h] [(* scale width) (* scale height)]
+        [x2 y2] [(- (/ w 2)) h]
+        [x3 y3] [(+ (/ w 2)) h]]
+    (q/with-translation
+      pos
+      (q/with-rotation
+        [(or rotation 0)]
+        (q/with-stroke
+          (->hsb [0 0 0])
+          (q/with-fill
+            (->hsb color)
+            (q/triangle 0 0 x2 y2 x3 y3)))))))
+
 
 (defmethod draw-entity :rect [{:keys [transform corner-r]}]
   (let [[x y] (:pos transform)
@@ -256,7 +282,9 @@
   (let [w (.-innerWidth js/window)
         h (.-innerHeight js/window)]
     [w h]))
+
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
+
 
 (defn rand-on-canvas-gauss
   [distr]
@@ -505,12 +533,20 @@
   (let [range (- max min)]
     (+ min (mod (/ (- value min) range) 1))))
 
+(defn position-on-circle
+  [center radius angle]
+  (let [rad (q/radians angle)]
+    [(+ (first center) (* radius (Math/cos rad)))
+     (+ (second center) (* radius (Math/sin rad)))]))
+
 (defn point-inside-circle?
   [[x y] [ox oy] d]
   (let [radius (/ d 2)]
     (<= (+ (Math/pow (- x ox) 2)
            (Math/pow (- y oy) 2))
         (Math/pow radius 2))))
+
+
 
 (defn update-sensors
   [entity env]
@@ -772,6 +808,7 @@
 
 (defn brownian-motion
   [e]
+  (println (:particle? e))
   (if-not (:particle? e)
     e
     (kinetic-energy-motion
@@ -864,7 +901,7 @@
                                  cat)
                            explode-them)))))
 
-(defn update-update-functions
+(defn update-update-functions-1
   [state]
   (transduce (filter :on-update)
              (completing (fn [s {:keys [on-update id]}]
@@ -879,17 +916,42 @@
              state
              (entities state)))
 
+(defn update-update-functions-map
+  [state]
+  (transduce
+    (filter :on-update-map)
+    (completing
+      (fn [s {:keys [on-update-map id]}]
+        (reduce (fn [s [k f]]
+                  (let [{:as e :keys [updated-state]}
+                        (f ((entities-by-id s) id) s k)]
+                    (when updated-state
+                      (def updated-state updated-state))
+                    (cond updated-state updated-state
+                          e (assoc-in s [:eid->entity id] e)
+                          :else s)))
+          s
+          on-update-map)))
+    state
+    (entities state)))
+
+(defn update-update-functions
+  [state]
+  (-> state
+      update-update-functions-1
+      update-update-functions-map))
+
 (defn update-state-update-functions
   [{:keys [on-update] :as state}]
   (reduce (fn [s f] (or (f s) s)) state on-update))
 
 (defn every-n-seconds [n f]
   (let [till (atom n)]
-    (fn [state]
+    (fn [& args]
       (swap! till - *dt*)
       (when (< @till 0)
         (reset! till n)
-        (f state)))))
+        (apply f args)))))
 
 (def event-queue (atom []))
 
@@ -1001,3 +1063,31 @@
        (not (inside-screen? (position entity))))
     (-> entity dart-to-middle)
     entity))
+
+(defn env
+  [state]
+  {:odor-sources
+   (into [] (filter :odor-source?) (entities state))
+   :ray-sources
+   (into [] (filter :ray-source?) (entities state))
+   :temperature-bubbles
+   (into [] (filter :temperature-bubble?) (entities state))})
+
+(defn ->sub-circle
+  [angle radius opts]
+  (let [center-pos (:pos opts)
+        sub-pos (position-on-circle center-pos radius angle)]
+    (->
+     (->entity :circle)
+     (merge
+      {:radius radius :angle angle}
+      opts)
+     (assoc-in [:transform :pos] sub-pos))))
+
+(defn ->clock-circles
+  [center radius count opts]
+  (let [angle-step (/ 360 count)]
+    (map-indexed
+     (fn [idx _]
+       (->sub-circle (* idx angle-step) radius (assoc opts :pos center)))
+     (range count))))

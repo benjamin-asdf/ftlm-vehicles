@@ -66,7 +66,6 @@
 
 (defn ->block [])
 
-
 (defn setup
   [controls]
   (q/rect-mode :center)

@@ -40,7 +40,9 @@
 (def olive-lime-green {:h 72 :s 100 :v 100})
 
 (def default-versions
-  {"brownians" {:background 230
+  {"assembly" {:background-color (:woodsmoke color-map)
+               :time-speed 3}
+   "brownians" {:background 230
                 :base-color 7.790258368269614
                 :brownian-factor 0.1
                 :change-palette? false
@@ -58,60 +60,56 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
-   "fear_and_aggression" {:aggression {:amount 2 :scale 1}
-                          :background-color {:h 0 :s 0 :v 89}
-                          :brownian-factor 0.8
-                          :explore {:amount 3 :scale 1}
-                          :fear {:amount 2 :scale 1}
-                          :love {:amount 3 :scale 1}
-                          :ray-source-count 0
-                          :ray-sources-die? true
-                          :ray-sources-spawn-rate 0.8
-                          :ray-source-spread 0.4
-                          :ray-source-scale 0.8
-                          :sub-controls #{:aggression :fear :love :explore}
-                          :time-speed 3}
-   "logic"
-   {:background-color {:h 0 :s 0 :v 89}
+   "fear_and_aggression"
+   {:aggression {:amount 2 :scale 1}
+    :background-color {:h 0 :s 0 :v 89}
     :brownian-factor 0.8
+    :explore {:amount 3 :scale 1}
+    :fear {:amount 2 :scale 1}
+    :love {:amount 3 :scale 1}
     :ray-source-count 0
-    :ray-sources-die? true
-    :time-speed 1}
-   "getting-around" {:background-color {:h 0 :s 0 :v 89}
-                     :brownian-factor 0.8
-                     :cart-scale 1
-                     :color-palatte [50 40 60]
-                     :make-trails? true
-                     :max-temp 1
-                     :spawn-amount 30
-                     :spawn-spread 0.4
-                     :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-                     :temp-color-low  {:a 0.1 :h 0 :s 68 :v 89}
-                     :temp-zone-count 10
-                     :time-speed 2
-                     :trail-color {:h 0 :s 0 :v 89}
-                     :trail-size 20}
-   "taste"
-   {:multi-sensory {:amount 1 :scale 1}
-    :background-color (:misty-rose color-map)
-    :brownian-factor 0.8
-    :ray-source-count 0
+    :ray-source-scale 0.8
+    :ray-source-spread 0.4
     :ray-sources-die? true
     :ray-sources-spawn-rate 0.8
-    :ray-source-spread 0.4
-    :ray-source-scale 0.8
-    :time-speed 3
-    :sub-controls #{:hot :cold}
-    :hot
-    {:high-color {:a 1 :h 0 :s 68 :v 89}
-     :low-color {:a 0.1 :h 0 :s 68 :v 89}}
-    :cold
-    {:high-color {:h 212, :s 100, :v 71}
-     :low-color {:h 205, :s 33, :v 100}}}
-   "assembly"
-   {:background-color
-    (:woodsmoke color-map)
-    :time-speed 3}})
+    :sub-controls #{:aggression :fear :love :explore}
+    :time-speed 3}
+   "getting-around"
+   {:background-color {:h 0 :s 0 :v 89}
+    :brownian-factor 0.8
+    :cart-scale 1
+    :color-palatte [50 40 60]
+    :make-trails? true
+    :max-temp 1
+    :spawn-amount 30
+    :spawn-spread 0.4
+    :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+    :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+    :temp-zone-count 10
+    :time-speed 2
+    :trail-color {:h 0 :s 0 :v 89}
+    :trail-size 20}
+   "illusions"
+   {:background-color white :time-speed 3}
+   "logic" {:background-color {:h 0 :s 0 :v 89}
+            :brownian-factor 0.8
+            :ray-source-count 0
+            :ray-sources-die? true
+            :time-speed 1}
+   "taste" {:background-color (:misty-rose color-map)
+            :brownian-factor 0.8
+            :cold {:high-color {:h 212 :s 100 :v 71}
+                   :low-color {:h 205 :s 33 :v 100}}
+            :hot {:high-color {:a 1 :h 0 :s 68 :v 89}
+                  :low-color {:a 0.1 :h 0 :s 68 :v 89}}
+            :multi-sensory {:amount 1 :scale 1}
+            :ray-source-count 0
+            :ray-source-scale 0.8
+            :ray-source-spread 0.4
+            :ray-sources-die? true
+            :ray-sources-spawn-rate 0.8
+            :sub-controls #{:hot :cold}
+            :time-speed 3}})
 
 (def page-layouts
   {"brownians" {:per-page 3}
@@ -583,6 +581,8 @@
    "taste"
    {"0" {:multi-sensory {:amount 1 :scale 1}}}
    "assembly"
+   {"0" {}}
+   "illusions"
    {"0" {}}})
 
 (comment

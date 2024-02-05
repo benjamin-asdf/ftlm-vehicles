@@ -398,7 +398,7 @@
                     (map ->cart)
                     cat))))
         (lib/append-ents
-          (some-rand-environment-things controls 6)))))
+         (some-rand-environment-things controls 6)))))
 
 (defn on-double-click
   [state id]
@@ -467,11 +467,8 @@
 
 (defn draw-inspect
   [state]
-
   (q/background (lib/->hsb (-> state :controls :background-color)))
-  (def state state)
   (when-let [selection (:selection state)]
-    (def selection selection)
     (lib/draw-entities-1 [(update-in ((lib/entities-by-id state)
                                        (:id selection))
                                      [:transform :pos]
