@@ -236,39 +236,58 @@
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
-    (q/stroke-weight 2)
     (q/with-stroke (->hsb color)
-      (q/line [x y] end-pos))
-    (q/stroke-weight 1)))
+      (q/line [x y] end-pos))))
 
 (defmethod draw-entity :bezier-line
   [{:keys [transform end-pos color bezier-line]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
     (q/begin-shape)
-    (q/stroke-weight 2)
     (q/with-stroke
       (->hsb color)
       (apply q/bezier
              (bezier-line [x y] end-pos)))
-    (q/stroke-weight 1)
     (q/end-shape)))
 
 (defmethod draw-entity :triangle
   [{:keys [transform color]}]
   (let [{:keys [pos scale width height rotation]} transform
+        [x y] pos
         [w h] [(* scale width) (* scale height)]
-        [x2 y2] [(- (/ w 2)) h]
-        [x3 y3] [(+ (/ w 2)) h]]
+        [x1 y1] [0 (- (/ h 2))]
+        [x2 y2] [(- (/ w 2)) (+ (/ h 2))]
+        [x3 y3] [(+ (/ w 2)) (+ (/ h 2))]]
+    (q/stroke-weight 0)
     (q/with-translation
-      pos
+      [x y]
       (q/with-rotation
         [(or rotation 0)]
         (q/with-stroke
           (->hsb [0 0 0])
+          (q/with-fill (->hsb color)
+                       (q/triangle x1 y1 x2 y2 x3 y3)))))))
+
+(defmethod draw-entity :pizza-slice
+  [{:keys [transform color]}]
+  (let [{:keys [pos scale width height rotation]} transform
+        [x y] pos
+        [w h] [(* scale width) (* scale height)]
+        [x1 y1] [0 (- (/ h 2))]
+        [x2 y2] [(- (/ w 2)) (+ (/ h 2))]
+        [x3 y3] [(+ (/ w 2)) (+ (/ h 2))]]
+    (q/stroke-weight 0)
+    (q/with-translation
+      [x y]
+      (q/with-rotation
+        [(or rotation 0)]
+        (q/with-stroke (->hsb [0 0 0])
           (q/with-fill
             (->hsb color)
-            (q/triangle 0 0 x2 y2 x3 y3)))))))
+            (q/triangle x1 y1 x2 y2 x3 y3)
+            (q/with-translation
+              [0 y2]
+              (q/ellipse 0 0 w (/ h 2)))))))))
 
 
 (defmethod draw-entity :rect [{:keys [transform corner-r]}]
@@ -318,7 +337,7 @@
    :bottom-middle -1})
 
 (defn ->sensor
-  [{:as opts :keys [anchor modality scale]}]
+  [{:as opts :keys [modality scale]}]
   (let [scale (cond scale scale
                     (= modality :smell) 0.8
                     :else 1)]
@@ -437,6 +456,7 @@
 
 (defn draw-entities-1
   [entities]
+  (q/stroke-weight 1)
   (doseq [{:as entity :keys [color draw-functions]}
           (sort (u/by (some-fn :z-index (constantly 0))
                       u/ascending
@@ -545,8 +565,6 @@
     (<= (+ (Math/pow (- x ox) 2)
            (Math/pow (- y oy) 2))
         (Math/pow radius 2))))
-
-
 
 (defn update-sensors
   [entity env]
@@ -808,7 +826,6 @@
 
 (defn brownian-motion
   [e]
-  (println (:particle? e))
   (if-not (:particle? e)
     e
     (kinetic-energy-motion
@@ -919,21 +936,36 @@
 (defn update-update-functions-map
   [state]
   (transduce
-    (filter :on-update-map)
-    (completing
-      (fn [s {:keys [on-update-map id]}]
-        (reduce (fn [s [k f]]
-                  (let [{:as e :keys [updated-state]}
-                        (f ((entities-by-id s) id) s k)]
-                    (when updated-state
-                      (def updated-state updated-state))
-                    (cond updated-state updated-state
-                          e (assoc-in s [:eid->entity id] e)
-                          :else s)))
-          s
-          on-update-map)))
-    state
-    (entities state)))
+   (filter :on-update-map)
+   (completing
+    (fn [s {:keys [on-update-map id]}]
+      (reduce (fn [s [k f]]
+                (let [{:as e :keys [updated-state]}
+                      (f ((entities-by-id s) id) s k)]
+                  (cond updated-state updated-state
+                        e (assoc-in s [:eid->entity id] e)
+                        :else s)))
+              s
+              on-update-map)))
+   state
+   (entities state)))
+
+(defn ->call-callbacks [k]
+  (fn [state e]
+    ((fn [s {:as e :keys [id]}]
+       (let [cb-map (k e)]
+         (reduce (fn [s [k f]]
+                   (let [{:as e :keys [updated-state]}
+                         (f ((entities-by-id s) id) s k)]
+                     (cond updated-state updated-state
+                           e (assoc-in s [:eid->entity id] e)
+                           :else s)))
+                 s
+                 cb-map)))
+     state
+     e)))
+
+(def call-double-clicks (->call-callbacks :on-double-click-map))
 
 (defn update-update-functions
   [state]

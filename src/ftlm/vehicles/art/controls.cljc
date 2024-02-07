@@ -19,21 +19,23 @@
    {:h 290 :s 179 :b 153}])
 
 (def color-map
-  {:red {:h 0 :s 255 :v 100}
-   :green-yellow {:h 84 :s 82 :v 100}
-   :mint {:h 116 :s 18 :v 100}
-   :hit-pink {:h 20 :s 44 :v 100}
-   :amethyst-smoke {:h 272 :s 20 :v 75}
-   :navajo-white {:h 36 :s 32 :v 100}
-   :misty-rose {:h 6, :s 12, :v 100}
-   :horizon {:h 206 :s 44 :v 66}
+  {:amethyst-smoke {:h 272 :s 20 :v 75}
+   :anakiwa {:h 206 :s 44 :v 100}
+   :cyan {:h 180 :s 100 :v 100}
    :fruit-salad {:h 133 :s 54 :v 61}
+   :green-yellow {:h 84 :s 82 :v 100}
+   :heliotrope {:h 295 :s 46 :v 100}
+   :hit-pink {:h 20 :s 44 :v 100}
+   :horizon {:h 206 :s 44 :v 66}
+   :midnight-purple {:h 284 :s 98 :v 22}
+   :midnight-violet-1 {:h 257 :s 66 :v 25}
+   :mint {:h 116 :s 18 :v 100}
+   :misty-rose {:h 6 :s 12 :v 100}
+   :navajo-white {:h 36 :s 32 :v 100}
    :orange {:h 39 :s 100 :v 100}
    :purple {:h 271 :s 81 :v 100}
-   :cyan {:h 180 :s 100 :v 100}
-   :heliotrope {:h 295 :s 46 :v 100}
+   :red {:h 0 :s 255 :v 100}
    :sweet-pink {:h 356 :s 39 :v 100}
-   :anakiwa {:h 206 :s 44 :v 100}
    :woodsmoke {:h 240 :s 26 :v 9}})
 
 (def quite-green {:h 135 :s 100 :v 100})
@@ -60,37 +62,39 @@
                 :speed 2
                 :spread 1
                 :spread-speed 0}
+   "cell-assemblies" {:background-color (:midnight-purple
+                                          color-map)
+                      :time-speed 3}
    "fear_and_aggression"
-   {:aggression {:amount 2 :scale 1}
-    :background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :explore {:amount 3 :scale 1}
-    :fear {:amount 2 :scale 1}
-    :love {:amount 3 :scale 1}
-    :ray-source-count 0
-    :ray-source-scale 0.8
-    :ray-source-spread 0.4
-    :ray-sources-die? true
-    :ray-sources-spawn-rate 0.8
-    :sub-controls #{:aggression :fear :love :explore}
-    :time-speed 3}
+     {:aggression {:amount 2 :scale 1}
+      :background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :explore {:amount 3 :scale 1}
+      :fear {:amount 2 :scale 1}
+      :love {:amount 3 :scale 1}
+      :ray-source-count 0
+      :ray-source-scale 0.8
+      :ray-source-spread 0.4
+      :ray-sources-die? true
+      :ray-sources-spawn-rate 0.8
+      :sub-controls #{:aggression :fear :love :explore}
+      :time-speed 3}
    "getting-around"
-   {:background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :cart-scale 1
-    :color-palatte [50 40 60]
-    :make-trails? true
-    :max-temp 1
-    :spawn-amount 30
-    :spawn-spread 0.4
-    :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-    :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
-    :temp-zone-count 10
-    :time-speed 2
-    :trail-color {:h 0 :s 0 :v 89}
-    :trail-size 20}
-   "illusions"
-   {:background-color white :time-speed 3}
+     {:background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :cart-scale 1
+      :color-palatte [50 40 60]
+      :make-trails? true
+      :max-temp 1
+      :spawn-amount 30
+      :spawn-spread 0.4
+      :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+      :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+      :temp-zone-count 10
+      :time-speed 2
+      :trail-color {:h 0 :s 0 :v 89}
+      :trail-size 20}
+   "illusions" {:background-color white :time-speed 3}
    "logic" {:background-color {:h 0 :s 0 :v 89}
             :brownian-factor 0.8
             :ray-source-count 0
@@ -583,10 +587,14 @@
    "assembly"
    {"0" {}}
    "illusions"
+   {"0" {}}
+   "cell-assemblies"
    {"0" {}}})
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)
+  {:h 284, :s 98, :v 22}
+  {:h 257, :s 66, :v 25}
   nil
   {:h 356, :s 39, :v 100}
   )

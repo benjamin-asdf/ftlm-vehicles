@@ -39,7 +39,7 @@
 
 ;; I supoose McCulloch drew them as black triangles, because of the golgi stain of the time. This is how they looked.
 ;; But now we have this cool brainbow in our minds, so I am allowed to give my neurons all kinds of colors, too.
-
+;; [youtube Heinz von Foerster 'Tanz Mit Der Welt' why I think McCulloch drew black triangles]
 
 (defn ->ray-source [opts]
   (lib/->ray-source
@@ -105,30 +105,25 @@
   (let [state {:controls controls :on-update []}]
     (-> state
         (lib/append-ents
-          [(merge (lib/->entity :triangle)
-                  {:transform
-                   (assoc
-                    (lib/->transform [200 200] 40 30 1)
-                    :rotation 0
-                    ;; (- q/QUARTER-PI)
-                    ;; (* 7 q/QUARTER-PI)
-                    )
-                   :color 0
-                   ;; :angular-acceleration 1
-                   })]))))
+          [(merge
+             (lib/->entity :triangle)
+             {:activation-shine-colors
+              {:high {:h 0 :s 255 :v 100}
+               :low {:h 0 :s 255 :v 70}}
+              :color 0
+              :activation 1000
+              :draggable? true
+              :on-double-click-map
+              {:activation
+               (fn [e s k]
+                 (update-in e [:activation] + 1000))}
+              :transform
+              (assoc (lib/->transform [200 200] 40 30 1)
+                     :rotation 0)})]))))
 
 (defn on-double-click
   [state id]
-  (let [e ((lib/entities-by-id state) id)
-        explosion (lib/->explosion {:color (:color e)
-                                    :n 20
-                                    :pos (lib/position e)
-                                    :size 10
-                                    :spread 10})]
-    (-> state
-        (assoc-in [:eid->entity id :lifetime] 0.6)
-        (update-in [:eid->entity id :on-update] conj (lib/->grow 0.2))
-        (lib/append-ents explosion))))
+  (lib/call-double-clicks state ((lib/entities-by-id state) id)))
 
 (defn double-clicked? [{id-1 :id time-old :time} {id-2 :id time-new :time}]
   (and
@@ -137,30 +132,33 @@
 
 (defn mouse-pressed
   [state]
-  (if-let [draggable (lib/find-closest-draggable state)]
-    (let [new-selection {:id (:id draggable) :time (q/millis)}
-          old-selection (:selection state)
-          state (-> state
-                    (assoc :pressed true)
-                    (assoc-in [:eid->entity (:id draggable) :dragged?] true)
-                    (assoc :selection new-selection))]
-      (cond-> state
-        (double-clicked? old-selection new-selection)
-        (on-double-click (:id draggable))))
-    state))
+  (if-let
+      [draggable (lib/find-closest-draggable state)]
+      (let [new-selection {:id (:id draggable) :time (q/millis)}
+            old-selection (:selection state)
+            state (-> state
+                      (assoc :pressed true)
+                      (assoc-in [:eid->entity (:id draggable) :dragged?] true)
+                      (assoc :selection new-selection))
+            state ((lib/->call-callbacks :on-click-map) state draggable)]
+        (cond-> state
+          (double-clicked? old-selection new-selection)
+          (on-double-click (:id draggable))))
+      state))
 
 (defn mouse-released
   [state]
   (-> state
       (assoc :pressed false)
       (lib/update-ents (fn [e] (dissoc e :dragged?)))))
+
 (defn rotate-entity
   [state id rotation]
   (update-in state [:eid->entity id :transform :rotation] + rotation))
 
 (defn mouse-wheel [state rotation]
   (if-let [ent ((lib/entities-by-id state) (-> state :selection :id))]
-    (rotate-entity state (:id ent) (/ rotation 60 2.5))
+    (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
     state))
 
 (defn sketch
@@ -187,8 +185,8 @@
 (defmethod art/view "cell-assemblies"
   [{:as opts :keys [place version]}]
   (let [f (fn []
-            (let [controls (merge (controls/default-versions "taste")
-                                  (get-in versions ["taste" version])
+            (let [controls (merge (controls/default-versions "cell-assemblies")
+                                  (get-in versions ["cell-assemblies" version])
                                   @user-controls/!app)]
               (sketch place opts controls)))]
     (reset! restart-fn f)
