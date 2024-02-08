@@ -55,21 +55,20 @@
   (lib/draw-entities state))
 
 (defn update-entity
-  [entity state]
-  (let [env (lib/env state)]
-    (-> entity
-        (lib/update-body state)
-        lib/brownian-motion
-        lib/friction
-        lib/dart-distants-to-middle
-        lib/move-dragged
-        lib/update-rotation
-        lib/update-position
-        (lib/update-sensors env)
-        lib/activation-decay
-        lib/activation-shine
-        lib/shine
-        lib/update-lifetime)))
+  [entity state env]
+  (-> entity
+      (lib/update-body state)
+      lib/brownian-motion
+      lib/friction
+      lib/dart-distants-to-middle
+      lib/move-dragged
+      lib/update-rotation
+      lib/update-position
+      (lib/update-sensors env)
+      lib/activation-decay
+      lib/activation-shine
+      lib/shine
+      lib/update-lifetime))
 
 (def the-state (atom {}))
 
@@ -87,7 +86,7 @@
               lib/update-update-functions
               lib/update-state-update-functions
               lib/apply-events
-              (lib/update-ents #(update-entity % state))
+              (lib/update-ents #(update-entity % state (lib/env state)))
               lib/transduce-signals
               lib/track-components
               lib/track-conn-lines
@@ -95,6 +94,43 @@
               lib/kill-entities))]
     (reset! the-state state)
     state))
+
+(defn ->neuron
+  [{:keys [col-k pos]}]
+  (merge (lib/->entity :triangle)
+         {:activation 1000
+          :activation-shine? false
+          :color (col-k controls/color-map)
+          :draggable? true
+          :on-update-map
+          (merge
+           (lib/->breath 1 1.2 1)
+           (when (= col-k :orange)
+             {:activation
+              (lib/every-n-seconds
+               5
+               (fn [e s k]
+                 (update-in e [:activation] + 2000)))}))
+          :on-double-click-map
+          {:activation
+           (fn [e s k]
+             (update-in e [:activation] + 1000))}
+          :transform (assoc (lib/->transform pos 40 30 1)
+                            :rotation (lib/normal-distr
+                                       0
+                                       (/ q/QUARTER-PI 20)))}))
+
+(defn rand-neurons
+  [layers per-layer]
+  (for [l (range layers)
+        n (range per-layer)]
+    (let [roughly-y (* 50 (inc (inc l)))
+          roughly-x (* 30 (inc (inc (inc n))))]
+      (->neuron {:col-k (rand-nth [:cyan :heliotrope :red
+                                   :mint :yellow :orange
+                                   :magenta])
+                 :pos [(lib/normal-distr roughly-x 20)
+                       (lib/normal-distr roughly-y 20)]}))))
 
 (defn setup
   [controls]
@@ -105,21 +141,7 @@
   (let [state {:controls controls :on-update []}]
     (-> state
         (lib/append-ents
-          [(merge
-             (lib/->entity :triangle)
-             {:activation-shine-colors
-              {:high {:h 0 :s 255 :v 100}
-               :low {:h 0 :s 255 :v 70}}
-              :color 0
-              :activation 1000
-              :draggable? true
-              :on-double-click-map
-              {:activation
-               (fn [e s k]
-                 (update-in e [:activation] + 1000))}
-              :transform
-              (assoc (lib/->transform [200 200] 40 30 1)
-                     :rotation 0)})]))))
+         (rand-neurons 10 20)))))
 
 (defn on-double-click
   [state id]

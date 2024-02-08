@@ -525,8 +525,8 @@
                              (+ (second position) y)))))))
 
 (defn activation-shine
-  [{:as entity :keys [activation shine activation-shine-colors]}]
-  (if activation
+  [{:as entity :keys [activation shine activation-shine-colors activation-shine]}]
+  (if (and activation activation-shine)
     (let [shine (+ shine (* *dt* activation))]
       (assoc entity
              :shine shine
@@ -1099,11 +1099,11 @@
 (defn env
   [state]
   {:odor-sources
-   (into [] (filter :odor-source?) (entities state))
+   (filter :odor-source? (entities state))
    :ray-sources
-   (into [] (filter :ray-source?) (entities state))
+   (filter :ray-source? (entities state))
    :temperature-bubbles
-   (into [] (filter :temperature-bubble?) (entities state))})
+   (filter :temperature-bubble? (entities state))})
 
 (defn ->sub-circle
   [angle radius opts]
@@ -1123,3 +1123,55 @@
      (fn [idx _]
        (->sub-circle (* idx angle-step) radius (assoc opts :pos center)))
      (range count))))
+
+(defn ->breath
+  [initial-scale size speed]
+  (let [mystate (atom {:speed speed :time 0})]
+    {:breath
+       (fn [e _ _]
+         (-> e
+             (update-in
+               [:transform :scale]
+               (fn [_scale]
+                 (let [progress (/ (:time @mystate) 1)]
+                   (q/lerp
+                     initial-scale
+                     (* initial-scale size)
+                     (+ 1 (q/sin (* q/PI progress)))))))))
+     :play-with-speed
+       (every-n-seconds
+         speed
+         (fn [_ _ _]
+           (swap! mystate update
+             :speed
+             (constantly (normal-distr speed (/ speed 2))))
+           nil))
+     :rotate-breath
+       (every-n-seconds
+         speed
+         (fn [e _ _]
+           (update e
+                   :angular-acceleration
+                   +
+                   (* (/ speed 7)
+                      (normal-distr 0
+                                    (/ (mod (:time @mystate)
+                                            q/TWO-PI)))))))
+     :time (fn [_ _ _]
+             (let [t (fn [{:as s :keys [speed]}]
+                       (->
+                         s
+                         (update :time + (* speed *dt*))))]
+               (swap! mystate t))
+             nil)}))
+
+
+;; ---------------------------------------------------
+;; ---------------------------------------------------
+;; this makes triangles look like little gears, amazing
+;; :rotate-just-a-little
+;;      (every-n-seconds
+;;       0.5
+;;       (fn [e _ _]
+;;         (update e :angular-acceleration + (normal-distr speed (/ speed 2)))))
+;; ----------------------------------------------------

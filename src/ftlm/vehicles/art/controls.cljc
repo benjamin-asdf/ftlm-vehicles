@@ -36,7 +36,9 @@
    :purple {:h 271 :s 81 :v 100}
    :red {:h 0 :s 255 :v 100}
    :sweet-pink {:h 356 :s 39 :v 100}
-   :woodsmoke {:h 240 :s 26 :v 9}})
+   :woodsmoke {:h 240 :s 26 :v 9}
+   :yellow {:h 60 :s 100 :v 100}
+   :magenta {:h 300 :s 100 :v 100}})
 
 (def quite-green {:h 135 :s 100 :v 100})
 (def olive-lime-green {:h 72 :s 100 :v 100})
