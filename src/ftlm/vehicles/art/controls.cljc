@@ -591,12 +591,14 @@
    "illusions"
    {"0" {}}
    "cell-assemblies"
-   {"0" {}}})
+   {"0"
+    {:v :just-triangles}
+    "1"
+    {:v :world}}})
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)
-  {:h 284, :s 98, :v 22}
-  {:h 257, :s 66, :v 25}
+  {:h 284 :s 98 :v 22}
+  {:h 257 :s 66 :v 25}
   nil
-  {:h 356, :s 39, :v 100}
-  )
+  {:h 356 :s 39 :v 100})

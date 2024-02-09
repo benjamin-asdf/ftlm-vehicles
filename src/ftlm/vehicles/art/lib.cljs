@@ -1127,43 +1127,45 @@
 (defn ->breath
   [initial-scale size speed]
   (let [mystate (atom {:speed speed :time 0})]
-    {:breath
-       (fn [e _ _]
-         (-> e
-             (update-in
-               [:transform :scale]
-               (fn [_scale]
-                 (let [progress (/ (:time @mystate) 1)]
-                   (q/lerp
-                     initial-scale
-                     (* initial-scale size)
-                     (+ 1 (q/sin (* q/PI progress)))))))))
-     :play-with-speed
-       (every-n-seconds
-         speed
-         (fn [_ _ _]
-           (swap! mystate update
-             :speed
-             (constantly (normal-distr speed (/ speed 2))))
-           nil))
-     :rotate-breath
-       (every-n-seconds
-         speed
-         (fn [e _ _]
-           (update e
-                   :angular-acceleration
-                   +
-                   (* (/ speed 7)
-                      (normal-distr 0
-                                    (/ (mod (:time @mystate)
-                                            q/TWO-PI)))))))
-     :time (fn [_ _ _]
-             (let [t (fn [{:as s :keys [speed]}]
-                       (->
-                         s
-                         (update :time + (* speed *dt*))))]
-               (swap! mystate t))
-             nil)}))
+    {[:breath :scale]
+     (fn [e _ _]
+       (-> e
+           (update-in
+            [:transform :scale]
+            (fn [_scale]
+              (let [progress (/ (:time @mystate) 1)]
+                (q/lerp
+                 initial-scale
+                 (* initial-scale size)
+                 (+ 1 (q/sin (* q/PI progress)))))))))
+     [:breath :play-with-speed]
+     (every-n-seconds
+      speed
+      (fn [_ _ _]
+        (swap! mystate update
+               :speed
+               (constantly (normal-distr speed (/ speed 2))))
+        nil))
+     [:breath :rotate]
+     (every-n-seconds
+      speed
+      (fn [e _ _]
+        (update e
+                :angular-acceleration
+                +
+                (* (/ speed 7)
+                   (normal-distr 0
+                                 (/ (mod (:time @mystate)
+                                         q/TWO-PI)))))))
+     [:breath :time]
+     (fn [e _ _]
+       (let [t (fn [{:as s :keys [speed]}]
+                 (->
+                  s
+                  (update :time + (* speed *dt*))))]
+         (swap! mystate t))
+       nil)}))
+
 
 
 ;; ---------------------------------------------------

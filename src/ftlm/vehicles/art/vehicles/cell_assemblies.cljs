@@ -96,41 +96,64 @@
     state))
 
 (defn ->neuron
-  [{:keys [col-k pos]}]
-  (merge (lib/->entity :triangle)
-         {:activation 1000
-          :activation-shine? false
-          :color (col-k controls/color-map)
-          :draggable? true
-          :on-update-map
-          (merge
-           (lib/->breath 1 1.2 1)
-           (when (= col-k :orange)
-             {:activation
-              (lib/every-n-seconds
-               5
-               (fn [e s k]
-                 (update-in e [:activation] + 2000)))}))
-          :on-double-click-map
-          {:activation
-           (fn [e s k]
-             (update-in e [:activation] + 1000))}
-          :transform (assoc (lib/->transform pos 40 30 1)
-                            :rotation (lib/normal-distr
-                                       0
-                                       (/ q/QUARTER-PI 20)))}))
+  [{:keys [col-k pos active?]}]
+  (let [toggle-active
+          (fn
+            ([e] ((:toggle-active e) e (not (:active? e))))
+            ([e active?]
+             (-> e
+                 (assoc :active? active?)
+                 (assoc :on-update-map
+                          (if active?
+                            (lib/->breath 1 1.2 1)
+                            {}))
+                 (assoc-in [:transform :scale]
+                           (if active? 1.2 0.9)))))
+        e (merge (lib/->entity :triangle)
+                 {:active? active?
+                  :color (col-k controls/color-map)
+                  :draggable? true
+                  :on-double-click-map
+                    {:toggle-active
+                       (fn [e _ _] ((:toggle-active e) e))}
+                  :on-update-map (lib/->breath 1 1.2 1)
+                  :toggle-active toggle-active
+                  :transform
+                    (assoc (lib/->transform pos 40 30 1)
+                      :rotation (lib/normal-distr
+                                  0
+                                  (/ q/QUARTER-PI 20)))})]
+    (toggle-active e (:active? e))))
+
 
 (defn rand-neurons
-  [layers per-layer]
+  [{:keys [layers per-layer top left active?]}]
   (for [l (range layers)
         n (range per-layer)]
-    (let [roughly-y (* 50 (inc (inc l)))
-          roughly-x (* 30 (inc (inc (inc n))))]
-      (->neuron {:col-k (rand-nth [:cyan :heliotrope :red
-                                   :mint :yellow :orange
-                                   :magenta])
-                 :pos [(lib/normal-distr roughly-x 20)
-                       (lib/normal-distr roughly-y 20)]}))))
+    (let [roughly-y (+ top (* 50 l))
+          roughly-x (+ left (* 30 n))
+          neuron
+          (->neuron
+           {:col-k (rand-nth [:cyan :heliotrope :red
+                              :mint :yellow :orange
+                              :magenta])
+            :pos [(lib/normal-distr roughly-x 20)
+                  (lib/normal-distr roughly-y 20)]})]
+      (assoc neuron :active? (active? neuron l n)))))
+
+(defmulti setup-version (comp :v :controls))
+
+(defmethod setup-version :just-triangles
+  [state]
+  (-> state
+      (lib/append-ents (rand-neurons {:layers 10 :per-layer 20 :top 150 :left 90 :active? (constantly true)}))))
+
+(defmethod setup-version :world
+  [state]
+  (-> state
+      (lib/append-ents
+       (rand-neurons
+        {:layers 10 :per-layer 20 :top 150 :left 90 :active? (constantly false)}))))
 
 (defn setup
   [controls]
@@ -139,9 +162,10 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (let [state {:controls controls :on-update []}]
-    (-> state
-        (lib/append-ents
-         (rand-neurons 10 20)))))
+    (println "setup" (:v controls))
+    (->
+     state
+     setup-version)))
 
 (defn on-double-click
   [state id]
@@ -207,9 +231,11 @@
 (defmethod art/view "cell-assemblies"
   [{:as opts :keys [place version]}]
   (let [f (fn []
-            (let [controls (merge (controls/default-versions "cell-assemblies")
-                                  (get-in versions ["cell-assemblies" version])
-                                  @user-controls/!app)]
+            (let [controls
+                  (merge
+                   (controls/default-versions "cell-assemblies")
+                   (get-in versions ["cell-assemblies" version])
+                   @user-controls/!app)]
               (sketch place opts controls)))]
     (reset! restart-fn f)
     (f)))

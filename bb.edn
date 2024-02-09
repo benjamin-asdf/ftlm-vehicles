@@ -4,6 +4,7 @@
   dev
   (clojure
    "-A:cljs:dev -M -m shadow.cljs.devtools.cli watch client")
+  ;; java 21 doesn't work on my linode.
   build
   (clojure "-X:cljs:+css-gen:build uberjar")
   cljs-prod-build
