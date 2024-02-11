@@ -1004,12 +1004,15 @@
    update-state-update-functions-map))
 
 (defn every-n-seconds [n f]
-  (let [till (atom n)]
+  (let [n (if (number? n) (constantly n) n)
+        till (atom (n))]
     (fn [& args]
       (swap! till - *dt*)
       (when (< @till 0)
-        (reset! till n)
+        (reset! till (n))
         (apply f args)))))
+
+
 
 (def event-queue (atom []))
 

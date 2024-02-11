@@ -114,39 +114,27 @@
             (fn [e]
               (-> e
                   (assoc :particle? true)
-                  (assoc :kinetic-energy 0.1)
-                  (assoc :on-update [(lib/->circular-shine
-                                       1.5
-                                       (/ 15 3))])))
+                  (assoc :kinetic-energy 0.05)
+                  (assoc :on-update [(lib/->circular-shine 1.5 (/ 15 3))])))
             (fn [e]
               (-> e
                   (assoc :particle? false)
                   (dissoc :on-update))))]
-    (lib/->ray-source
-      (merge {:active? false
-              :draggable? true
-              :intensity 2
-              :on-double-click-map
-                {:toggle-active (fn [e _ _]
-                                  ((:toggle-active e) e))}
-              :particle? false
-              :shinyness false
-              :toggle-active toggle-active}
-             opts))))
-
-;; (defn ->toolbox
-;;   [{:keys [controls]}]
-;;   (let [[signal-a] (->signal)
-;;         toolbox
-;;         (merge
-;;          (lib/->entity :rect)
-;;          {:color (:navajo-white controls/color-map)
-;;           :z-index -10
-;;           :draggable? true
-;;           :transform
-;;           (lib/->transform [50 100] 100 200 1)
-;;           :components (map :id [signal-a])})]
-;;     [toolbox signal-a]))
+    [(->
+      (lib/->ray-source
+       (merge
+        {:active? false
+         :draggable? true
+         :intensity 2
+         :on-double-click-map
+         {:toggle-active (fn [e _ _]
+                           ((:toggle-active e) e))}
+         :particle? false
+         :shinyness false
+         :toggle-active toggle-active}
+        opts))
+      first
+      (toggle-active true))]))
 
 (defn ->neuron
   [{:keys [col-k pos active?]}]
@@ -156,12 +144,10 @@
           ([e active?]
            (-> e
                (assoc :active? active?)
-               (assoc :on-update-map
-                      (if active?
-                        (lib/->breath 1 1.3 1)
-                        {}))
-               (assoc-in [:transform :scale]
-                         (if active? 1.2 0.9)))))
+
+               (assoc :on-update-map (when active? (lib/->breath 1 1.3 1)))
+               (assoc-in [:transform :scale] (if active? 1.3 0.8))
+               (assoc-in [:transform :rotation] (if active? 0 q/PI)))))
         e (merge (lib/->entity :triangle)
                  {:active? active?
                   :color (col-k controls/color-map)
@@ -211,48 +197,44 @@
                                     :left 90
                                     :per-layer 20
                                     :top 150}))
-    (lib/append-ents (->signal {:color (:cyan
-                                         controls/color-map)
-                                :pos [50 50]
-                                :signal-identity :cyan}))
+    (lib/append-ents
+     (->signal {:color (:cyan
+                        controls/color-map)
+                :pos [100 50]
+                :signal-identity :cyan}))
     (assoc-in
       [:on-update-map :activation-tick]
       (lib/every-n-seconds
-        1.5
-        (fn [s _]
-          (update-in s [:activation-tick] (fnil inc 0)))))
-    (assoc-in
-      [:on-update-map :activation-tick]
-      (lib/every-n-seconds
-        1.5
+       3
         (fn [s _]
           (let [who-activates-who-map
-                  (into
-                    {}
-                    (map (fn [{:keys [signal-identity id]}]
-                           [id
-                            (map :id
-                              (filter (comp signal-identity
-                                            :activated-by)
-                                (lib/entities s)))])
+                (into
+                 {}
+                 (map (fn [{:keys [signal-identity id]}]
+                        [id
+                         (map :id
+                              (filter (comp signal-identity :activated-by)
+                                      (lib/entities s)))])
                       (filter :signal-identity
-                        (lib/entities s))))
-                active? (into #{}
-                              (mapcat identity)
-                              (vals who-activates-who-map))
+                              (lib/entities s))))
+                active? (into
+                         (set (keys who-activates-who-map))
+                         (mapcat identity (vals who-activates-who-map)))
                 activate-entities
-                  (fn [s]
-                    (-> s
-                        (lib/update-ents
-                          (fn [e]
-                            (if-not (:toggle-active e)
-                              e
-                              (if-not (= (:active? e)
-                                         (active? (:id e)))
-                                ((:toggle-active e)
-                                  e
-                                  (active? (:id e)))
-                                e))))))]
+                (fn [s]
+                  (-> s
+                      (lib/update-ents
+                       (fn [e]
+                         (if-not (:toggle-active e)
+                           e
+                           (if-not
+                               (and (active? (:id e))
+                                    (= (:active? e) (active? (:id e))))
+                               ((:toggle-active e) e (active? (:id e)))
+                               e))))))
+                make-lines?
+                (zero? (mod (or (:activation-tick s) 0) 2))
+                ]
             (->
               s
               activate-entities
@@ -261,32 +243,35 @@
                 (mapcat
                   (fn [[from tos]]
                     (let [from-e ((lib/entities-by-id s)
-                                   from)
+                                  from)
                           angle-step (/ 360 (count tos))]
-                      (def from-e from-e)
                       ;; posistions in a circle
                       ;; arount the from-e
-                      (mapcat identity
-                        (map-indexed
-                          (fn [idx to-e]
-                            (lib/->plasma-balls
-                              {:color (:cyan
-                                        controls/color-map)
-                               :duration 1
-                               :from (lib/position-on-circle
-                                       (lib/position from-e)
-                                       (* (-> from-e
-                                              :transform
-                                              :width)
-                                          (-> from-e
-                                              :transform
-                                              :scale))
-                                       (* idx angle-step))
-                               :start-entity from-e
-                               :to (lib/position to-e)}))
-                          (map (lib/entities-by-id s)
-                            tos)))))
+                      (mapcat
+                       identity
+                       (map-indexed
+                        (fn [idx to-e]
+                          (concat
+                           (lib/->plasma-balls
+                            {:color (:cyan
+                                     controls/color-map)
+                             :duration 1
+                             :from (lib/position-on-circle
+                                    (lib/position from-e)
+                                    (* (-> from-e
+                                           :transform
+                                           :width)
+                                       (-> from-e
+                                           :transform
+                                           :scale))
+                                    (* idx angle-step))
+                             :start-entity from-e
+                             :to (lib/position to-e)})
+                           (when make-lines?
+                             [(merge (lib/->connection-line from-e to-e) {:lifetime 1})])))
+                        (map (lib/entities-by-id s) tos)))))
                   who-activates-who-map)))))))))
+
 
 
 (defn setup
