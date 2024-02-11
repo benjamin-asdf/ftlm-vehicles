@@ -1,6 +1,8 @@
 (ns ftlm.vehicles.art.lib
-  (:require [quil.core :as q :include-macros true]
-            [ftlm.vehicles.art.util :as u])
+  (:require
+   [quil.core :as q :include-macros true]
+   [ftlm.vehicles.art.util :as u]
+   [ftlm.vehicles.art.controls])
   (:require-macros [ftlm.vehicles.art.util :as u]))
 
 (def ^:dynamic *dt* nil)
@@ -87,24 +89,25 @@
 
 (defn ->hsb
   [color]
-  (apply
-   q/color
-   (cond
-     (and (map? color) (every? #(contains? color %) [:h :s :b]))
-     [(:h color) (:s color) (:b color)]
-     (and (map? color) (every? #(contains? color %) [:h :s :v :a]))
-     [(* (/ (:h color) 360) 255)
-      (* 255 (/ (:s color) 100))
-      (* 255 (/ (:v color) 100))
-      (* 255 (:a color))]
-     (and (map? color) (every? #(contains? color %) [:h :s :v]))
-     [(* (/ (:h color) 360) 255)
-      (* 255 (/ (:s color) 100))
-      (* 255 (/ (:v color) 100))]
-     (sequential? color) color
-     (number? color) [color 255 255]
-     (nil? color) [0 0 0 0]
-     :else [color])))
+  (apply q/color
+    (cond
+      (and (map? color)
+           (every? #(contains? color %) [:h :s :b]))
+      [(:h color) (:s color) (:b color)]
+      (and (map? color)
+           (every? #(contains? color %) [:h :s :v :a]))
+      [(* (/ (:h color) 360) 255)
+       (* 255 (/ (:s color) 100))
+       (* 255 (/ (:v color) 100)) (* 255 (:a color))]
+      (and (map? color)
+           (every? #(contains? color %) [:h :s :v]))
+      [(* (/ (:h color) 360) 255)
+       (* 255 (/ (:s color) 100))
+       (* 255 (/ (:v color) 100))]
+      (sequential? color) color
+      (number? color) [color 255 255]
+      (nil? color) [0 0 0 0]
+      :else [color])))
 
 (defn shine
   [{:as entity :keys [shine shinyness]}]
@@ -123,9 +126,20 @@
   [(* a a')
    (* b b')])
 
+(defn v*-1 [[a b] s]
+  [(* a s)
+   (* b s)])
+
 (defn v+ [[a b] [a' b']]
   [(+ a a')
    (+ b b')])
+
+(defn v- [[a b] [a' b']]
+  [(- a a')
+   (- b b')])
+
+(defn v-sum [v1 v2]
+  (mapv + v1 v2))
 
 (defn signum [x]
   (cond
@@ -236,6 +250,8 @@
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
+    (println color)
+    (q/stroke-weight 2)
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))))
 
@@ -452,11 +468,8 @@
                   (assoc-in [:transform :scale] scale)))
             ent))))))
 
-
-
 (defn draw-entities-1
   [entities]
-  (q/stroke-weight 1)
   (doseq [{:as entity :keys [color draw-functions]}
           (sort (u/by (some-fn :z-index (constantly 0))
                       u/ascending
@@ -467,6 +480,8 @@
                   (remove :hidden?)
                   (map validate-entity))
                  entities))]
+    (q/stroke-weight 1)
+    (when (keyword? color) (println color))
     (draw-color color)
     (draw-entity entity)
     (doall (map (fn [op] (op entity)) (vals draw-functions)))))
@@ -973,9 +988,20 @@
       update-update-functions-1
       update-update-functions-map))
 
-(defn update-state-update-functions
+(defn update-state-update-functions-1
   [{:keys [on-update] :as state}]
   (reduce (fn [s f] (or (f s) s)) state on-update))
+
+(defn update-state-update-functions-map
+  [{:keys [on-update-map] :as state}]
+  (reduce (fn [s [k f]] (or (f s k) s)) state on-update-map))
+
+(defn update-state-update-functions
+  [state]
+  (->
+   state
+   update-state-update-functions-1
+   update-state-update-functions-map))
 
 (defn every-n-seconds [n f]
   (let [till (atom n)]
@@ -1127,44 +1153,43 @@
 (defn ->breath
   [initial-scale size speed]
   (let [mystate (atom {:speed speed :time 0})]
-    {[:breath :scale]
-     (fn [e _ _]
-       (-> e
-           (update-in
-            [:transform :scale]
-            (fn [_scale]
-              (let [progress (/ (:time @mystate) 1)]
-                (q/lerp
-                 initial-scale
-                 (* initial-scale size)
-                 (+ 1 (q/sin (* q/PI progress)))))))))
-     [:breath :play-with-speed]
-     (every-n-seconds
-      speed
-      (fn [_ _ _]
-        (swap! mystate update
-               :speed
-               (constantly (normal-distr speed (/ speed 2))))
-        nil))
+    {[:breath :play-with-speed]
+       (every-n-seconds
+         speed
+         (fn [_ _ _]
+           (swap! mystate update
+             :speed
+             (constantly (normal-distr speed (/ speed 2))))
+           nil))
      [:breath :rotate]
-     (every-n-seconds
-      speed
-      (fn [e _ _]
-        (update e
-                :angular-acceleration
-                +
-                (* (/ speed 7)
-                   (normal-distr 0
-                                 (/ (mod (:time @mystate)
-                                         q/TWO-PI)))))))
+       (every-n-seconds
+         speed
+         (fn [e _ _]
+           (update e
+                   :angular-acceleration
+                   +
+                   (* (/ speed 3)
+                      (normal-distr 0
+                                    (/ (mod (:time @mystate)
+                                            q/TWO-PI)))))))
+     [:breath :scale]
+       (fn [e _ _]
+         (-> e
+             (update-in
+               [:transform :scale]
+               (fn [_scale]
+                 (let [progress (/ (:time @mystate) 1)]
+                   (q/lerp
+                     initial-scale
+                     (* initial-scale size)
+                     (+ 1 (q/sin (* q/PI progress)))))))))
      [:breath :time]
-     (fn [e _ _]
-       (let [t (fn [{:as s :keys [speed]}]
-                 (->
-                  s
-                  (update :time + (* speed *dt*))))]
-         (swap! mystate t))
-       nil)}))
+       (fn [_ _ _]
+         (let [t (fn [{:as s :keys [speed]}]
+                   (-> s
+                       (update :time + (* speed *dt*))))]
+           (swap! mystate t))
+         nil)}))
 
 
 
@@ -1177,3 +1202,40 @@
 ;;       (fn [e _ _]
 ;;         (update e :angular-acceleration + (normal-distr speed (/ speed 2)))))
 ;; ----------------------------------------------------
+
+(defn ->plasma-balls
+  [{:keys [from to color start-entity]
+    :or {color {:a 0.8 :h 0 :s 100 :v 100}}}]
+  (map-indexed
+   (fn [_ _]
+     (let [pos from]
+       (->
+        (merge
+         (->entity :circle)
+         {:acceleration 150
+          :color color
+          ;; :kinetic-energy 0.1
+          :lifetime (normal-distr 5 5)
+          :on-update-map
+          {:kill (fn [e _ _]
+                   (if (<= (distance (position e) to)
+                           10)
+                     (assoc e :lifetime 0)
+                     e))
+           :target (every-n-seconds
+                    1.5
+                    (fn [e _ _]
+                      (let [mag (distance (position e)
+                                          to)]
+                        (-> (orient-towards e to)
+                            (update :acceleration
+                                    +
+                                    (normal-distr
+                                     (* mag 3)
+                                     (* mag 2)))))))}
+          :particle? true
+          :transform
+          (->transform (position start-entity) 10 10 1)
+          :z-index -1})
+        (orient-towards pos))))
+   (range 1)))

@@ -95,36 +95,89 @@
     (reset! the-state state)
     state))
 
+;; represents a signal
+;; is a bit like a ray source
+
+(defn ->toggle-active
+  [on off]
+  (fn
+    ([e] ((:toggle-active e) e (not (:active? e))))
+    ([e active?]
+     (assoc
+      (if active? (on e) (off e))
+      :active? active?))))
+
+(defn ->signal
+  [opts]
+  (let [toggle-active
+          (->toggle-active
+            (fn [e]
+              (-> e
+                  (assoc :particle? true)
+                  (assoc :kinetic-energy 0.1)
+                  (assoc :on-update [(lib/->circular-shine
+                                       1.5
+                                       (/ 15 3))])))
+            (fn [e]
+              (-> e
+                  (assoc :particle? false)
+                  (dissoc :on-update))))]
+    (lib/->ray-source
+      (merge {:active? false
+              :draggable? true
+              :intensity 2
+              :on-double-click-map
+                {:toggle-active (fn [e _ _]
+                                  ((:toggle-active e) e))}
+              :particle? false
+              :shinyness false
+              :toggle-active toggle-active}
+             opts))))
+
+;; (defn ->toolbox
+;;   [{:keys [controls]}]
+;;   (let [[signal-a] (->signal)
+;;         toolbox
+;;         (merge
+;;          (lib/->entity :rect)
+;;          {:color (:navajo-white controls/color-map)
+;;           :z-index -10
+;;           :draggable? true
+;;           :transform
+;;           (lib/->transform [50 100] 100 200 1)
+;;           :components (map :id [signal-a])})]
+;;     [toolbox signal-a]))
+
 (defn ->neuron
   [{:keys [col-k pos active?]}]
   (let [toggle-active
-          (fn
-            ([e] ((:toggle-active e) e (not (:active? e))))
-            ([e active?]
-             (-> e
-                 (assoc :active? active?)
-                 (assoc :on-update-map
-                          (if active?
-                            (lib/->breath 1 1.2 1)
-                            {}))
-                 (assoc-in [:transform :scale]
-                           (if active? 1.2 0.9)))))
+        (fn
+          ([e] ((:toggle-active e) e (not (:active? e))))
+          ([e active?]
+           (-> e
+               (assoc :active? active?)
+               (assoc :on-update-map
+                      (if active?
+                        (lib/->breath 1 1.3 1)
+                        {}))
+               (assoc-in [:transform :scale]
+                         (if active? 1.2 0.9)))))
         e (merge (lib/->entity :triangle)
                  {:active? active?
                   :color (col-k controls/color-map)
+                  :activated-by #{col-k}
                   :draggable? true
                   :on-double-click-map
-                    {:toggle-active
-                       (fn [e _ _] ((:toggle-active e) e))}
+                  {:toggle-active
+                   (fn [e _ _] ((:toggle-active e) e))}
                   :on-update-map (lib/->breath 1 1.2 1)
                   :toggle-active toggle-active
                   :transform
-                    (assoc (lib/->transform pos 40 30 1)
-                      :rotation (lib/normal-distr
-                                  0
-                                  (/ q/QUARTER-PI 20)))})]
+                  (assoc (lib/->transform pos 40 30 1)
+                         :rotation (lib/normal-distr
+                                    0
+                                    (/ q/QUARTER-PI 20)))})]
     (toggle-active e (:active? e))))
-
 
 (defn rand-neurons
   [{:keys [layers per-layer top left active?]}]
@@ -150,10 +203,91 @@
 
 (defmethod setup-version :world
   [state]
-  (-> state
-      (lib/append-ents
-       (rand-neurons
-        {:layers 10 :per-layer 20 :top 150 :left 90 :active? (constantly false)}))))
+  (->
+    state
+    (lib/append-ents (rand-neurons {:active? (constantly
+                                               false)
+                                    :layers 10
+                                    :left 90
+                                    :per-layer 20
+                                    :top 150}))
+    (lib/append-ents (->signal {:color (:cyan
+                                         controls/color-map)
+                                :pos [50 50]
+                                :signal-identity :cyan}))
+    (assoc-in
+      [:on-update-map :activation-tick]
+      (lib/every-n-seconds
+        1.5
+        (fn [s _]
+          (update-in s [:activation-tick] (fnil inc 0)))))
+    (assoc-in
+      [:on-update-map :activation-tick]
+      (lib/every-n-seconds
+        1.5
+        (fn [s _]
+          (let [who-activates-who-map
+                  (into
+                    {}
+                    (map (fn [{:keys [signal-identity id]}]
+                           [id
+                            (map :id
+                              (filter (comp signal-identity
+                                            :activated-by)
+                                (lib/entities s)))])
+                      (filter :signal-identity
+                        (lib/entities s))))
+                active? (into #{}
+                              (mapcat identity)
+                              (vals who-activates-who-map))
+                activate-entities
+                  (fn [s]
+                    (-> s
+                        (lib/update-ents
+                          (fn [e]
+                            (if-not (:toggle-active e)
+                              e
+                              (if-not (= (:active? e)
+                                         (active? (:id e)))
+                                ((:toggle-active e)
+                                  e
+                                  (active? (:id e)))
+                                e))))))]
+            (->
+              s
+              activate-entities
+              (update-in [:activation-tick] (fnil inc 0))
+              (lib/append-ents
+                (mapcat
+                  (fn [[from tos]]
+                    (let [from-e ((lib/entities-by-id s)
+                                   from)
+                          angle-step (/ 360 (count tos))]
+                      (def from-e from-e)
+                      ;; posistions in a circle
+                      ;; arount the from-e
+                      (mapcat identity
+                        (map-indexed
+                          (fn [idx to-e]
+                            (lib/->plasma-balls
+                              {:color (:cyan
+                                        controls/color-map)
+                               :duration 1
+                               :from (lib/position-on-circle
+                                       (lib/position from-e)
+                                       (* (-> from-e
+                                              :transform
+                                              :width)
+                                          (-> from-e
+                                              :transform
+                                              :scale))
+                                       (* idx angle-step))
+                               :start-entity from-e
+                               :to (lib/position to-e)}))
+                          (map (lib/entities-by-id s)
+                            tos)))))
+                  who-activates-who-map)))))))))
+
 
 (defn setup
   [controls]
@@ -162,10 +296,7 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (let [state {:controls controls :on-update []}]
-    (println "setup" (:v controls))
-    (->
-     state
-     setup-version)))
+    (-> state setup-version)))
 
 (defn on-double-click
   [state id]
@@ -180,23 +311,35 @@
   [state]
   (if-let
       [draggable (lib/find-closest-draggable state)]
-      (let [new-selection {:id (:id draggable) :time (q/millis)}
-            old-selection (:selection state)
-            state (-> state
-                      (assoc :pressed true)
-                      (assoc-in [:eid->entity (:id draggable) :dragged?] true)
-                      (assoc :selection new-selection))
-            state ((lib/->call-callbacks :on-click-map) state draggable)]
-        (cond-> state
-          (double-clicked? old-selection new-selection)
-          (on-double-click (:id draggable))))
+    (let [new-selection {:id (:id draggable) :time (q/millis)}
+          old-selection (:selection state)
+          state (-> state
+                    (assoc :pressed true)
+                    (assoc-in [:eid->entity (:id draggable) :dragged?] true)
+                    (assoc :selection new-selection))
+          state ((lib/->call-callbacks :on-click-map) state draggable)
+          state ((lib/->call-callbacks :on-drag-start-map) state draggable)]
+      (cond-> state
+        (double-clicked? old-selection new-selection)
+        (on-double-click (:id draggable))))
       state))
 
 (defn mouse-released
-  [state]
-  (-> state
-      (assoc :pressed false)
-      (lib/update-ents (fn [e] (dissoc e :dragged?)))))
+  [{:as state :keys [selection]}]
+  (if-not selection
+    state
+    (let [{:as selection :keys [dragged?]}
+            ((lib/entities-by-id state) (:id selection))]
+      (if-not selection
+        state
+        (cond-> state
+          dragged? ((lib/->call-callbacks :on-drag-end-map)
+                     state
+                     selection)
+          :regardless (update-in
+                        [:eid->entity (:id selection)]
+                        (fn [e]
+                          (assoc e :dragged? false))))))))
 
 (defn rotate-entity
   [state id rotation]
