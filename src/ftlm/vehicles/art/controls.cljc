@@ -589,12 +589,25 @@
    "assembly"
    {"0" {}}
    "illusions"
-   {"0" {}}
+   {"0"
+    {:v :chaser}
+    "1"
+    {:v :chaser-triangles}
+    "2"
+    {:v :chaser-2}
+    "3"
+    {:v  :chaser-intensity}
+    "4" {:v :chaser-spider}
+    "5" {:v :worms}
+    "6" {:v :not-alive-yet}
+    "7" {:v :balls-fade}}
    "cell-assemblies"
    {"0"
     {:v :just-triangles}
     "1"
-    {:v :world}}})
+    {:v :world}
+    "2"
+    {:v :neighbours-lines}}})
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)

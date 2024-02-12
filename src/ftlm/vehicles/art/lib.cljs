@@ -250,7 +250,6 @@
   [{:keys [transform end-pos color]}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
-    (println color)
     (q/stroke-weight 2)
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))))
@@ -793,6 +792,7 @@
     :transform (assoc (->transform pos 50 80 scale) :rotation rot)}
    opts))
 
+
 (defn find-closest-draggable
   [state]
   (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
@@ -1242,3 +1242,41 @@
           :z-index -1})
         (orient-towards pos))))
    (range 1)))
+
+
+(defn ->fade
+  []
+  (fn [e _ _]
+    (update e
+            :color
+            (fn [c]
+              (let [c (->hsb c)
+                    a (q/alpha c)]
+                (q/color (q/hue c)
+                         (q/saturation c)
+                         (q/brightness c)
+                         (- a (* 100 *dt*))))))))
+
+(defn ->fade-pulse
+  [duration]
+  (let [s (atom {:time-since 0})]
+    (fn [e _ _]
+      (swap! s update :time-since + *dt*)
+      (let [progress (/ (:time-since @s) duration)]
+        ;; (when (< 1.0 progress)
+        ;;   (swap! s assoc :time-since 0))
+        (update e
+                :color
+                (fn [c]
+                  ;; (println (q/sin (* q/PI progress)))
+                  (let [c (->hsb c)
+                        new-a (q/lerp 0 255 (q/sin (* q/PI progress)))]
+                    (q/color
+                     (q/hue c)
+                     (q/saturation c)
+                     (q/brightness c)
+                     new-a))))))))
+(defn with-alpha
+  [color a]
+  (let [c (->hsb color)]
+    (q/color (q/hue c) (q/saturation c) (q/brightness c) a)))

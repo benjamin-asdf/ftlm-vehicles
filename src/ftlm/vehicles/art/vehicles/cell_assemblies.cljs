@@ -144,12 +144,12 @@
           ([e active?]
            (-> e
                (assoc :active? active?)
-
                (assoc :on-update-map (when active? (lib/->breath 1 1.3 1)))
                (assoc-in [:transform :scale] (if active? 1.3 0.8))
                (assoc-in [:transform :rotation] (if active? 0 q/PI)))))
         e (merge (lib/->entity :triangle)
                  {:active? active?
+                  :triangle-neuron? true
                   :color (col-k controls/color-map)
                   :activated-by #{col-k}
                   :draggable? true
@@ -187,6 +187,95 @@
   (-> state
       (lib/append-ents (rand-neurons {:layers 10 :per-layer 20 :top 150 :left 90 :active? (constantly true)}))))
 
+(defn ->neighbour-lines
+  []
+  (let
+    [adj-matrix (atom nil)
+     neighbors-lines
+       (fn [s]
+         (let
+           [adj-matrix
+              (or
+                @adj-matrix
+                (reset! adj-matrix
+                  (into
+                    {}
+                    (comp
+                      (filter :triangle-neuron?)
+                      (map
+                        (fn [e]
+                          (let
+                            [position (lib/position e)
+                             my-color (:color e)
+                             neighbors
+                               (->
+                                 (into
+                                   #{}
+                                   (map :id
+                                     (take
+                                       4
+                                       (sort-by
+                                         (comp
+                                           (fn [b]
+                                             (lib/distance
+                                               position
+                                               b))
+                                           lib/position)
+                                         (sequence
+                                           (comp
+                                             (filter
+                                               :triangle-neuron?)
+                                             (filter
+                                               (comp
+                                                 #{my-color}
+                                                 :color)))
+                                           (lib/entities
+                                            s))))))
+                                 (disj (:id e)))]
+                            [(:id e) neighbors]))))
+                    (lib/entities s))))]
+           (-> s
+               (lib/append-ents
+                 (into []
+                       (comp
+                         (filter :triangle-neuron?)
+                         (map
+                           (fn [e]
+                             (let [neighbors (adj-matrix
+                                               (:id e))
+                                   to-e
+                                     ((lib/entities-by-id s)
+                                       (first (shuffle
+                                                neighbors)))
+                                   from-e e]
+                               (merge
+                                (lib/->entity :line)
+                                {:transform
+                                 (lib/->transform (lib/position from-e) 0 0 1)
+                                 :end-pos (lib/position to-e)
+                                 :color (lib/with-alpha (:color from-e controls/color-map) 0)
+                                 :lifetime 3
+                                 :on-update-map
+                                 {:fade
+                                  (lib/->fade-pulse 1.5)
+                                  }})))))
+                       (lib/entities s))))))]
+    (fn [s _ _] (neighbors-lines s))))
+
+(defmethod setup-version :neighbours-lines
+  [state]
+  (-> state
+      (lib/append-ents (rand-neurons {:active? (constantly
+                                                 false)
+                                      :layers 10
+                                      :left 90
+                                      :per-layer 20
+                                      :top 150}))
+      (assoc :on-update-map {:neighbors-lines
+                               (lib/every-n-seconds
+                                 3
+                                 (->neighbour-lines))})))
+
 (defmethod setup-version :world
   [state]
   (->
@@ -197,81 +286,96 @@
                                     :left 90
                                     :per-layer 20
                                     :top 150}))
-    (lib/append-ents
-     (->signal {:color (:cyan
-                        controls/color-map)
-                :pos [100 50]
-                :signal-identity :cyan}))
+    (lib/append-ents (->signal {:color (:cyan
+                                         controls/color-map)
+                                :pos [100 50]
+                                :signal-identity :cyan}))
     (assoc-in
-      [:on-update-map :activation-tick]
-      (lib/every-n-seconds
-       3
-        (fn [s _]
-          (let [who-activates-who-map
-                (into
-                 {}
-                 (map (fn [{:keys [signal-identity id]}]
-                        [id
-                         (map :id
-                              (filter (comp signal-identity :activated-by)
-                                      (lib/entities s)))])
-                      (filter :signal-identity
-                              (lib/entities s))))
-                active? (into
-                         (set (keys who-activates-who-map))
-                         (mapcat identity (vals who-activates-who-map)))
-                activate-entities
-                (fn [s]
-                  (-> s
-                      (lib/update-ents
-                       (fn [e]
-                         (if-not (:toggle-active e)
-                           e
-                           (if-not
-                               (and (active? (:id e))
-                                    (= (:active? e) (active? (:id e))))
-                               ((:toggle-active e) e (active? (:id e)))
-                               e))))))
-                make-lines?
-                (zero? (mod (or (:activation-tick s) 0) 2))
-                ]
-            (->
-              s
-              activate-entities
-              (update-in [:activation-tick] (fnil inc 0))
-              (lib/append-ents
-                (mapcat
-                  (fn [[from tos]]
-                    (let [from-e ((lib/entities-by-id s)
-                                  from)
-                          angle-step (/ 360 (count tos))]
-                      ;; posistions in a circle
-                      ;; arount the from-e
-                      (mapcat
-                       identity
-                       (map-indexed
-                        (fn [idx to-e]
-                          (concat
-                           (lib/->plasma-balls
-                            {:color (:cyan
-                                     controls/color-map)
-                             :duration 1
-                             :from (lib/position-on-circle
-                                    (lib/position from-e)
-                                    (* (-> from-e
-                                           :transform
-                                           :width)
-                                       (-> from-e
-                                           :transform
-                                           :scale))
-                                    (* idx angle-step))
-                             :start-entity from-e
-                             :to (lib/position to-e)})
-                           (when make-lines?
-                             [(merge (lib/->connection-line from-e to-e) {:lifetime 1})])))
-                        (map (lib/entities-by-id s) tos)))))
-                  who-activates-who-map)))))))))
-
+      [:on-update-map]
+      {:activation-tick
+         (lib/every-n-seconds
+           3
+           (fn [s _]
+             (let [who-activates-who-map
+                     (into {}
+                           (map (fn [{:keys [signal-identity
+                                             id]}]
+                                  [id
+                                   (map :id
+                                     (filter
+                                       (comp signal-identity
+                                             :activated-by)
+                                       (lib/entities s)))])
+                             (filter :signal-identity
+                               (lib/entities s))))
+                   active?
+                     (into (set (keys
+                                  who-activates-who-map))
+                           (mapcat identity
+                             (vals who-activates-who-map)))
+                   activate-entities
+                     (fn [s]
+                       (-> s
+                           (lib/update-ents
+                             (fn [e]
+                               (if-not (:toggle-active e)
+                                 e
+                                 (if-not (and
+                                           (active? (:id e))
+                                           (= (:active? e)
+                                              (active?
+                                                (:id e))))
+                                   ((:toggle-active e)
+                                     e
+                                     (active? (:id e)))
+                                   e))))))
+                   make-lines?
+                     (zero? (mod (or (:activation-tick s) 0)
+                                 2))]
+               (->
+                 s
+                 activate-entities
+                 (update-in [:activation-tick] (fnil inc 0))
+                 (lib/append-ents
+                   (mapcat
+                     (fn [[from tos]]
+                       (let [from-e ((lib/entities-by-id s)
+                                      from)
+                             angle-step (/ 360 (count tos))]
+                         (mapcat identity
+                           (map-indexed
+                             (fn [idx to-e]
+                               (concat
+                                 (lib/->plasma-balls
+                                   {:color
+                                      (:cyan
+                                        controls/color-map)
+                                    :duration 1
+                                    :from
+                                      (lib/position-on-circle
+                                        (lib/position
+                                          from-e)
+                                        (* (-> from-e
+                                               :transform
+                                               :width)
+                                           (-> from-e
+                                               :transform
+                                               :scale))
+                                        (* idx angle-step))
+                                    :start-entity from-e
+                                    :to (lib/position
+                                          to-e)})
+                                 (when make-lines?
+                                   [(merge
+                                      (lib/->connection-line
+                                        from-e
+                                        to-e)
+                                      {:lifetime 1})])))
+                             (map (lib/entities-by-id s)
+                               tos)))))
+                     who-activates-who-map))))))
+       :neighbors-lines
+         (lib/every-n-seconds 0.5 (->neighbour-lines))})))
 
 
 (defn setup
