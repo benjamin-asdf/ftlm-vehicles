@@ -600,7 +600,9 @@
     "4" {:v :chaser-spider}
     "5" {:v :worms}
     "6" {:v :not-alive-yet}
-    "7" {:v :balls-fade}}
+    "7" {:v :balls-fade}
+    "8" {:v :worms-only}
+    "9" {:v :messing-with-you}}
    "cell-assemblies"
    {"0"
     {:v :just-triangles}

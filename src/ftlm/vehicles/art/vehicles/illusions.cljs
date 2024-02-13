@@ -1,6 +1,5 @@
 (ns ftlm.vehicles.art.vehicles.illusions
   (:require
-   [clojure.walk :as walk]
    [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
    [ftlm.vehicles.art :as art]
    [quil.core :as q :include-macros true]
@@ -39,7 +38,6 @@
 
 (defn update-state
   [state]
-  (def state state)
   (let [current-tick (q/millis)
         state (update state :controls merge (user-controls/controls))
         dt (*
@@ -64,75 +62,40 @@
 ;; ----------------------------------------
 ;; I would call this the green wiper
 ;; --------------------------------------
-;; (defn ->chaser
-;;   [pos]
-;;   (fn [n-circle circle-opts]
-;;     (let [circs
-;;           (lib/->clock-circles
-;;            pos 250 22
-;;            (merge circle-opts {:particle? true :kinetic-energy 0.1}))
-;;           chaser
-;;           (merge
-;;            (lib/->entity :circle)
-;;            {:color [0 0 0]
-;;             :on-update-map
-;;             {:chaser
-;;              (let [circs (map :id circs)
-;;                    circ-cycle (atom (cycle circs))]
-;;                (lib/every-n-seconds
-;;                 (/ 1 20)
-;;                 (fn [e s _]
-;;                   (let [next-inactive
-;;                         (do (swap! circ-cycle
-;;                                    rest)
-;;                             (first @circ-cycle))]
-;;                     {:updated-state
-;;                      (reduce
-;;                       (fn [s eid]
-;;                         (assoc-in s
-;;                                   [:eid->entity eid
-;;                                    :hidden?]
-;;                                   (= eid next-inactive)))
-;;                       s
-;;                       circs)}))))}
-;;             :transform (lib/->transform pos 20 20 1)})]
-;;       (def thecircs circs)
-;;       (into circs [chaser]))))
 
 (defn ->chaser
   [pos]
   (fn [n-circle circle-opts]
-    (let [circs
-          (lib/->clock-circles
-           pos
-           250
-           22
-           (merge circle-opts {:no-stroke? true}))
+    (let [circs (lib/->clock-circles
+                  pos
+                  250
+                  22
+                  (merge circle-opts {:no-stroke? true}))
           chaser
-          (merge
-           (lib/->entity :circle)
-           {:color [0 0 0]
-            :on-update-map
-            {:chaser
-             (let [circs (map :id circs)
-                   circ-cycle (atom (cycle circs))]
-               (lib/every-n-seconds
-                (/ 1 10)
-                (fn [e s _]
-                  (let [next-inactive
-                        (do (swap! circ-cycle
-                                   rest)
-                            (first @circ-cycle))]
-                    {:updated-state
-                     (reduce
-                      (fn [s eid]
-                        (assoc-in s
-                                  [:eid->entity eid
-                                   :hidden?]
-                                  (= eid next-inactive)))
-                      s
-                      circs)}))))}
-            :transform (lib/->transform pos 20 20 1)})]
+            (merge
+              (lib/->entity :circle)
+              {:color [0 0 0]
+               :on-update-map
+                 {:chaser
+                    (let [circs (map :id circs)
+                          circ-cycle (atom (cycle circs))]
+                      (lib/every-n-seconds
+                        (/ 1 10)
+                        (fn [e s _]
+                          (let [next-inactive
+                                  (do (swap! circ-cycle
+                                        rest)
+                                      (first @circ-cycle))]
+                            {:updated-state
+                               (reduce
+                                 (fn [s eid]
+                                   (assoc-in s
+                                     [:eid->entity eid
+                                      :hidden?]
+                                     (= eid next-inactive)))
+                                 s
+                                 circs)}))))}
+               :transform (lib/->transform pos 20 20 1)})]
       (into circs [chaser]))))
 
 (defn ->chaser-variation
@@ -259,89 +222,91 @@
   [pos]
   (fn [n-circle circle-opts]
     (let
-        [circs (lib/->clock-circles pos 250 22
-                                    (merge circle-opts {:kinetic-energy 0.02 :particle? true :no-stroke? true}))
-         hide-some
-         (fn [s circs]
-           (reduce
-            (fn [s eid] (assoc-in s [:eid->entity eid :hidden?] true))
-            s
-            circs))
-         chaser
-         (merge
-          (lib/->entity :circle)
-          {:color [0 0 0]
-           :on-update-map
-           (let [how-many (atom 1)]
-             (let [circs (map :id circs)
-                   circ-cycle (atom (cycle circs))
-                   hidden-circs (atom #{})]
-               {:chaser
-                (lib/every-n-seconds
-                 (/ 1 10)
-                 (fn [e s _]
-                   (let [next-inactive
-                         (into #{} (do (swap! circ-cycle (fn [xs] (drop @how-many xs))) (take @how-many @circ-cycle)))
-                         ]
-                     ;; (do (swap! circ-cycle (fn [xs] (drop @how-many xs))) (take @how-many @circ-cycle))
-                     {:updated-state
-                      (reduce
-                       (fn [s eid]
-                         (assoc-in s
-                                   [:eid->entity eid :hidden?]
-                                   (or
-                                    (@hidden-circs eid)
-                                    (next-inactive eid))))
-                       s
-                       circs)})))
-                :chaser-center-lines
-                (lib/every-n-seconds
-                 (/ 1 20)
-                 (fn [chaser s _]
-                   {:updated-state
-                    (->
+      [circs (lib/->clock-circles
+               pos
+               250
+               22
+               (merge circle-opts {:no-stroke? true}))
+       hide-some (fn [s circs]
+                   (reduce (fn [s eid]
+                             (assoc-in s
+                               [:eid->entity eid :hidden?]
+                               true))
                      s
-                     (lib/append-ents
-                      (into
-                       []
-                       (comp
-                        (filter :hidden?)
-                        (map
-                         (fn [e]
-                           (merge
-                            (lib/->connection-line
-                             chaser
-                             e)
-                            {:lifetime 1}))))
-                       (map (s :eid->entity)
-                            circs))))}))
-                :chaser-inc (lib/every-n-seconds
-                             10
-                             (fn [_ _ _]
-                               (swap! how-many inc)
-                               nil))
-                :chaser-soft-reset (lib/every-n-seconds
-                                    20
-                                    (fn [_ _ _]
-                                      (swap! how-many
-                                             (constantly 0))
-                                      nil))
-                :chaser-tag-some
-                (lib/every-n-seconds
-                 1
-                 (fn [chaser s _]
-                   (swap!
-                    hidden-circs
-                    (constantly
-                     (into #{} (take 4 (drop 10 @circ-cycle)))))
-                   (swap!
-                    hidden-circs
-                    (fn [c]
-                      (into c (take (lib/normal-distr 2 1) (shuffle circs)))))
-                   {:updated-state
-                    (hide-some s @hidden-circs)}))}))
-           :transform (lib/->transform pos 20 20 1)})]
-        (into circs [chaser]))))
+                     circs))
+       chaser
+         (merge
+           (lib/->entity :circle)
+           {:color [0 0 0]
+            :on-update-map
+              (let [how-many (atom 1)]
+                (let [circs (map :id circs)
+                      circ-cycle (atom (cycle circs))
+                      hidden-circs (atom #{})]
+                  {:chaser
+                     (lib/every-n-seconds
+                       (/ 1 10)
+                       (fn [e s _]
+                         (let [next-inactive
+                                 (into
+                                   #{}
+                                   (do (swap! circ-cycle
+                                         (fn [xs]
+                                           (drop @how-many
+                                                 xs)))
+                                       (take @how-many
+                                             @circ-cycle)))]
+                           {:updated-state
+                              (reduce (fn [s eid]
+                                        (assoc-in s
+                                          [:eid->entity eid
+                                           :hidden?]
+                                          (or (@hidden-circs
+                                               eid)
+                                              (next-inactive
+                                                eid))))
+                                s
+                                circs)})))
+                   :chaser-center-lines
+                     (lib/every-n-seconds
+                       (/ 1 20)
+                       (fn [chaser s _]
+                         {:updated-state
+                            (->
+                              s
+                              (lib/append-ents
+                                (into
+                                  []
+                                  (comp
+                                    (filter :hidden?)
+                                    (map
+                                      (fn [e]
+                                        (merge
+                                          (lib/->connection-line
+                                            chaser
+                                            e)
+                                          {:lifetime 0.5}))))
+                                  (map (s :eid->entity)
+                                    circs))))}))
+                   :chaser-inc (lib/every-n-seconds
+                                 10
+                                 (fn [_ _ _]
+                                   (swap! how-many (fn [n] (min (inc n) 1)))
+                                   nil))
+                   :chaser-tag-some
+                     (lib/every-n-seconds
+                       1
+                       (fn [_e s _]
+                         (swap! hidden-circs
+                           (constantly
+                            (into #{} (take (rand-nth [0 0 1 1 2]) (drop 10 @circ-cycle)))))
+                         (swap! hidden-circs
+                                (fn [c] (into c (take (rand-nth [0 0 1 1 2] ) (shuffle circs)))))
+                         {:updated-state
+                            (hide-some s
+                                       @hidden-circs)}))}))
+            :transform (lib/->transform pos 20 20 1)})]
+      (into circs [chaser]))))
 
 (defmulti setup-version (comp :v :controls))
 
@@ -414,12 +379,6 @@
 
 
 
-;; ----------------------------------------------
-;; I call this 'I am not alive'
-;; ----------------------------------------------
-;; holy shit this is trippy dude
-;; and feels digital, yet strangly cognitive. Love it.
-;; Its the juxtaposition of every-n seconds with normal distrubuted elements
 (defmethod setup-version :worms
   [state]
   (let [circ-width 40
@@ -477,21 +436,22 @@
   (let [circ-width 40
         col-count (+ 3 (quot (q/width) (+ circ-width 5)))]
     (let [circs
-          (for [row (range (+ 3 (quot (q/height) (+ circ-width 5))))
-                coll (range col-count)]
+            (for [row (range (+ 3
+                                (quot (q/height)
+                                      (+ circ-width 5))))
+                  coll (range col-count)]
               (merge
                 (lib/->entity :circle)
                 {:circ-geometry [coll row]
                  :color (lib/with-alpha
-                          ((rand-nth [:heliotrope :anakiwa
-                                      :yellow :horizon])
+                          ((rand-nth [:heliotrope :yellow])
                             controls/color-map)
                           0)
                  :no-stroke? true
                  :on-update-map
-                   {:fade (lib/->fade-pulse
-                            (rand-nth [0.25 0.5 0.5 0.5 1 1
-                                       1 1 1.5 1.5 2.0]))
+                   {:fade (lib/->fade-pulse (rand-nth
+                                              [0.25 0.5 1 1
+                                               1.5 2.0]))
                     :swap-colors
                       (lib/every-n-seconds
                         1
@@ -501,9 +461,11 @@
                             [:color]
                             (fn [curr]
                               (lib/with-alpha
-                                ((rand-nth [:heliotrope :yellow]) controls/color-map)
+                                ((rand-nth [:heliotrope
+                                            :yellow])
+                                  controls/color-map)
                                 (q/alpha (lib/->hsb
-                                          curr)))))))}
+                                           curr)))))))}
                  :transform (lib/->transform
                               [(* coll (+ 5 circ-width))
                                (* row (+ 5 circ-width))]
@@ -522,7 +484,8 @@
                       :no-stroke? true
                       :on-update-map
                         {:fade-just-to-mess-with-people
-                         (lib/->fade-pulse (lib/normal-distr 0.5 1))}
+                           (lib/->fade-pulse
+                             (lib/normal-distr 0.5 1))}
                       :particle? true
                       :transform (lib/->transform
                                    (lib/rand-on-canvas-gauss
@@ -550,7 +513,7 @@
                         e
                         (assoc e
                           :hidden? (hidden-circs
-                                    (:id e)))))))))]
+                                     (:id e)))))))))]
       (-> state
           (lib/append-ents (concat circs worms))))))
 
@@ -671,6 +634,13 @@
       (-> state
           (lib/append-ents (concat circs worms))))))
 
+
+;; ----------------------------------------------
+;; I call this 'I am not alive'
+;; ----------------------------------------------
+;; holy shit this is trippy dude
+;; and feels digital, yet strangly cognitive. Love it.
+;; Its the juxtaposition of every-n seconds with normal distrubuted elements
 (defmethod setup-version :not-alive-yet
   [state]
   (let [circ-width 40
@@ -681,63 +651,88 @@
                                              5))))
                       coll (range col-count)]
                   (merge
-                    (lib/->entity :circle)
-                    {:circ-geometry [coll row]
-                     :color (:heliotrope controls/color-map)
-                     :no-stroke? true
-                     :transform (lib/->transform
-                                  [(* coll (+ 5 circ-width))
-                                   (* row (+ 5 circ-width))]
-                                  circ-width
-                                  circ-width
-                                  1)
-                     :worm-target? true}))
+                   (lib/->entity :circle)
+                   {:circ-geometry [coll row]
+                    :color (:heliotrope controls/color-map)
+                    :no-stroke? true
+                    :transform (lib/->transform
+                                [(* coll (+ 5 circ-width))
+                                 (* row (+ 5 circ-width))]
+                                circ-width
+                                circ-width
+                                1)
+                    :worm-target? true}))
           circ-by-coll (group-by (comp first :circ-geometry)
                                  circs)
           ->imaginary-circ
-            (fn []
-              (merge (lib/->entity :circle)
-                     {:color (:cyan controls/color-map)
-                      :hidden? false
-                      :kinetic-energy 0.2
-                      :no-stroke? true
-                      :on-update-map
-                        {:fade-just-to-mess-with-people
-                           (lib/->fade-pulse
-                             (lib/normal-distr 0.5 1))}
-                      :particle? true
-                      :transform (lib/->transform
-                                   (lib/rand-on-canvas-gauss
-                                     0.2)
-                                   10
-                                   10
-                                   1)
-                      :z-index 10}))
+          (fn []
+            (merge (lib/->entity :circle)
+                   {:color (:cyan controls/color-map)
+                    :hidden? false
+                    :kinetic-energy 0.2
+                    :no-stroke? true
+                    :on-update-map
+                    {:fade-just-to-mess-with-people
+                     (lib/->fade-pulse
+                      (lib/normal-distr 0.5 1))}
+                    :particle? true
+                    :transform (lib/->transform
+                                (lib/rand-on-canvas-gauss
+                                 0.2)
+                                10
+                                10
+                                1)
+                    :z-index 10}))
           worms (into [] (repeatedly 100 ->imaginary-circ))
           hide-circs
-            (lib/every-n-seconds
-              0.5
-              (fn [s _ _]
-                (let [hidden-circs
-                        (into #{}
-                              (comp (map :id)
-                                    (take (* 0.2
-                                             (count
-                                               circs))))
-                              (shuffle circs))]
-                  (lib/update-ents
-                    s
-                    (fn [e]
-                      (if-not (:worm-target? e)
-                        e
-                        (assoc e
-                          :hidden? (hidden-circs
+          (lib/every-n-seconds
+           0.5
+           (fn [s _ _]
+             (let [hidden-circs
+                   (into #{}
+                         (comp (map :id)
+                               (take (* 0.2
+                                        (count
+                                         circs))))
+                         (shuffle circs))]
+               (lib/update-ents
+                s
+                (fn [e]
+                  (if-not (:worm-target? e)
+                    e
+                    (assoc e
+                           :hidden? (hidden-circs
                                      (:id e)))))))))]
       (-> state
           (lib/append-ents (concat circs worms))
           (assoc :on-update-map {:hide-circs
-                                   hide-circs})))))
+                                 hide-circs})))))
 
+
+(defmethod setup-version :worms-only
+  [state]
+  (let [->imaginary-circ
+          (fn []
+            (merge (lib/->entity :circle)
+                   {:color (:cyan controls/color-map)
+                    :hidden? false
+                    :kinetic-energy 0.2
+                    :no-stroke? true
+                    :on-update-map
+                      {:fade-just-to-mess-with-people
+                         (lib/->fade-pulse
+                           (lib/normal-distr 0.5 1))}
+                    :particle? true
+                    :transform (lib/->transform
+                                 (lib/rand-on-canvas-gauss
+                                   0.2)
+                                 10
+                                 10
+                                 1)
+                    :z-index 10}))
+        worms (into [] (repeatedly 100 ->imaginary-circ))]
+    (-> state
+        (lib/append-ents worms))))
 
 (defn setup
   [controls]
