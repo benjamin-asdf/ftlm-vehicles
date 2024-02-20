@@ -304,7 +304,6 @@
               [0 y2]
               (q/ellipse 0 0 w (/ h 2)))))))))
 
-
 (defmethod draw-entity :rect [{:keys [transform corner-r]}]
   (let [[x y] (:pos transform)
         {:keys [width height scale rotation]} transform]
@@ -360,6 +359,7 @@
            {:color (q/color 40 96 255 255)
             :particle? true
             :sensor? true
+            :activation-shine true
             :transform (->transform [0 0] 20 20 scale)}
            opts)))
 
@@ -470,20 +470,22 @@
 (defn draw-entities-1
   [entities]
   (doseq [{:as entity :keys [color draw-functions]}
-          (sort (u/by (some-fn :z-index (constantly 0))
-                      u/ascending
-                      :id
-                      u/ascending)
-                (sequence
-                 (comp
-                  (remove :hidden?)
-                  (map validate-entity))
-                 entities))]
-    (q/stroke-weight 1)
+            (sort (u/by (some-fn :z-index (constantly 0))
+                        u/ascending
+                        :id
+                        u/ascending)
+                  (sequence (comp (remove :hidden?)
+                                  (map validate-entity))
+                            entities))]
+    (q/stroke-weight (or (:stroke-weight entity) 1))
     (when (keyword? color) (println color))
     (draw-color color)
-    (draw-entity entity)
-    (doall (map (fn [op] (op entity)) (vals draw-functions)))))
+    (let [drw (fn [] (draw-entity entity))]
+      (cond (:stroke entity)
+              (q/with-stroke (->hsb (:stroke entity)) (drw))
+            :else (drw)))
+    (doall (map (fn [op] (op entity))
+             (vals draw-functions)))))
 
 (defn draw-entities
   [state]
@@ -1280,3 +1282,15 @@
   [color a]
   (let [c (->hsb color)]
     (q/color (q/hue c) (q/saturation c) (q/brightness c) a)))
+
+#_(defn grid []
+  (let [w (q/width)
+        h (q/height)
+        x-step 50
+        y-step 50]
+    (doseq [x (range 0 w x-step)
+            y (range 0 h y-step)]
+      (q/line x 0 x h)
+      (q/line 0 y w y))))
+
+(defn ->draw-cell-assembly-grid-v1 [])

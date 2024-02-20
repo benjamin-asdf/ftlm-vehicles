@@ -18,7 +18,6 @@
 ;; 4. random vehicle 3.
 ;; so that it can love temp or be aggressive towards light etc.
 
-
 ;; === Interlude 1: === (maybe)
 ;; assemble connections
 
@@ -101,12 +100,19 @@
                           :shuffle-anchor? (#{:smell}
                                             modality)}
         sensor-left-opts
-          (merge sensor-left-opts
-                 (when (= modality :smell)
-                   {:fragrance
-                      (rand-nth [:oxygen :organic-matter])})
-                 (when (= modality :temperature)
-                   {:hot-or-cold (rand-nth [:hot :cold])}))
+          (merge
+           sensor-left-opts
+           (when (= modality :smell)
+             {:fragrance
+              (rand-nth [:oxygen :organic-matter])
+              :activation-shine-colors
+              {:high (:misty-rose controls/color-map) :low (:heliotrope controls/color-map)}
+              })
+           (when (= modality :temperature)
+             {:hot-or-cold (rand-nth [:hot :cold])})
+
+
+           )
         sensor-right-opts (assoc sensor-left-opts
                             :anchor :top-right)
         decussates? (rand-nth [true false])
@@ -120,7 +126,7 @@
             :anchor :middle-middle
             :activation-shine-colors
             ({:cold {:high {:h 196, :s 26, :v 100} :low controls/white}
-               :hot {:high (:hit-pink controls/color-map) :low controls/white}}
+              :hot {:high (:hit-pink controls/color-map) :low controls/white}}
                (:hot-or-cold sensor-left-opts)))]
          [:brain/connection :_
           {:bezier-line (lib/rand-bezier 5)
@@ -290,21 +296,20 @@
   (lib/draw-entities state))
 
 (defn update-entity
-  [entity state]
-  (let [env (env state)]
-    (-> entity
-        (lib/update-body state)
-        lib/brownian-motion
-        lib/friction
-        lib/dart-distants-to-middle
-        lib/move-dragged
-        lib/update-rotation
-        lib/update-position
-        (lib/update-sensors env)
-        lib/activation-decay
-        lib/activation-shine
-        lib/shine
-        lib/update-lifetime)))
+  [entity state env]
+  (-> entity
+      (lib/update-body state)
+      lib/brownian-motion
+      lib/friction
+      lib/dart-distants-to-middle
+      lib/move-dragged
+      lib/update-rotation
+      lib/update-position
+      (lib/update-sensors env)
+      lib/activation-decay
+      lib/activation-shine
+      lib/shine
+      lib/update-lifetime))
 
 (def the-state (atom {}))
 
@@ -322,7 +327,7 @@
               lib/update-update-functions
               lib/update-state-update-functions
               lib/apply-events
-              (lib/update-ents #(update-entity % state))
+              (lib/update-ents #(update-entity % state (env state)))
               lib/transduce-signals
               lib/track-components
               lib/track-conn-lines
@@ -366,39 +371,47 @@
                                :background-color)))
   (let [state {:controls controls
                :on-update
-                 [(lib/every-n-seconds
-                    1
-                    (fn [state]
-                      (let [sources (filter :ray-source?
-                                      (lib/entities state))]
-                        (if (< (count sources) 2)
-                          (lib/append-ents
-                            state
-                            (->ray-source
-                              {:intensity (+ 5 (rand 30))
-                               :pos
-                                 (lib/rand-on-canvas-gauss
-                                   (controls
-                                     :ray-source-spread))
-                               :scale (controls
-                                        :ray-source-scale)
-                               :z-index 10}))
-                          state))))]}]
-    (-> state
-        (lib/append-ents
-          (->>
-            [:multi-sensory :multi-sensory :multi-sensory]
-            (sequence
-              (comp (map (juxt identity controls))
-                    (mapcat
+               [(lib/every-n-seconds
+                 1
+                 (fn [state]
+                   (let [sources (filter :ray-source?
+                                         (lib/entities state))]
+                     (if (< (count sources) 2)
+                       (lib/append-ents
+                        state
+                        (->ray-source
+                         {:intensity (+ 5 (rand 30))
+                          :pos
+                          (lib/rand-on-canvas-gauss
+                           (controls
+                            :ray-source-spread))
+                          :scale (controls
+                                  :ray-source-scale)
+                          :z-index 10}))
+                       state))))]}
+
+        state
+        (-> state
+            (lib/append-ents
+             (->>
+              [:multi-sensory
+               ;; :multi-sensory
+               ;; :multi-sensory
+               ]
+              (sequence
+               (comp (map (juxt identity controls))
+                     (mapcat
                       (fn [[kind {:as opts :keys [amount]}]]
                         (repeatedly amount
                                     #((body-plans kind)
-                                        opts))))
-                    (map ->cart)
-                    cat))))
-        (lib/append-ents
-         (some-rand-environment-things controls 6)))))
+                                      opts))))
+                     (map ->cart)
+                     cat))))
+            (lib/append-ents
+             (some-rand-environment-things controls 6)))]
+    (assoc state
+           :selection {:id (first (map :id (filter :body? (lib/entities state))))
+                       :time (q/millis)})))
 
 (defn on-double-click
   [state id]
@@ -467,13 +480,35 @@
 
 (defn draw-inspect
   [state]
-  (q/background (lib/->hsb (-> state :controls :background-color)))
+  (q/background (lib/->hsb (-> state
+                               :controls
+                               :background-color)))
   (when-let [selection (:selection state)]
-    (lib/draw-entities-1 [(update-in ((lib/entities-by-id state)
-                                       (:id selection))
-                                     [:transform :pos]
-                                     (constantly [500 200]))])))
-
+    ;; draw all the sensors of the thing on the top
+    ;; left in a grid
+    (let [sensors (filter :sensor?
+                    (map (lib/entities-by-id state)
+                      (:components ((lib/entities-by-id
+                                      state)
+                                     (:id selection)))))]
+      (lib/draw-entities-1
+        (for [[row sensor-row] (map-indexed
+                                 vector
+                                 (partition-all 3 sensors))
+              [col sensor] (map-indexed vector sensor-row)]
+          (assoc-in (merge sensor
+                           {:kind :rect
+                            :size [40 40]
+                            :stroke (:very-blue
+                                      controls/color-map)
+                            :stroke-weight 2})
+            [:transform :pos]
+            [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
+    (lib/draw-entities-1 [(update-in
+                            ((lib/entities-by-id state)
+                              (:id selection))
+                            [:transform :pos]
+                            (constantly [500 200]))])))
 (defn update-inspect [state]
   @the-state)
 

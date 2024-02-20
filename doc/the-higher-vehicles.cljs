@@ -12,6 +12,10 @@
 ;; I am after TOY MODELS OF COGNITION (for starters)
 ;; -----------------------------------------------------------------------
 ;;
+;; A complete model of cognition will make our minds look trivial.
+;; Including hitherto illusive concepts like dejavu, tip-of-tounge, one-shot-learning, etc.
+;;
+;;
 ;; I. "Bacteria brain", "tiny, tiny brain" (vehicle 1)
 ;; sensor -> motor
 ;;
@@ -211,6 +215,48 @@
 ;;
 ;; These colors come from the colors I chose to draw this on the whiteboard.
 ;;
+;; ------------------------------------
+;; The primitives of cognition
+;; ----------------------------------
+;; Alternative names for a story like like this:
+;; - narrative unit
+;; - or why not: meme
+;; - or perhaps meme stack
+;; - perception stack
+;; - cognition seq
+;;
+;; -> either way it is a nice move to take these stacks/seqs of cognition states and take them
+;;    as the fundamental unit of the next level of our explanation of cogntion.
+;; -> we can think in terms of resources that produce, manipulate, replicate, analyse these narrative units
+;; -> some properties of narrative units:
+;;    - content is allowed to be vague
+;;    - content is not bound to a time line
+;;    - You can express 'timespans' compressed:
+;;      [ a, then-some-stuff, b ]
+;;      You don't need to represent all the drops falling from a sink to express
+;;      'drops falling from the sink for a while'
+;;    - narrative units can include internal actuations, consider:
+;;      [ vague:i-think-of-food, vague:i-remember-where-food-is,  vague:i-go-to-food, concrete:food ]
+;;      Such a story line is allowed to be part of the mechanism of thought and memory. The rest of the brain can now do its best to fill in the vague states.
+;;
+;;    - narrative units can arbitrarily abstract in hierachies and temporal hierachies:
+;;      [ situation-a (goes on for half a day), situation-b (goes on for 2 hours), ... ]
+;;
+;;    - They can also overlap and layer, things are allowed to go on at the same time
+;;     [ abstract-situation-a,               abstract-situation-a,                keeps-going-on, ...  ]
+;;     [ fine-grainend-abstract-situation-1, fine-grainend-abstract-situation-2  ] <- meaning can totally depend on the larger situation
+;;
+;;
+;; Braitenberg has similar ideas, the primitive he was thinking of he called 'cell assemblies' (Hebb).
+;; These cell assemblies will come in handy. They are 'controled activation'.
+;; I firmly put them on the substance layer, not the cognition layer.
+;; I.e. when we implement cognition we are allowed to program a program that uses cell assemblies as a datastructure.
+;; We are allowed to be somewhat inspired by the kinds of things the datastructure can do, but in principle we adhere to the abstraction barrier.
+;; Perhaps one of the first things you would do is define an amorphous narrative unit as above.
+;; You have to move up the layers somehow.
+;;
+;;
+;;
 ;; 15b:
 ;; If we are still surprised after a double take (our system was not able to make sense of
 ;; the short term memory) - we mark the state as unresolved.
@@ -347,14 +393,54 @@
 ;; (maybe those go through the Thalamus, as a relay).
 ;; It is very useful to the system to make certain internal perceptions. This way it can communicate to itself via
 ;; perception states.
-;; If you accidentally mark those as 'real' states, that would be a mechanism for halluzination.
-;; Halluzination is imagination going wrong.
+;; If you accidentally mark those as 'real' states, that would be a mechanism for hallucination.
+;; Hallucination is imagination going wrong.
 ;; The halluzinations of an LCD trip are slightly different variety, I believe.
-;; If LCD is pumping hthe blue arm (so that one is associated with serotonin?) then you would say 'the self is gone'.
+;; If LCD is pumping the blue arm (so that one is associated with serotonin?) then you would say 'the self is gone'.
 ;; Because your mind is only about the perception and imagination stuff. And all the red cognition is gone.
 ;; (The stuff that puts you as an agent with capabilities in the world).
 ;;
 ;; 17c: Just some ideas on the functionings of the hippocampus
+;;
+;;
+;; ----
+;;
+;; tip of the tongue idea:
+;;
+;; 1. Narrative unit saying "I remember some stuff"
+;;    i.e. the system goes and predicts itself / fills in the blanks of remembering something
+;; 2. Usually your memory system would deliver and fill in the blanks, which comes to you as 'memory', used for speech.
+;; 3. If memory fails for this or that reason to fill in the blanks, the system tries harder by spending more
+;;    time to sharpen pieces of the ongoing narrative unit.
+;; 4. Part of the narrative is that you produce speech from the remembered states,
+;;    sharpening and predicting yourself more intensely to use the tongue muscles to produce the remembered states.
+;; 5. Perhaps the system tries to compensate for the missing memory by making the whole mind more about the entire narrative unit.
+;;    This doesn't help if the memory resources are failing.
+;;    But it will make you feel like you are totally predicting yourself and your tounge to produce the speech any moment.
+;;
+;;
+;;
+;;    Prediction stack / narrative unit / a story line about a memory event
+;;
+;;     +---------------+-----------------------------+
+;;     |               |                             |
+;;     |               |                             |
+;;     +---------------+-----------------------------+
+;;      "I remember something"           "I speak the remembered stuff"
+;;     - vague state                   - initially vague,
+;;     - usually is filled in by       - a prediction about what we do next
+;;       memory resources              - tounge muscles are implicated
+;;
+;;
+;;
+;;
+;; -> From considering this I think
+;; a) internal predictions and internal actuations as a cenceptual framework seem to carry us really far up in cognition machinery
+;; b) The exisitence of tip-of-the-tounge seems to tell us that step 3 is probably not stupid.
+;;    It looks more like 3 is the normal way memory works, and it is just in special circumstances where something else
+;;    fails that we feel ourselves predicting ourselves wrongly.
+;;
+;;
 ;;
 ;; Vehicle 18:
 ;;
@@ -433,20 +519,23 @@
 ;;    |    |       |        |         |
 ;;    v    v       v        v         | vehicle 8
 ;; +---------------------------+      |
-;; | toolbox of cognition      |------+---------------- vehicle 7, vehicle 11, 8
-;; +---------------------------+      |                 rhythm, thought pumps (12)
+;; | building materials of cognition  |------+---------------- vehicle 7, vehicle 11, 8
+;; +---------------------------+      |                     rhythm, thought pumps (12),
+;;                                    |                     cell assemblies, hypervectors, datastructures, artifial neurons
 ;;                                    | vehilce 11
 ;; -- the world of cognition --    ---+ vehicle 14        <- what is the cortex doing?
 ;;                                 ---+
 ;; perception                         | vehicle 8,11,15,...
 ;; action, reach                      | vehicle 17
 ;; imagination                        | vehicle 15,16,17,...
-;; fine grained communication         | vehicle 16, 18?          vehicles that have stories to tell
+;; fine grained communication         | vehicle 16, 18?     vehicles that have stories to tell
 ;; the self                           | vehicle 17
 ;; internal actuators                 |
 ;; the mind                           | vehicle 16,
 ;; higher goals                       | (what kind of vehicle do I want to be?)
 ;; orchestration                      |
+;; social cognition                   |
+;;                                    |
 ;;                                    |
 ;; +------------------------------+   |
 ;; |                         ???  |   | <--- toolbox of intelligence?
@@ -454,9 +543,14 @@
 ;;                                    | Forsesight      (candidate machine intelligence mechanisms)
 ;; -- the world of intelligence --    |
 ;; specialization                     |
+;; resource allocation                |                 <- how does a childs mind learn to use the brain?
+;; curiosity                          |                 <- what happens during sleep?
+;; technology                         |
 ;;                                    |
-;; Hofstadter essences finding?       |
+;;                                    |
+;;                                    |
 ;; explanation perfusers?             |
+;;                                    |
 ;;                                    |
 ;;                                    | Harmony
 ;;                                    | Vague Programmer
@@ -471,17 +565,27 @@
 ;; and then use reasoning from the realm of psychology, from top-down, what does the system need,
 ;; what could be things that the neurons are providing?
 ;; Once we know some things the neurons are doing, we can make higher order abstractions that
-;; represent such things, I call it the toolbox of cognition.
+;; represent such things, I call it the building materials of cognition (formely the toolbox of cognition)
 ;; Nowhere it is written down that artificial neurons are the best level of abstraction to make
 ;; cognition.
 ;;
 ;;
-;; I less interested in scaling vehicle 5 (Artificial neurons) into cognition.
+;; I am less interested in scaling vehicle 5 (Artificial neurons) into cognition.
 ;; I am interested in thinking about what is the stuff that you need to make cognition.
 ;; To find a toolbox of cognition that is higher level than the neurons.
 ;; This way we come up with Mnemotrix (m-lines), Ergotrix (e-lines), vague and concrete states (vehicle 15), maps,
 ;; predictor-comparators (vehicle 13).
 ;; Thought pumps (vehicle 12), event flow assemblers (vehicle 16?).
+;;
+;; Note: Thought pumps, also called putting inhibition as a mechanism into your model instead of hoping it evolves from
+;; neuronal net, is one of the main pieces of Santosh Vempala's "cell assemblies".
+;; https://www.youtube.com/watch?v=mSX9CCKdBDA
+;; I am a big fan of the cell assemblies.
+;; I discovered them after writing most of this doc. They go firmly into exactly the spot I call
+;; "cognition building material" here.
+;; The cell assemblies are very similar to hypervectors.
+;; But maybe the path between brain science and them is clearer since its neurons so you can map stuff.
+;;
 ;;
 ;;
 ;; Vehicle 15:

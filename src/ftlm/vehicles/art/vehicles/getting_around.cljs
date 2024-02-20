@@ -44,6 +44,7 @@
   (q/stroke 0.3)
   (doseq [{:as entity :keys [color hidden?]} (vals (into (sorted-map) (lib/entities-by-id state)))]
     (when-not hidden?
+      (q/stroke-weight 1)
       (lib/draw-color color)
       (lib/draw-entity entity))))
 

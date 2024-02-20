@@ -1,14 +1,16 @@
 (ns ftlm.vehicles.art.vehicles.cell-assemblies
-  (:require [clojure.walk :as walk]
-            [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
-            [ftlm.vehicles.art :as art]
-            [quil.core :as q :include-macros true]
-            [quil.middleware :as m]
-            [ftlm.vehicles.art.controls :as controls :refer
-             [versions]]
-            [ftlm.vehicles.art.user-controls :as
-             user-controls]
-            [goog.style]))
+  (:require
+   [clojure.walk :as walk]
+   [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
+   [ftlm.vehicles.art :as art]
+   [quil.core :as q :include-macros true]
+   [quil.middleware :as m]
+   [ftlm.vehicles.art.controls :as controls :refer
+    [versions]]
+   [ftlm.vehicles.art.user-controls :as
+    user-controls]
+   [goog.style]
+   [ftlm.vehicles.hdv]))
 
 ;; -> The pyramidal cells
 ;; I decide it makes sense to think of pyramidal cell activity as the center
@@ -52,6 +54,7 @@
   (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 1)
   (q/stroke 0.3)
+  ;; (lib/grid)
   (lib/draw-entities state))
 
 (defn update-entity
@@ -377,6 +380,11 @@
        :neighbors-lines
          (lib/every-n-seconds 0.5 (->neighbour-lines))})))
 
+
+(defmethod setup-version :grid
+  [state]
+  (-> state)
+  )
 
 (defn setup
   [controls]

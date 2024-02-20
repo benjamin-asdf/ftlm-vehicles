@@ -20,6 +20,7 @@
 
 (def color-map
   {:amethyst-smoke {:h 272 :s 20 :v 75}
+   :very-blue {:h 210 :s 255 :v 100}
    :anakiwa {:h 206 :s 44 :v 100}
    :cyan {:h 180 :s 100 :v 100}
    :fruit-salad {:h 133 :s 54 :v 61}
@@ -609,7 +610,8 @@
     "1"
     {:v :world}
     "2"
-    {:v :neighbours-lines}}})
+    {:v :neighbours-lines}
+    "4" {:v :grid}}})
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)

@@ -377,8 +377,6 @@
          :transform
          (lib/->transform [0 0] 40 40 1.5)}))))
 
-
-
 (defmethod setup-version :worms
   [state]
   (let [circ-width 40
