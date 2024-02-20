@@ -485,7 +485,7 @@
               (q/with-stroke (->hsb (:stroke entity)) (drw))
             :else (drw)))
     (doall (map (fn [op] (op entity))
-             (vals draw-functions)))))
+                (vals draw-functions)))))
 
 (defn draw-entities
   [state]
@@ -1294,3 +1294,53 @@
       (q/line 0 y w y))))
 
 (defn ->draw-cell-assembly-grid-v1 [])
+
+(defn on-double-click
+  [state id]
+  (call-double-clicks state ((entities-by-id state) id)))
+
+(defn double-clicked? [{id-1 :id time-old :time} {id-2 :id time-new :time}]
+  (and
+   (= id-2 id-1)
+   (< (- time-new time-old) 300)))
+
+(defn mouse-pressed
+  [state]
+  (if-let
+      [draggable (find-closest-draggable state)]
+    (let [new-selection {:id (:id draggable) :time (q/millis)}
+          old-selection (:selection state)
+          state (-> state
+                    (assoc :pressed true)
+                    (assoc-in [:eid->entity (:id draggable) :dragged?] true)
+                    (assoc :selection new-selection))
+          state ((->call-callbacks :on-click-map) state draggable)
+          state ((->call-callbacks :on-drag-start-map) state draggable)]
+      (cond-> state
+        (double-clicked? old-selection new-selection)
+        (on-double-click (:id draggable))))
+    state))
+
+(defn mouse-released
+  [{:as state :keys [selection]}]
+  (if-not selection
+    state
+    (let [{:as selection :keys [dragged?]}
+            ((entities-by-id state) (:id selection))]
+      (if-not selection
+        state
+        (cond-> state
+          dragged? ((->call-callbacks :on-drag-end-map) state selection)
+          :regardless (update-in
+                        [:eid->entity (:id selection)]
+                        (fn [e]
+                          (assoc e :dragged? false))))))))
+
+(defn rotate-entity
+  [state id rotation]
+  (update-in state [:eid->entity id :transform :rotation] + rotation))
+
+(defn mouse-wheel [state rotation]
+  (if-let [ent ((entities-by-id state) (-> state :selection :id))]
+    (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
+    state))

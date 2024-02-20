@@ -223,20 +223,35 @@
       (assoc e :anchor-position anch-pos))))
 
 (def builders
-  {:brain/connection
-   (comp lib/->connection
-         #(walk/prewalk-replace {:excite lib/excite :inhibit lib/inhibit} %))
-   :brain/neuron
-   lib/->neuron
-   :cart/body (fn [opts]
-                (lib/->body (merge {:color (:sweet-pink controls/color-map)
-                                    :corner-r 10
-                                    :draggable? true
-                                    :darts? true
-                                    :pos (lib/rand-on-canvas-gauss 0.3)
-                                    :rot (* (rand) q/TWO-PI)
-                                    :scale 1}
-                                   opts)))
+  {:brain/connection (comp lib/->connection
+                           #(walk/prewalk-replace
+                              {:excite lib/excite
+                               :inhibit lib/inhibit}
+                              %))
+   :brain/neuron lib/->neuron
+   :cart/body
+     (fn [opts]
+       (lib/->body
+         (merge
+           {:color (:sweet-pink controls/color-map)
+            :corner-r 10
+            :darts? true
+            :draggable? true
+            :on-update-map
+              {:indicator
+                 (lib/every-n-seconds
+                   1
+                   (fn [e s _]
+                     (if (= (:id e) (:id (:selection s)))
+                       (assoc e
+                         :stroke-weight 4
+                         :stroke (:amethyst-smoke
+                                   controls/color-map))
+                       (dissoc e :stroke-weight :stroke))))}
+            :pos (lib/rand-on-canvas-gauss 0.3)
+            :rot (* (rand) q/TWO-PI)
+            :scale 1}
+           opts)))
    :cart/motor lib/->motor
    :cart/sensor (comp shuffle-anchor lib/->sensor)})
 
@@ -413,51 +428,6 @@
            :selection {:id (first (map :id (filter :body? (lib/entities state))))
                        :time (q/millis)})))
 
-(defn on-double-click
-  [state id]
-  (let [e ((lib/entities-by-id state) id)
-        explosion (lib/->explosion {:color (:color e)
-                                    :n 20
-                                    :pos (lib/position e)
-                                    :size 10
-                                    :spread 10})]
-    (-> state
-        (assoc-in [:eid->entity id :lifetime] 0.6)
-        (update-in [:eid->entity id :on-update] conj (lib/->grow 0.2))
-        (lib/append-ents explosion))))
-
-(defn double-clicked? [{id-1 :id time-old :time} {id-2 :id time-new :time}]
-  (and
-   (= id-2 id-1)
-   (< (- time-new time-old) 300)))
-
-(defn mouse-pressed
-  [state]
-  (if-let [draggable (lib/find-closest-draggable state)]
-    (let [new-selection {:id (:id draggable) :time (q/millis)}
-          old-selection (:selection state)
-          state (-> state
-                    (assoc :pressed true)
-                    (assoc-in [:eid->entity (:id draggable) :dragged?] true)
-                    (assoc :selection new-selection))]
-      (cond-> state
-        (double-clicked? old-selection new-selection)
-        (on-double-click (:id draggable))))
-    state))
-
-(defn mouse-released
-  [state]
-  (-> state
-      (assoc :pressed false)
-      (lib/update-ents (fn [e] (dissoc e :dragged?)))))
-(defn rotate-entity
-  [state id rotation]
-  (update-in state [:eid->entity id :transform :rotation] + rotation))
-
-(defn mouse-wheel [state rotation]
-  (if-let [ent ((lib/entities-by-id state) (-> state :selection :id))]
-    (rotate-entity state (:id ent) (/ rotation 60 2.5))
-    state))
 
 (defn sketch
   [host {:keys [width height]} controls]
@@ -473,9 +443,9 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
-              :mouse-pressed mouse-pressed
-              :mouse-released mouse-released
-              :mouse-wheel mouse-wheel
+              :mouse-pressed lib/mouse-pressed
+              :mouse-released lib/mouse-released
+              :mouse-wheel lib/mouse-wheel
               :frame-rate 30)))
 
 (defn draw-inspect
