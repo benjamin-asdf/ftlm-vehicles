@@ -13,7 +13,36 @@
 ;; -----------------------------------------------------------------------
 ;;
 ;; A complete model of cognition will make our minds look trivial.
-;; Including hitherto illusive concepts like dejavu, tip-of-tounge, one-shot-learning, etc.
+;; Including hitherto ellusive concepts like dejavu, tip-of-tounge, System-1 vs System-2 thinking,
+;; the nature of feeling and intuition, how children start speaking, etc.
+;;
+;;
+;;
+;; To be precise on the relationship between the brain and models of cognition.
+;; There are 2 concerns: brain science and cybernetic psychology.
+;; The former is concerned with the actual detailed functioning of the (human) brain.
+;; While the latter is concerned with the space of possible machines that implement cognition,
+;; and elegant programatic descriptions thereof.
+;;
+;; Presumably it is possible to implement such programs on current, classical computers,
+;; using ordinary programming languages.
+;; Such a computer program would be a machine intelligence.
+;;
+;; These 2 intellectual concerns then can be seen as 2 perspectives on the same coin - a model of cognition.
+;; It is interesting to observe, that the cybernetician computer programmer (sometimes called a hacker) has the freedom
+;; to disregard, or even openly contradict, biological theories of brain function.
+;;
+;; On the other hand, it is the immense malleability and fluidity of brain intelligence (sometimes called common sense or simply /reasoning/),
+;; together with its groundedness in the world, that is the final frontier in AI.
+;;
+;; For this reason the project of looking at the brain, formulating coherent, deep, imaginative models of the nature of its computations,
+;; the mechanisms that the biology of the brain is exploiting to produce the focused yet divergent, imaginative yet grounded mental content
+;; we call cognition.
+;;
+;; In other words all the god stuff is from the 40's-70's. This together with modern brain science clues of what the brain is doing will help us
+;; understand the deepest and most ellusive open questions around what the mind is.
+;;
+;; There is much to think in the land from where the artifical neuron (McCulloch-Pitts 1940-something) came from.
 ;;
 ;;
 ;; I. "Bacteria brain", "tiny, tiny brain" (vehicle 1)
@@ -50,10 +79,13 @@
 ;; The number of neurons in the tectum is roughly the number of fibers entering the tectum (Braitenberg 1986).
 ;; So there is probably not much reflexivity happening.
 ;;
+;;
 ;; IV. Cortex
 ;;
 ;; I am in the camp of people assuming that the interesting part of cognition happens in the cortex.
-;; In other words, it looks like modeling the function of the cortex will give me a model of cognition.
+;; In other words, it looks like modeling the function of the cortex is a path toowards a model of cognition.
+;;
+;;
 ;;
 ;; Givens:
 ;;
@@ -465,7 +497,6 @@
 ;; It is superstitious, it is surprised, it enjoys magic tricks, it has friends.
 ;;
 
-
 ;; ===
 ;; The mind is...
 ;; hierachical, dynamic, self-assembled
@@ -583,9 +614,8 @@
 ;; I am a big fan of the cell assemblies.
 ;; I discovered them after writing most of this doc. They go firmly into exactly the spot I call
 ;; "cognition building material" here.
-;; The cell assemblies are very similar to hypervectors.
-;; But maybe the path between brain science and them is clearer since its neurons so you can map stuff.
-;;
+;; The properties of cell assemblies are very similar to hypervectors.
+;; But maybe the path between brain science and them is clearer since its neurons so you can map the entities 1:1.
 ;;
 ;;
 ;; Vehicle 15:
