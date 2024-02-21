@@ -73,7 +73,7 @@
 ;;
 
 (defn rand-temperature-bubble
-  ([controls]
+  ([_]
    (rand-temperature-bubble (rand-nth [:hot :cold])))
   ([controls hot-or-cold]
    (let [max-temp 10]
@@ -181,21 +181,31 @@
                   {:color-of-the-mind
                      (rand-nth [:cyan :hit-pink
                                 :navajo-white :sweet-pink
-                                :woodsmoke :yellow :purple
-                                :mint :midnight-purple])})
+                                :woodsmoke :mint
+                                :midnight-purple])})
      :components
        (into [[:cart/motor :motor-left
-               {:anchor :bottom-left
+               {:activation-shine-colors
+                  {:high (:misty-rose controls/color-map)}
+                :activation-shine-speed 0.5
+                :anchor :bottom-left
                 :corner-r 5
                 :on-update [(lib/->cap-activation)]
                 :rotational-power 0.02}]
               [:cart/motor :motor-right
-               {:anchor :bottom-right
+               {:activation-shine-colors
+                  {:high (:misty-rose controls/color-map)}
+                :activation-shine-speed 0.5
+                :anchor :bottom-right
                 :corner-r 5
                 :on-update [(lib/->cap-activation)]
                 :rotational-power 0.02}]
               [:brain/neuron :arousal
-               {:on-update [(lib/->baseline-arousal
+               {:activation-shine true
+                :activation-shine-colors
+                  {:high (:red controls/color-map)}
+                :nucleus :arousal
+                :on-update [(lib/->baseline-arousal
                               (or baseline-arousal 0.8))]}]
               [:brain/connection :_
                {:destination [:ref :motor-left]
@@ -410,29 +420,33 @@
                           :scale (controls
                                   :ray-source-scale)
                           :z-index 10}))
-                       state))))]}
-
+                       state))))]
+               :nuclei
+               {:arousal {:pos [500 300]}}}
         state
         (-> state
             (lib/append-ents
-             (->>
-              [:multi-sensory
-               ;; :multi-sensory
-               ;; :multi-sensory
-               ]
-              (sequence
-               (comp (map (juxt identity controls))
-                     (mapcat
-                      (fn [[kind {:as opts :keys [amount]}]]
-                        (repeatedly amount
-                                    #((body-plans kind)
-                                      opts))))
-                     (map ->cart)
-                     cat))))
+             (->> [:multi-sensory
+                   ;; :multi-sensory
+                   ;; :multi-sensory
+                   ]
+                  (sequence
+                   (comp
+                    (map (juxt identity controls))
+                    (mapcat
+                     (fn [[kind
+                           {:as opts :keys [amount]}]]
+                       (repeatedly amount
+                                   #((body-plans kind)
+                                     opts))))
+                    (map ->cart)
+                    cat))))
             (lib/append-ents
              (some-rand-environment-things controls 6)))]
     (assoc state
-           :selection {:id (first (map :id (filter :body? (lib/entities state))))
+           :selection {:id (first (map :id
+                                       (filter :body?
+                                               (lib/entities state))))
                        :time (q/millis)})))
 
 
@@ -466,50 +480,72 @@
   (let [selection (:selection state)
         e ((lib/entities-by-id state) (:id selection))]
     (if (:body? e)
-      (do (q/background
-           (lib/->hsb
-            (or
-             (controls/color-map (e :color-of-the-mind))
-             (lib/->hsb
-              (-> state
-                  :controls
-                  :background-color)))))
-          ;; draw all the sensors of the thing on the
-          ;; top left in a grid
-          (let [components
-                (map (lib/entities-by-id state) (:components ((lib/entities-by-id state) (:id selection))))]
-            (let [sensors (filter :sensor? components)]
-              (lib/draw-entities-1
-               (for [[row sensor-row]
-                     (map-indexed vector
-                                  (partition-all 3 sensors))
-                     [col sensor] (map-indexed vector sensor-row)]
-                 (assoc-in (merge sensor
-                                  {:kind :rect
-                                   :size [40 40]
-                                   :stroke
-                                   (:very-blue
-                                    controls/color-map)
-                                   :stroke-weight 2})
-                           [:transform :pos]
-                           [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
-            (let [actuators (filter :actuator? components)]
-              (lib/draw-entities-1
-               (for [[row actuators-row]
-                     (map-indexed vector (partition-all 3 actuators))
-                     [col actuator]
-                     (map-indexed vector actuators-row)]
-                 (assoc-in
-                  (merge actuator
-                         {:kind :rect
-                          :corner-r 0
-                          :size [40 60]
-                          :stroke
-                          (:red controls/color-map)
-                          :stroke-weight 2})
+      (do
+        (q/background
+          (lib/->hsb
+            (or (controls/color-map (e :color-of-the-mind))
+                (lib/->hsb (-> state
+                               :controls
+                               :background-color)))))
+        ;; draw all the sensors of the thing on the
+        ;; top left in a grid
+        (let [components (map (lib/entities-by-id state)
+                           (:components
+                             ((lib/entities-by-id state)
+                               (:id selection))))]
+          (let [sensors (filter :sensor? components)]
+            (lib/draw-entities-1
+              (for [[row sensor-row]
+                      (map-indexed vector
+                                   (partition-all 3
+                                                  sensors))
+                    [col sensor] (map-indexed vector
+                                              sensor-row)]
+                (assoc-in (merge sensor
+                                 {:kind :rect
+                                  :size [40 40]
+                                  :stroke
+                                    (:very-blue
+                                      controls/color-map)
+                                  :stroke-weight 2})
+                  [:transform :pos]
+                  [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
+          (let [actuators (filter :actuator? components)]
+            (lib/draw-entities-1
+              (for [[row actuators-row]
+                      (map-indexed
+                        vector
+                        (partition-all 3 actuators))
+                    [col actuator]
+                      (map-indexed vector actuators-row)]
+                (assoc-in (merge actuator
+                                 {:corner-r 0
+                                  :kind :rect
+                                  :stroke
+                                    (:red
+                                      controls/color-map)
+                                  :stroke-weight 2})
                   [:transform :pos]
                   [(from-left (+ 200 (* col 25)))
-                   (from-bottom (+ 100 (* row 25)))]))))))
+                   (from-bottom (+ 100 (* row 25)))]))))
+          (when (:nuclei state)
+            (let [nuclei (group-by :nucleus
+                                   (filter :nucleus
+                                     components))]
+              (lib/draw-entities-1
+                (for [[nucleus neurons] nuclei
+                      neuron neurons]
+                  (let [nucleus-pos (get-in state
+                                            [:nuclei nucleus
+                                             :pos])]
+                    (-> (dissoc neuron :hidden?)
+                        (merge {:kind :rect
+                                :stroke controls/white})
+                        (assoc :transform (lib/->transform
+                                            nucleus-pos
+                                            20
+                                            20
+                                            1))))))))))
       (q/background (lib/->hsb (-> state
                                    :controls
                                    :background-color))))))

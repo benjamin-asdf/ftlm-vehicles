@@ -369,6 +369,7 @@
          {:color (q/color 40 96 255 255)
           :motor? true
           :actuator? true
+          :activation-shine true
           :transform (->transform [0 0] 20 35 1)}
          opts))
 
@@ -479,7 +480,6 @@
                                   (map validate-entity))
                             entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
-    (when (keyword? color) (println color))
     (draw-color color)
     (let [drw (fn [] (draw-entity entity))]
       (cond (:stroke entity)
@@ -542,9 +542,9 @@
                              (+ (second position) y)))))))
 
 (defn activation-shine
-  [{:as entity :keys [activation shine activation-shine-colors activation-shine]}]
+  [{:as entity :keys [activation shine activation-shine-colors activation-shine activation-shine-speed]}]
   (if (and activation activation-shine)
-    (let [shine (+ shine (* *dt* activation))]
+    (let [shine (+ shine (* *dt* activation (or activation-shine-speed 1)))]
       (assoc entity
              :shine shine
              :color (q/lerp-color
