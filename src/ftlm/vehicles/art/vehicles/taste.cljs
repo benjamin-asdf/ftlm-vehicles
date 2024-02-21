@@ -101,18 +101,15 @@
                                             modality)}
         sensor-left-opts
           (merge
-           sensor-left-opts
-           (when (= modality :smell)
-             {:fragrance
-              (rand-nth [:oxygen :organic-matter])
-              :activation-shine-colors
-              {:high (:misty-rose controls/color-map) :low (:heliotrope controls/color-map)}
-              })
-           (when (= modality :temperature)
-             {:hot-or-cold (rand-nth [:hot :cold])})
-
-
-           )
+            sensor-left-opts
+            (when (= modality :smell)
+              {:activation-shine-colors
+                 {:high (:misty-rose controls/color-map)
+                  :low (:heliotrope controls/color-map)}
+               :fragrance (rand-nth [:oxygen
+                                     :organic-matter])})
+            (when (= modality :temperature)
+              {:hot-or-cold (rand-nth [:hot :cold])}))
         sensor-right-opts (assoc sensor-left-opts
                             :anchor :top-right)
         decussates? (rand-nth [true false])
@@ -125,8 +122,10 @@
           (assoc sensor-left-opts
             :anchor :middle-middle
             :activation-shine-colors
-            ({:cold {:high {:h 196, :s 26, :v 100} :low controls/white}
-              :hot {:high (:hit-pink controls/color-map) :low controls/white}}
+              ({:cold {:high {:h 196 :s 26 :v 100}
+                       :low controls/white}
+                :hot {:high (:hit-pink controls/color-map)
+                      :low controls/white}}
                (:hot-or-cold sensor-left-opts)))]
          [:brain/connection :_
           {:bezier-line (lib/rand-bezier 5)
@@ -178,37 +177,45 @@
 (defn random-multi-sensory
   [sensor-pair-count]
   (fn [{:as opts :keys [baseline-arousal]}]
-    {:body opts
+    {:body (merge opts
+                  {:color-of-the-mind
+                     (rand-nth [:cyan :hit-pink
+                                :navajo-white :sweet-pink
+                                :woodsmoke :yellow :purple
+                                :mint :midnight-purple])})
      :components
-       (into
-         [[:cart/motor :motor-left
-           {:anchor :bottom-left
-            :corner-r 5
-            :on-update [(lib/->cap-activation)]
-            :rotational-power 0.02}]
-          [:cart/motor :motor-right
-           {:anchor :bottom-right
-            :corner-r 5
-            :on-update [(lib/->cap-activation)]
-            :rotational-power 0.02}]
-          [:brain/neuron :arousal
-           {:on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]}]
-          [:brain/connection :_
-           {:destination [:ref :motor-left]
-            :f rand
-            :hidden? true
-            :source [:ref :arousal]}]
-          [:brain/connection :_
-           {:destination [:ref :motor-right]
-            :f rand
-            :hidden? true
-            :source [:ref :arousal]}]]
-         ;; (->love-wires :motor-left :motor-right {:modality :smell
-         ;; :fragrance :oxygen})
-         (mapcat identity
-           (repeatedly
-             sensor-pair-count
-             (fn [] (->rand-sensor-pair-plans :motor-right :motor-left)))))}))
+       (into [[:cart/motor :motor-left
+               {:anchor :bottom-left
+                :corner-r 5
+                :on-update [(lib/->cap-activation)]
+                :rotational-power 0.02}]
+              [:cart/motor :motor-right
+               {:anchor :bottom-right
+                :corner-r 5
+                :on-update [(lib/->cap-activation)]
+                :rotational-power 0.02}]
+              [:brain/neuron :arousal
+               {:on-update [(lib/->baseline-arousal
+                              (or baseline-arousal 0.8))]}]
+              [:brain/connection :_
+               {:destination [:ref :motor-left]
+                :f rand
+                :hidden? true
+                :source [:ref :arousal]}]
+              [:brain/connection :_
+               {:destination [:ref :motor-right]
+                :f rand
+                :hidden? true
+                :source [:ref :arousal]}]]
+             ;; (->love-wires :motor-left :motor-right
+             ;; {:modality :smell
+             ;; :fragrance :oxygen})
+             (mapcat identity
+               (repeatedly sensor-pair-count
+                           (fn []
+                             (->rand-sensor-pair-plans
+                               :motor-right
+                               :motor-left)))))}))
 
 (def body-plans
   {:multi-sensory (random-multi-sensory 6)})
@@ -448,37 +455,66 @@
               :mouse-wheel lib/mouse-wheel
               :frame-rate 30)))
 
+(defn from-left [amount]
+  (- (q/width) amount))
+
+(defn from-bottom [amount]
+  (- (q/height) amount))
+
 (defn draw-inspect
   [state]
-  (q/background (lib/->hsb (-> state
-                               :controls
-                               :background-color)))
-  (when-let [selection (:selection state)]
-    ;; draw all the sensors of the thing on the top
-    ;; left in a grid
-    (let [sensors (filter :sensor?
-                    (map (lib/entities-by-id state)
-                      (:components ((lib/entities-by-id
-                                      state)
-                                     (:id selection)))))]
-      (lib/draw-entities-1
-        (for [[row sensor-row] (map-indexed
-                                 vector
-                                 (partition-all 3 sensors))
-              [col sensor] (map-indexed vector sensor-row)]
-          (assoc-in (merge sensor
-                           {:kind :rect
-                            :size [40 40]
-                            :stroke (:very-blue
-                                      controls/color-map)
-                            :stroke-weight 2})
-            [:transform :pos]
-            [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
-    (lib/draw-entities-1 [(update-in
-                            ((lib/entities-by-id state)
-                              (:id selection))
-                            [:transform :pos]
-                            (constantly [500 200]))])))
+  (let [selection (:selection state)
+        e ((lib/entities-by-id state) (:id selection))]
+    (if (:body? e)
+      (do (q/background
+           (lib/->hsb
+            (or
+             (controls/color-map (e :color-of-the-mind))
+             (lib/->hsb
+              (-> state
+                  :controls
+                  :background-color)))))
+          ;; draw all the sensors of the thing on the
+          ;; top left in a grid
+          (let [components
+                (map (lib/entities-by-id state) (:components ((lib/entities-by-id state) (:id selection))))]
+            (let [sensors (filter :sensor? components)]
+              (lib/draw-entities-1
+               (for [[row sensor-row]
+                     (map-indexed vector
+                                  (partition-all 3 sensors))
+                     [col sensor] (map-indexed vector sensor-row)]
+                 (assoc-in (merge sensor
+                                  {:kind :rect
+                                   :size [40 40]
+                                   :stroke
+                                   (:very-blue
+                                    controls/color-map)
+                                   :stroke-weight 2})
+                           [:transform :pos]
+                           [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
+            (let [actuators (filter :actuator? components)]
+              (lib/draw-entities-1
+               (for [[row actuators-row]
+                     (map-indexed vector (partition-all 3 actuators))
+                     [col actuator]
+                     (map-indexed vector actuators-row)]
+                 (assoc-in
+                  (merge actuator
+                         {:kind :rect
+                          :corner-r 0
+                          :size [40 60]
+                          :stroke
+                          (:red controls/color-map)
+                          :stroke-weight 2})
+                  [:transform :pos]
+                  [(from-left (+ 200 (* col 25)))
+                   (from-bottom (+ 100 (* row 25)))]))))))
+      (q/background (lib/->hsb (-> state
+                                   :controls
+                                   :background-color))))))
+
+
 (defn update-inspect [state]
   @the-state)
 

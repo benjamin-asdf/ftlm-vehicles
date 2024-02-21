@@ -368,6 +368,7 @@
   (merge (->entity :rect)
          {:color (q/color 40 96 255 255)
           :motor? true
+          :actuator? true
           :transform (->transform [0 0] 20 35 1)}
          opts))
 
@@ -1344,3 +1345,5 @@
   (if-let [ent ((entities-by-id state) (-> state :selection :id))]
     (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
     state))
+
+(def actuator? :actuator?)
