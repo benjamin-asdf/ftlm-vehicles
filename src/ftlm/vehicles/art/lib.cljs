@@ -15,7 +15,7 @@
 
 (defonce eid-counter (atom 0))
 (let [->eid #(swap! eid-counter inc)]
-  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true}))
+  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default}))
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
@@ -63,7 +63,6 @@
 (defn position [e] (-> e transform :pos))
 (defn rotation [e] (-> e transform :rotation))
 (defn scale [e] (-> e transform :scale))
-
 
 (defn ->connection-line-1 [entity-a entity-b]
   {:connection-line? true
@@ -317,7 +316,6 @@
     [w h]))
 
 (defn rand-on-canvas [] [(rand-int (q/width)) (rand-int (q/height))])
-
 
 (defn rand-on-canvas-gauss
   [distr]
@@ -1015,8 +1013,6 @@
         (reset! till (n))
         (apply f args)))))
 
-
-
 (def event-queue (atom []))
 
 (defmulti event! (fn [e _] (or (:kind e) e)))
@@ -1246,7 +1242,6 @@
         (orient-towards pos))))
    (range 1)))
 
-
 (defn ->fade
   []
   (fn [e _ _]
@@ -1347,3 +1342,19 @@
     state))
 
 (def actuator? :actuator?)
+
+(defn ->watch-ent
+  [state-atom {:keys [id]} f]
+  (fn [e _ _]
+    (f e ((entities-by-id @state-atom) id))))
+
+(defn ->mind-ent
+  [{:keys [id kind]}]
+  (assoc (->entity kind) :world :mind))
+
+(defn ->derived-entity
+  [state-atom world {:keys [id kind]} f]
+  (merge (->entity kind)
+         {:on-update-map
+            {:watch (->watch-ent state-atom {:id id} f)}
+          :world world}))

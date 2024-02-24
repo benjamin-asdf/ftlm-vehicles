@@ -343,28 +343,37 @@
       lib/shine
       lib/update-lifetime))
 
-(def the-state (atom {}))
+(defonce the-state (atom {}))
+
+(defn update-state-inner
+  [state]
+  (let [current-tick (q/millis)
+        state (update state
+                      :controls
+                      merge
+                      (user-controls/controls))
+        dt (* (:time-speed (lib/controls))
+              (/ (- current-tick (:last-tick state))
+                 1000.0))
+        state (binding [*dt* dt]
+                (-> state
+                    (assoc :last-tick current-tick)
+                    lib/update-update-functions
+                    lib/update-state-update-functions
+                    lib/apply-events
+                    (lib/update-ents
+                     #(update-entity % state (env state)))
+                    lib/transduce-signals
+                    lib/track-components
+                    lib/track-conn-lines
+                    lib/ray-source-collision-burst
+                    lib/kill-entities))]
+    state))
 
 (defn update-state
   [state]
-  (let [current-tick (q/millis)
-        state (update state :controls merge (user-controls/controls))
-        dt (*
-            (:time-speed (lib/controls))
-            (/ (- current-tick (:last-tick state)) 1000.0))
-        state
-        (binding [*dt* dt]
-          (-> state
-              (assoc :last-tick current-tick)
-              lib/update-update-functions
-              lib/update-state-update-functions
-              lib/apply-events
-              (lib/update-ents #(update-entity % state (env state)))
-              lib/transduce-signals
-              lib/track-components
-              lib/track-conn-lines
-              lib/ray-source-collision-burst
-              lib/kill-entities))]
+  (let [state @the-state
+        state (update-state-inner state)]
     (reset! the-state state)
     state))
 
@@ -375,33 +384,33 @@
                                       :organic-matter
                                       :oxygen]))
         ->make
-          {:organic-matter
-             (fn []
-               (lib/->organic-matter
-                 {:odor {:decay-rate 2 :intensity 40}
-                  :pos (lib/rand-on-canvas-gauss 0.5)}))
-           :oxygen (fn []
-                     (lib/->oxygen
-                       {:odor {:decay-rate 2 :intensity 40}
-                        :pos (lib/rand-on-canvas-gauss
-                               0.2)}))
-           :temp-cold (fn []
-                        (lib/->temperature-bubble-1
-                          (rand-temperature-bubble controls
-                                                   :cold)))
-           :temp-hot (fn []
-                       (lib/->temperature-bubble-1
-                         (rand-temperature-bubble controls
-                                                  :hot)))}]
+        {:organic-matter
+         (fn []
+           (lib/->organic-matter
+            {:odor {:decay-rate 2 :intensity 40}
+             :pos (lib/rand-on-canvas-gauss 0.5)}))
+         :oxygen (fn []
+                   (lib/->oxygen
+                    {:odor {:decay-rate 2 :intensity 40}
+                     :pos (lib/rand-on-canvas-gauss
+                           0.2)}))
+         :temp-cold (fn []
+                      (lib/->temperature-bubble-1
+                       (rand-temperature-bubble controls
+                                                :cold)))
+         :temp-hot (fn []
+                     (lib/->temperature-bubble-1
+                      (rand-temperature-bubble controls
+                                               :hot)))}]
     (mapcat (fn [op] (op)) (map ->make stuff))))
 
 (defn setup
   [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/background (lib/->hsb (-> controls
-                               :background-color)))
+  (q/background (lib/->hsb (-> controls :background-color)))
   (let [state {:controls controls
+               :nuclei {:arousal {:pos [500 300]}}
                :on-update
                [(lib/every-n-seconds
                  1
@@ -420,9 +429,16 @@
                           :scale (controls
                                   :ray-source-scale)
                           :z-index 10}))
-                       state))))]
-               :nuclei
-               {:arousal {:pos [500 300]}}}
+                       state))))
+
+
+
+                ]
+               ;; :on-update-map
+               ;; {:start-inspect
+               ;;  {}
+               ;;  }
+               :world :default}
         state
         (-> state
             (lib/append-ents
@@ -442,13 +458,15 @@
                     (map ->cart)
                     cat))))
             (lib/append-ents
-             (some-rand-environment-things controls 6)))]
-    (assoc state
-           :selection {:id (first (map :id
-                                       (filter :body?
-                                               (lib/entities state))))
-                       :time (q/millis)})))
-
+             (some-rand-environment-things controls 6)))
+        state
+        (assoc state
+               :selection {:id (first (map :id
+                                           (filter :body?
+                                                   (lib/entities state))))
+                           :time (q/millis)})
+        ]
+    (reset! the-state state)))
 
 (defn sketch
   [host {:keys [width height]} controls]
@@ -464,97 +482,209 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
-              :mouse-pressed lib/mouse-pressed
-              :mouse-released lib/mouse-released
-              :mouse-wheel lib/mouse-wheel
+              :mouse-pressed (comp #(reset! the-state %) lib/mouse-pressed)
+              :mouse-released (comp #(reset! the-state %) lib/mouse-released)
+              :mouse-wheel (comp #(reset! the-state %) lib/mouse-wheel)
               :frame-rate 30)))
 
 (defn from-left [amount]
   (- (q/width) amount))
 
+
 (defn from-bottom [amount]
   (- (q/height) amount))
 
-(defn draw-inspect
+(defn ->watch-ent
+  [state-atom {:keys [id]} f]
+  (fn [e _ _]
+    (merge e (f ((lib/entities-by-id @state-atom) id)))))
+
+;; (defn derive-mind-world
+;;   [state]
+;;   (let [components (map (lib/entities-by-id state)
+;;                      (:components ((lib/entities-by-id
+;;                                      state)
+;;                                     (-> state
+;;                                         :selection
+;;                                         :id))))
+;;         mind-world {:controls (:controls state)}
+;;         mind-world
+;;           (let [sensors (filter :sensor? components)]
+;;             (lib/append-ents
+;;               mind-world
+;;               (for [[row sensor-row]
+;;                       (map-indexed vector
+;;                                    (partition-all 3
+;;                                                   sensors))
+;;                     [col sensor] (map-indexed vector
+;;                                               sensor-row)]
+;;                 (-> (lib/->mind-ent sensor)
+;;                     (merge sensor
+;;                            {:kind :rect
+;;                             :draggable? true
+;;                             :stroke (:very-blue
+;;                                      controls/color-map)
+;;                             :stroke-weight 2})
+;;                     (assoc-in [:transform :pos]
+;;                               [(+ 40 (* col 25))
+;;                                (+ 40 (* row 25))])))))]
+;;     mind-world))
+
+(defn derive-mind-world
   [state]
-  (let [selection (:selection state)
-        e ((lib/entities-by-id state) (:id selection))]
-    (if (:body? e)
-      (do
-        (q/background
-          (lib/->hsb
-            (or (controls/color-map (e :color-of-the-mind))
-                (lib/->hsb (-> state
-                               :controls
-                               :background-color)))))
-        ;; draw all the sensors of the thing on the
-        ;; top left in a grid
-        (let [components (map (lib/entities-by-id state)
-                           (:components
-                             ((lib/entities-by-id state)
-                               (:id selection))))]
+  (let [components (map (lib/entities-by-id state)
+                     (:components ((lib/entities-by-id
+                                     state)
+                                    (-> state
+                                        :selection
+                                        :id))))
+        mind-world {:controls (:controls state)
+                    :world :mind}
+        mind-world
           (let [sensors (filter :sensor? components)]
-            (lib/draw-entities-1
+            (lib/append-ents
+              mind-world
               (for [[row sensor-row]
                       (map-indexed vector
                                    (partition-all 3
                                                   sensors))
                     [col sensor] (map-indexed vector
                                               sensor-row)]
-                (assoc-in (merge sensor
-                                 {:kind :rect
-                                  :size [40 40]
-                                  :stroke
-                                    (:very-blue
-                                      controls/color-map)
-                                  :stroke-weight 2})
-                  [:transform :pos]
-                  [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
-          (let [actuators (filter :actuator? components)]
-            (lib/draw-entities-1
-              (for [[row actuators-row]
-                      (map-indexed
-                        vector
-                        (partition-all 3 actuators))
-                    [col actuator]
-                      (map-indexed vector actuators-row)]
-                (assoc-in (merge actuator
-                                 {:corner-r 0
-                                  :kind :rect
-                                  :stroke
-                                    (:red
-                                      controls/color-map)
-                                  :stroke-weight 2})
-                  [:transform :pos]
-                  [(from-left (+ 200 (* col 25)))
-                   (from-bottom (+ 100 (* row 25)))]))))
-          (when (:nuclei state)
-            (let [nuclei (group-by :nucleus
-                                   (filter :nucleus
-                                     components))]
-              (lib/draw-entities-1
-                (for [[nucleus neurons] nuclei
-                      neuron neurons]
-                  (let [nucleus-pos (get-in state
-                                            [:nuclei nucleus
-                                             :pos])]
-                    (-> (dissoc neuron :hidden?)
-                        (merge {:kind :rect
-                                :stroke controls/white})
-                        (assoc :transform (lib/->transform
-                                            nucleus-pos
-                                            20
-                                            20
-                                            1))))))))))
-      (q/background (lib/->hsb (-> state
-                                   :controls
-                                   :background-color))))))
+                (lib/->derived-entity
+                  the-state
+                  :mind
+                  sensor
+                  (fn [e ue]
+                    (if-not ue
+                      (assoc e :kill? true)
+                      (merge
+                        e
+                        (-> (select-keys ue
+                                         [:color :activation
+                                          :transform])
+                            (merge {:draggable? true
+                                    :kind :rect
+                                    :stroke
+                                      (:very-blue
+                                        controls/color-map)
+                                    :stroke-weight 2})
+                            (assoc-in
+                              [:transform :pos]
+                              [(+ 40 (* col 25))
+                               (+ 40 (* row 25))])))))))))]
+    mind-world))
+
+(defn draw-inspect
+  [state]
+  ;; (println (lib/entities state))
+  ;; (println (lib/entities (derive-mind-world state)))
+  (q/background (lib/->hsb (-> state :controls :background-color)))
+  (lib/draw-entities-1 (lib/entities state))
+
+  ;; (lib/draw-entities-1 (filter (comp #{:mind} :world) (lib/entities state)))
+
+  ;; (let [e ((lib/entities-by-id @the-state) (:mind-eid state))]
+  ;;   (if (:body? e)
+  ;;     (q/background
+  ;;      (lib/->hsb
+  ;;       (or (controls/color-map (e :color-of-the-mind))
+  ;;           (lib/->hsb (-> state
+  ;;                          :controls
+  ;;                          :background-color)))))
+  ;;     (q/background (lib/->hsb (-> state
+  ;;                                  :controls
+  ;;                                  :background-color)))))
+  ;; (let [selection (:selection state)
+  ;;       e ((lib/entities-by-id state) (:id selection))]
+  ;;   (if (:body? e)
+  ;;     (do
+  ;;       (q/background
+  ;;         (lib/->hsb
+  ;;           (or (controls/color-map (e :color-of-the-mind))
+  ;;               (lib/->hsb (-> state
+  ;;                              :controls
+  ;;                              :background-color)))))
+  ;;       ;; draw all the sensors of the thing on the
+  ;;       ;; top left in a grid
+  ;;       (let [components (map (lib/entities-by-id state)
+  ;;                          (:components
+  ;;                            ((lib/entities-by-id state)
+  ;;                              (:id selection))))]
+  ;;         (let [sensors (filter :sensor? components)]
+  ;;           (lib/draw-entities-1
+  ;;             (for [[row sensor-row]
+  ;;                     (map-indexed vector
+  ;;                                  (partition-all 3
+  ;;                                                 sensors))
+  ;;                   [col sensor] (map-indexed vector
+  ;;                                             sensor-row)]
+  ;;               (assoc-in (merge sensor
+  ;;                                {:kind :rect
+  ;;                                 :size [40 40]
+  ;;                                 :stroke
+  ;;                                   (:very-blue
+  ;;                                     controls/color-map)
+  ;;                                 :stroke-weight 2})
+  ;;                 [:transform :pos]
+  ;;                 [(+ 40 (* col 25)) (+ 40 (* row 25))]))))
+  ;;         (let [actuators (filter :actuator? components)]
+  ;;           (lib/draw-entities-1
+  ;;             (for [[row actuators-row]
+  ;;                   (map-indexed
+  ;;                    vector
+  ;;                    (partition-all 3 actuators))
+  ;;                   [col actuator]
+  ;;                   (map-indexed vector actuators-row)]
+  ;;               (->
+  ;;                (merge actuator
+  ;;                       {:corner-r 0
+  ;;                        :kind :rect
+  ;;                        :stroke
+  ;;                        (:red
+  ;;                         controls/color-map)
+  ;;                        :stroke-weight 2})
+  ;;                (assoc-in
+  ;;                 [:transform :pos]
+  ;;                 [(from-left (+ 200 (* col 25)))
+  ;;                  (from-bottom (+ 100 (* row 25)))])
+  ;;                (assoc-in [:transform :width] 20)
+  ;;                (assoc-in [:transform :height] 20))
+  ;;               )))
+  ;;         (when (:nuclei state)
+  ;;           (let [nuclei (group-by :nucleus
+  ;;                                  (filter :nucleus
+  ;;                                    components))]
+  ;;             (lib/draw-entities-1
+  ;;               (for [[nucleus neurons] nuclei
+  ;;                     neuron neurons]
+  ;;                 (let [nucleus-pos (get-in state
+  ;;                                           [:nuclei nucleus
+  ;;                                            :pos])]
+  ;;                   (-> (dissoc neuron :hidden?)
+  ;;                       (merge {:corner-r 5
+  ;;                               :kind :rect
+  ;;                               :stroke controls/white})
+  ;;                       (assoc :transform (lib/->transform
+  ;;                                           nucleus-pos
+  ;;                                           25
+  ;;                                           25
+  ;;                                           1))))))))))
+  ;;     (q/background (lib/->hsb (-> state
+  ;;                                  :controls
+  ;;                                  :background-color)))))
+  )
 
 
-(defn update-inspect [state]
-  @the-state)
+;; update when you click another guy
+(defn update-inspect
+  [inspect-state]
+  (update-state-inner
+   (if (:world inspect-state)
+     inspect-state
+     (derive-mind-world @the-state))))
 
-(defn setup-inspect [controls]
+(defn setup-inspect
+  [controls]
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (q/background (lib/->hsb (-> controls :background-color))))
@@ -563,15 +693,21 @@
   [host controls]
   (q/sketch :host host
             :size [1000 400]
-            :setup (partial setup controls)
+            :setup (fn []
+                     (q/rect-mode :center)
+                     (q/color-mode :hsb)
+                     (q/background
+                      (lib/->hsb (-> controls
+                                     :background-color)))
+                     {:controls controls})
             :update #'update-inspect
             :draw #'draw-inspect
             :features [:keep-on-top]
             :middleware [m/fun-mode]
-            ;; :mouse-pressed mouse-pressed
-            ;; :mouse-released mouse-released
-            ;; :mouse-wheel mouse-wheel
-            :frame-rate 10))
+            :mouse-pressed lib/mouse-pressed
+            :mouse-released lib/mouse-released
+            :mouse-wheel lib/mouse-wheel
+            :frame-rate 30))
 
 (defonce restart-fn (atom nil))
 (defmethod art/view "taste"
