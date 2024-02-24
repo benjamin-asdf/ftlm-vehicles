@@ -15,7 +15,9 @@
 
 (defonce eid-counter (atom 0))
 (let [->eid #(swap! eid-counter inc)]
-  (defn ->entity [kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default}))
+  (defn ->entity
+    ([kind opts] (merge (->entity kind) opts))
+    ([kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default})))
 
 (defn ->transform [pos width height scale]
   {:pos pos :width width :height height :scale scale})
@@ -1347,10 +1349,6 @@
   [state-atom {:keys [id]} f]
   (fn [e _ _]
     (f e ((entities-by-id @state-atom) id))))
-
-(defn ->mind-ent
-  [{:keys [id kind]}]
-  (assoc (->entity kind) :world :mind))
 
 (defn ->derived-entity
   [state-atom world {:keys [id kind]} f]

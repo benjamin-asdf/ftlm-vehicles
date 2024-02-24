@@ -176,6 +176,8 @@
         (* plasticity firing-j? firing-i-next?)))))
 
 
+
+
 ;; homeostatis
 ;; renormalize the weights at a slower time scale
 ;;
@@ -373,9 +375,6 @@
     (->> input
          (sort)
          (take-last cap-size))))
-
-
-
 
 ;; feed forward are
 (defn ->ffa-area
