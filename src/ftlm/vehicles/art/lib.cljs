@@ -1302,22 +1302,38 @@
    (= id-2 id-1)
    (< (- time-new time-old) 300)))
 
+(defn inside-canvas?
+  [x y]
+  (and
+   (<= 0 x (q/width))
+   (<= 0 y (q/height))))
+
 (defn mouse-pressed
   [state]
-  (if-let
-      [draggable (find-closest-draggable state)]
-    (let [new-selection {:id (:id draggable) :time (q/millis)}
-          old-selection (:selection state)
-          state (-> state
-                    (assoc :pressed true)
-                    (assoc-in [:eid->entity (:id draggable) :dragged?] true)
-                    (assoc :selection new-selection))
-          state ((->call-callbacks :on-click-map) state draggable)
-          state ((->call-callbacks :on-drag-start-map) state draggable)]
-      (cond-> state
-        (double-clicked? old-selection new-selection)
-        (on-double-click (:id draggable))))
-    state))
+  (if-not (inside-canvas? (q/mouse-x) (q/mouse-y))
+    state
+    (let [draggable (find-closest-draggable state)]
+      (if draggable
+        (let [new-selection {:id (:id draggable)
+                             :time (q/millis)}
+              old-selection (:selection state)
+              state (-> state
+                        (assoc :pressed true)
+                        (assoc-in [:eid->entity
+                                   (:id draggable)
+                                   :dragged?]
+                                  true)
+                        (assoc :selection new-selection))
+              state ((->call-callbacks :on-click-map)
+                      state
+                      draggable)
+              state ((->call-callbacks :on-drag-start-map)
+                      state
+                      draggable)]
+          (cond-> state
+            (double-clicked? old-selection new-selection)
+              (on-double-click (:id draggable))))
+        state))))
 
 (defn mouse-released
   [{:as state :keys [selection]}]
@@ -1340,7 +1356,10 @@
 
 (defn mouse-wheel [state rotation]
   (if-let [ent ((entities-by-id state) (-> state :selection :id))]
-    (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
+    (do
+      (rotate-entity state (:id ent) (/ rotation 50 2.5))
+      ;; (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
+      )
     state))
 
 (def actuator? :actuator?)
@@ -1356,3 +1375,9 @@
          {:on-update-map
             {:watch (->watch-ent state-atom {:id id} f)}
           :world world}))
+
+(defn ->activation-burst
+  [state-atom id]
+  (fn [_ _ _]
+    (swap! state-atom update-in [:eid->entity id :activation] + 100)
+    nil))

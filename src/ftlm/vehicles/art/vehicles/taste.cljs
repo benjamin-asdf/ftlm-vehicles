@@ -1,6 +1,7 @@
 (ns ftlm.vehicles.art.vehicles.taste
   (:require [clojure.walk :as walk]
             [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
+            [clojure.set :as set]
             [ftlm.vehicles.art :as art]
             [quil.core :as q :include-macros true]
             [quil.middleware :as m]
@@ -17,12 +18,14 @@
 ;; 3. temperature bubbles
 ;; 4. random vehicle 3.
 ;; so that it can love temp or be aggressive towards light etc.
+;; that is done, called :multi-sensory
 
-;; === Interlude 1: === (maybe)
+;; === Interlude 1: === (maybe) (skipping)
 ;; assemble connections
 
+
 ;; === Interlude 2: ===
-;; - interneurons -> visible in inspection window
+;; - interneurons -> visible in inspection window (done to some extent)
 ;; - another small kind of effect (another actuator): change the color of the vehicle
 ;; - Now we make interneurons that change the weight of what
 ;; each of your sensors are contributing
@@ -205,8 +208,8 @@
                 :activation-shine-colors
                   {:high (:red controls/color-map)}
                 :nucleus :arousal
-                :on-update [(lib/->baseline-arousal
-                              (or baseline-arousal 0.8))]}]
+                :on-update [(lib/->baseline-arousal (or baseline-arousal 0.8))]
+                }]
               [:brain/connection :_
                {:destination [:ref :motor-left]
                 :f rand
@@ -371,7 +374,7 @@
     state))
 
 (defn update-state
-  [state]
+  [_]
   (let [state @the-state
         state (update-state-inner state)]
     (reset! the-state state)
@@ -384,25 +387,26 @@
                                       :organic-matter
                                       :oxygen]))
         ->make
-        {:organic-matter
-         (fn []
-           (lib/->organic-matter
-            {:odor {:decay-rate 2 :intensity 40}
-             :pos (lib/rand-on-canvas-gauss 0.5)}))
-         :oxygen (fn []
-                   (lib/->oxygen
-                    {:odor {:decay-rate 2 :intensity 40}
-                     :pos (lib/rand-on-canvas-gauss
-                           0.2)}))
-         :temp-cold (fn []
-                      (lib/->temperature-bubble-1
-                       (rand-temperature-bubble controls
-                                                :cold)))
-         :temp-hot (fn []
-                     (lib/->temperature-bubble-1
-                      (rand-temperature-bubble controls
-                                               :hot)))}]
+          {:organic-matter
+             (fn []
+               (lib/->organic-matter
+                 {:odor {:decay-rate 2 :intensity 40}
+                  :pos (lib/rand-on-canvas-gauss 0.5)}))
+           :oxygen (fn []
+                     (lib/->oxygen
+                       {:odor {:decay-rate 2 :intensity 40}
+                        :pos (lib/rand-on-canvas-gauss
+                               0.2)}))
+           :temp-cold (fn []
+                        (lib/->temperature-bubble-1
+                          (rand-temperature-bubble controls
+                                                   :cold)))
+           :temp-hot (fn []
+                       (lib/->temperature-bubble-1
+                         (rand-temperature-bubble controls
+                                                  :hot)))}]
     (mapcat (fn [op] (op)) (map ->make stuff))))
+
 
 (defn setup
   [controls]
@@ -413,51 +417,52 @@
   (let [state {:controls controls
                :nuclei {:arousal {:pos [500 300]}}
                :on-update
-                 [(lib/every-n-seconds
-                    1
-                    (fn [state]
-                      (let [sources (filter :ray-source?
-                                      (lib/entities state))]
-                        (if (< (count sources) 2)
-                          (lib/append-ents
-                            state
-                            (->ray-source
-                              {:intensity (+ 5 (rand 30))
-                               :pos
-                                 (lib/rand-on-canvas-gauss
-                                   (controls
-                                     :ray-source-spread))
-                               :scale (controls
-                                        :ray-source-scale)
-                               :z-index 10}))
-                          state))))]
+               [(lib/every-n-seconds
+                 1
+                 (fn [state]
+                   (let [sources (filter :ray-source?
+                                         (lib/entities state))]
+                     (if (< (count sources) 2)
+                       (lib/append-ents
+                        state
+                        (->ray-source
+                         {:intensity (+ 5 (rand 30))
+                          :pos
+                          (lib/rand-on-canvas-gauss
+                           (controls
+                            :ray-source-spread))
+                          :scale (controls
+                                  :ray-source-scale)
+                          :z-index 10})
+                        )
+                       state))))]
                :world :default}
         state
-          (-> state
-              (lib/append-ents
-                (->> [:multi-sensory
-                      ;; :multi-sensory
-                      ;; :multi-sensory
-                     ]
-                     (sequence
-                       (comp
-                         (map (juxt identity controls))
-                         (mapcat
-                           (fn [[kind
-                                 {:as opts :keys [amount]}]]
-                             (repeatedly amount
-                                         #((body-plans kind)
-                                             opts))))
-                         (map ->cart)
-                         cat))))
-              (lib/append-ents
-                (some-rand-environment-things controls 6)))
+        (-> state
+            (lib/append-ents
+             (->> [:multi-sensory
+                   ;; :multi-sensory
+                   ;; :multi-sensory
+                   ]
+                  (sequence
+                   (comp
+                    (map (juxt identity controls))
+                    (mapcat
+                     (fn [[kind
+                           {:as opts :keys [amount]}]]
+                       (repeatedly amount
+                                   #((body-plans kind)
+                                     opts))))
+                    (map ->cart)
+                    cat))))
+            (lib/append-ents
+             (some-rand-environment-things controls 6)))
         state (assoc state
-                :selection {:id (first (map :id
-                                         (filter :body?
-                                           (lib/entities
-                                             state))))
-                            :time (q/millis)})]
+                     :selection {:id (first (map :id
+                                                 (filter :body?
+                                                         (lib/entities
+                                                          state))))
+                                 :time (q/millis)})]
     (reset! the-state state)))
 
 (defn sketch
@@ -494,134 +499,278 @@
 (defn derive-mind-world
   [state]
   (let [components (map (lib/entities-by-id state)
-                     (:components ((lib/entities-by-id
-                                     state)
-                                    (-> state
-                                        :selection
-                                        :id))))
+                        (:components ((lib/entities-by-id
+                                       state)
+                                      (-> state
+                                          :selection
+                                          :id))))
         mind-world {:controls (:controls state)
                     :world :mind}
         mind-world
-          (let [sensors (filter :sensor? components)]
-            (lib/append-ents
-              mind-world
-              (for [[row sensor-row]
-                      (map-indexed vector
-                                   (partition-all 3
-                                                  sensors))
-                    [col sensor] (map-indexed vector
-                                              sensor-row)]
-                (let [e (->
-                          (lib/->derived-entity
-                            the-state
-                            :mind
-                            sensor
-                            (fn [e ue]
-                              (if-not ue
-                                (assoc e :kill? true)
-                                (->
-                                  e
-                                  (merge (select-keys
-                                           ue
-                                           [:color
-                                            :activation]))
-                                  (merge
-                                    {:draggable? true
-                                     :kind :rect
-                                     :stroke
-                                       (:very-blue
-                                         controls/color-map)
-                                     :stroke-weight 2})
-                                  (assoc-in
-                                    [:transform :rotation]
-                                    (-> ue
-                                        :transform
-                                        :rotation))))))
-                          (assoc :transform (:transform
-                                              sensor))
-                          (assoc-in [:transform :pos]
-                                    [(+ 40 (* col 25))
-                                     (+ 40 (* row 25))]))]
-                  e))))
+        (let [sensors (filter :sensor? components)]
+          (lib/append-ents
+           mind-world
+           (for [[row sensor-row]
+                 (map-indexed vector
+                              (partition-all 3
+                                             sensors))
+                 [col sensor] (map-indexed vector
+                                           sensor-row)]
+             (let [e (-> (lib/->derived-entity
+                          the-state
+                          :mind
+                          sensor
+                          (fn [e ue]
+                            (if-not ue
+                              (assoc e :kill? true)
+                              (->
+                               e
+                               (merge (select-keys
+                                       ue
+                                       [:color
+                                        :activation]))
+                               (assoc-in
+                                [:transform :rotation]
+                                (-> ue
+                                    :transform
+                                    :rotation))))))
+                         (merge
+                          {:draggable? true
+                           :kind :rect
+                           :on-double-click-map
+                           {:activation-burst
+                            (lib/->activation-burst
+                             the-state
+                             (:id sensor))}
+                           :stroke (:very-blue
+                                    controls/color-map)
+                           :stroke-weight 2
+                           :underlying-e (:id sensor)})
+                         (assoc :transform (:transform
+                                            sensor))
+                         (assoc-in [:transform :pos]
+                                   [(+ 40 (* col 25))
+                                    (+ 40 (* row 25))]))]
+               e))))
         mind-world
-          (let [actuators (filter :actuator? components)]
-            (lib/append-ents
-              mind-world
-              (for [[row actuators-row]
-                      (map-indexed
-                        vector
-                        (partition-all 3 actuators))
-                    [col actuator]
-                      (map-indexed vector actuators-row)]
-                (->
-                  (lib/->derived-entity
+        (let [actuators (filter :actuator? components)]
+          (lib/append-ents
+           mind-world
+           (for [[row actuators-row]
+                 (map-indexed
+                  vector
+                  (partition-all 3 actuators))
+                 [col actuator]
+                 (map-indexed vector actuators-row)]
+             (->
+              (lib/->derived-entity
+               the-state
+               :mind
+               actuator
+               (fn [e ue]
+                 (if-not ue
+                   (assoc e :kill? true)
+                   (-> e
+                       (merge (select-keys
+                               ue
+                               [:color :activation]))
+                       (assoc-in [:transform :rotation]
+                                 (-> ue
+                                     :transform
+                                     :rotation))))))
+              (merge {:corner-r 0
+                      :draggable? true
+                      :kind :rect
+                      :on-double-click-map
+                      {:activation-burst
+                       (lib/->activation-burst
+                        the-state
+                        (:id actuator))}
+                      :stroke (:red controls/color-map)
+                      :stroke-weight 2
+                      :transform (:transform actuator)
+                      :underlying-e (:id actuator)})
+              (assoc-in [:transform :pos]
+                        [(from-left (+ 200 (* col 25)))
+                         (from-bottom (+ 100
+                                         (* row 25)))])
+              (assoc-in [:transform :width] 20)
+              (assoc-in [:transform :height] 20)))))
+        mind-world
+        (let [nuclei-neurons (filter :nucleus components)]
+          (lib/append-ents
+           mind-world
+           (for [neuron nuclei-neurons]
+             (let [nucleus-pos (lib/rand-on-canvas-gauss
+                                0.1)]
+               (-> (lib/->derived-entity
                     the-state
                     :mind
-                    actuator
+                    neuron
                     (fn [e ue]
                       (if-not ue
                         (assoc e :kill? true)
                         (-> e
                             (merge (select-keys
-                                     ue
-                                     [:color :activation]))
-                            (assoc-in [:transform :rotation]
-                                      (-> ue
-                                          :transform
-                                          :rotation))))))
-                  (merge {:corner-r 0
-                          :kind :rect
-                          :stroke (:red controls/color-map)
-                          :stroke-weight 2
-                          :transform (:transform actuator)})
-                  (assoc-in [:transform :pos]
-                            [(from-left (+ 200 (* col 25)))
-                             (from-bottom (+ 100
-                                             (* row 25)))])
-                  (assoc-in [:transform :width] 20)
-                  (assoc-in [:transform :height] 20)))))
+                                    ue
+                                    [:color
+                                     :activation]))))))
+                   (merge {:corner-r 5
+                           :draggable? true
+                           :kind :rect
+                           :on-double-click-map
+                           {:activation-burst
+                            (lib/->activation-burst
+                             the-state
+                             (:id neuron))}
+                           :stroke controls/white
+                           :underlying-e (:id neuron)})
+                   (assoc :transform (lib/->transform
+                                      nucleus-pos
+                                      25
+                                      25
+                                      1)))))))
+        ;; world-eid->mind-e
+        ;; (into {}
+        ;;       (comp (filter :underlying-e)
+        ;;             (map
+        ;;              (juxt :underlying-e identity)
+        ;;              ))
+        ;;       (lib/entities mind-world))
+
         mind-world
-          (let [nuclei-neurons (filter :nucleus components)]
-            (lib/append-ents
-              mind-world
-              (for [neuron nuclei-neurons]
-                (let [nucleus-pos (lib/rand-on-canvas-gauss
-                                    0.1)]
-                  (-> (lib/->derived-entity
-                        the-state
-                        :mind
-                        neuron
-                        (fn [e ue]
-                          (if-not ue
-                            (assoc e :kill? true)
-                            (-> e
-                                (merge (select-keys
-                                         ue
-                                         [:color
-                                          :activation]))))))
-                      (merge {:corner-r 5
-                              :kind :rect
-                              :stroke controls/white})
-                      (assoc :transform (lib/->transform
-                                          nucleus-pos
-                                          25
-                                          25
-                                          1)))))))]
+        (let [conn-lines (filter :connection-line?
+                                 components)]
+          (lib/append-ents
+           mind-world
+           (for [[idx model] (map-indexed vector
+                                          conn-lines)]
+             (->
+              (lib/->derived-entity
+               the-state
+               :mind
+               model
+               (fn [e ue]
+                 (println
+                  (:nucleus
+                   ((lib/entities-by-id @the-state)
+                    (:source (:transduction-model ue)))))
+                 (if-not ue
+                   (assoc e :kill? true)
+
+                   (let [color (:color ue)
+                         color
+                         (or color
+                             (:red
+                              controls/color-map))]
+                     (-> e
+                         (assoc :color color)
+                         (merge (select-keys
+                                 ue
+                                 [:activation])))))))
+              (merge {:corner-r 5
+                      :draggable? true
+                      :kind :rect
+                      ;; :on-double-click-map
+                      ;; {:activation-burst
+                      ;;  (lib/->activation-burst
+                      ;;   the-state
+                      ;;   (:id model))}
+                      :stroke controls/white
+                      :underlying-e (:id model)})
+              (assoc :transform
+                     (lib/->transform
+                      (let [row (quot idx 3)
+                            col (mod idx 3)]
+                        [(from-left (+ 300
+                                       (* col 25)))
+                         (from-bottom
+                          (+ 200 (* row 25)))])
+                      25
+                      25
+                      0.5)))))
+          ;; (lib/append-ents
+          ;;  mind-world
+          ;;  (for [model models]
+          ;;    (->
+          ;;     (lib/->entity
+          ;;      :line
+          ;;      {:world :mind
+          ;;       :color (:hit-pink
+          ;;       controls/color-map)
+          ;;       :end-pos (lib/position
+          ;;       (world-eid->mind-e (:destination
+          ;;       model)))
+          ;;       :on-update-map
+          ;;       {:fade
+          ;;        (lib/->fade-pulse 1
+          ;;                          ;; (rand-nth
+          ;;                          [0.25 0.5 1 1
+          ;;                          1.5 2.0])
+          ;;                          )
+          ;;        }
+          ;;       :transform
+          ;;       (lib/->transform (lib/position
+          ;;       (world-eid->mind-e (:source
+          ;;       model))) 1 1 1)})
+          ;;     ;; (lib/->connection-line
+          ;;     ;;  (world-eid->mind-e
+          ;;     ;;   (:source model))
+          ;;     ;;  (world-eid->mind-e
+          ;;     ;;   (:destination model)))
+          ;;     ;; (merge
+          ;;     ;;  {:world :mind
+          ;;     ;;   :on-update-map
+          ;;     ;;   {:fade
+          ;;     ;;    (fn [_ _ _]
+          ;;     ;;      (println "hi"))
+          ;;     ;;    }})
+          ;;     ;; (lib/->derived-entity ;;
+          ;;     the-state ;;  :mind ;;  model
+          ;;     ;;  (fn [e ue]
+          ;;     ;;    (if-not ue
+          ;;     ;;      (assoc e :kill? true)
+          ;;     ;;      (-> e ;;          (merge
+          ;;     (select-keys ;;                  ue
+          ;;     ;;                  [:color
+          ;;     ;;
+          ;;     :activation]))))))
+          ;;     ;; (merge {:corner-r 5
+          ;;     ;;         :draggable? true
+          ;;     ;;         :kind :rect
+          ;;     ;;         :on-double-click-map
+          ;;     ;;         {:activation-burst
+          ;;     ;;          (lib/->activation-burst
+          ;;     ;;           the-state
+          ;;     ;;           (:id model))}
+          ;;     ;;         :stroke controls/white
+          ;;     ;;         :underlying-e (:id
+          ;;     model)})
+          ;;     ;; (assoc :transform ;;
+          ;;     (lib/->transform ;;
+          ;;     (lib/rand-on-canvas-gauss
+          ;;     ;;          0.2)
+          ;;     ;;         25
+          ;;     ;;         25
+          ;;     ;;         0.5))
+          ;;     )))
+          )
+
+        ]
+    (def mind-world mind-world)
     mind-world))
-
-
 
 (defn draw-inspect
   [state]
   (let [e ((lib/entities-by-id @the-state)
-            (:mind-eid state))]
+           (:mind-eid state))]
     (if (:body? e)
       (q/background
-        (lib/->hsb (or (controls/color-map
-                         (e :color-of-the-mind))
-                       (lib/->hsb (-> state
-                                      :controls
-                                      :background-color)))))
+       (lib/->hsb (or (controls/color-map
+                       (e :color-of-the-mind))
+                      (lib/->hsb (-> state
+                                     :controls
+                                     :background-color)))))
       (q/background (lib/->hsb (-> state
                                    :controls
                                    :background-color)))))
@@ -684,3 +833,6 @@
 
 (defmethod user-controls/action-button ::spawn [_ what]
   (swap! lib/event-queue conj {:kind ::spawn :what what}))
+
+(comment
+  ((:eid->entity  (swap! the-state update-in [:eid->entity 23 :activation] + 1000)) 23))

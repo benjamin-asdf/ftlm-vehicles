@@ -447,9 +447,7 @@
                           0)
                  :no-stroke? true
                  :on-update-map
-                   {:fade (lib/->fade-pulse (rand-nth
-                                              [0.25 0.5 1 1
-                                               1.5 2.0]))
+                 {:fade (lib/->fade-pulse (rand-nth [0.25 0.5 1 1 1.5 2.0]))
                     :swap-colors
                       (lib/every-n-seconds
                         1
