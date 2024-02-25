@@ -109,8 +109,6 @@
    :sparsity (double 1e-2)})
 
 
-
-
 (defn ->area [state])
 
 
@@ -379,8 +377,6 @@
 ;; feed forward are
 (defn ->ffa-area
   [{:keys [neurons-per-area sparsity]}]
-
-
   )
 
 

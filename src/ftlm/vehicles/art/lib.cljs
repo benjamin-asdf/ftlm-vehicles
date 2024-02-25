@@ -255,6 +255,21 @@
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))))
 
+(defmethod draw-entity :multi-line
+  [{:keys [color vertices]}]
+  (def vertices vertices)
+
+  ;; vertices
+  ;; (map vector vertices (drop 1 vertices))
+  ;; ([[90 90] [90 300]]
+  ;;  [[90 300] [800 300]])
+
+  (q/with-stroke (->hsb color)
+    (doseq [[p1 p2] (map vector vertices (drop 1 vertices))]
+      (q/line p1 p2))))
+
+
+
 (defmethod draw-entity :bezier-line
   [{:keys [transform end-pos color bezier-line]}]
   (let [[x y] (:pos transform)
@@ -1366,8 +1381,8 @@
 
 (defn ->watch-ent
   [state-atom {:keys [id]} f]
-  (fn [e _ _]
-    (f e ((entities-by-id @state-atom) id))))
+  (fn [e s _]
+    (f e ((entities-by-id @state-atom) id) s)))
 
 (defn ->derived-entity
   [state-atom world {:keys [id kind]} f]

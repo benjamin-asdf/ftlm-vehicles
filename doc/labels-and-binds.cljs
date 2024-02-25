@@ -65,9 +65,10 @@
 
 ;; Considerations
 ;;
-;; - There are many potential reasons, but it is striking that axonal transmission speed is for sure adhering to some evolutionary rational.
+;; - There are many potential reasons, but it is striking that axonal transmission speed is being maximized evolutionarily
 ;; - i.e. there is some strong driver to make axon transmission fast.
-;; - one reason to do this is if synchronous activation is a fundamental aspect of the circuitry (meaning its part of how this thing gets its job done low level).
+;; - one reason to do this is if synchronous activation is a fundamental aspect of the circuitry
+;; (meaning its part of how this thing gets its job done low level).
 
 
 ;; Considering the brain as an activation managing device (activation that is representing information),
@@ -80,7 +81,7 @@
 ;; - first, activity goes back and forth in your growing midterm memory module.
 ;; - you have a lot of neurons with a lot of activity (that persists...) going back and forth in your midterm memory module.
 ;; - separate your cortex from this neuron population, to manage the activation, else you have an epilepsy problem.
-;; - now you have an evolutionary driver to make them slower, since the primary function of this activity is a storage mechanism.
+;; - Also, you have an evolutionary driver to make them slower, since the primary function of this activity is a storage mechanism.
 
 ;; -> you end up with a (cortical) module that has a lot of neuronal units, a lot of activity, a slow rhythm, that is relatively isolated
 ;; from the rest of the cortex (because of all the acivity).
@@ -94,14 +95,17 @@
 ;;
 ;; Consider the essential interface of such a module to the cortex.
 ;;
-;; We can imagine the mid term memory module as a collection of pearls, each pearl is allowed to be a frozen information representation.
-;; A perl-maker mechanism would look at the activity of the cortex, and decide which pearls to make next (probably has to do with something like comming up with a coherent story line).
+;; We can imagine the mid term memory module as a pearl maker mechanism, each pearl is allowed to be a frozen information representation.
+;; A perl-maker mechanism would look at the activity of the cortex, and decide which pearls to make next
+;;  (probably has to do with something like comming up with a coherent story line and a strong concept of a 'situation' and 'place').
 ;; If the activity of the cortex looks like now would be a good time to supplant with some stored memory, you take one or multiple pearls,
 ;; and re-instantiate some of the frozen information states.
+;; (perhaps this comes out of the logic of association and plasticity already, if I have some half cognition states representing a vague idea of something
+;; that is in midterm memory, the cell assemblies of the midterm memory can now go and fill in the rest of the information states, thereby implementing retrieval).
 ;;
 ;; (can all be implemented in terms of something like hypervectors, including mechanisms to find relevant information etc.)
 ;;
-;; Concretely, one I idea is to find a projection mechanisms between cell assemblies and hypervectors. Then only store the hypervectors in the memory module.
+;; Concretely, one idea I have is to project between cell assemblies and hypervectors. Then only store the hypervectors in the memory module.
 ;;
 
 ;; returns a hyper vector
@@ -118,10 +122,10 @@
 ;; Considerations on delta
 ;; - It looks like some kind of re-normalization of the plasticity,
 ;;   together with maybe some cell physiological stuff going on that is neccessary for the health of the neurons
-;; - consider this: Having a nights sleep over something is taking the sharp edges off the memories, i
+;; - consider this: Having a nights sleep over something is taking the sharp edges off the memories.
 ;;                  Kinda like the opposite of intense rumination or something.
 ;;                  (the opposite of mental re-hearsal of a piece of info, over and over)
-;; - It is interesting that this is disturbed in shizophrenia.
+;; - It is interesting that this is disturbed in shizophrenia. (delta waves are abnormal, less delta in pre-frontal).
 ;; - A potential persepctive: If you would not have the ability to have a goods night sleep, to 'sleep over it'.
 ;;   If every pain would persist in your psyche. If every knive would keep being sharp and never dull down.
 ;;   It would then be obvious how this is a serious condition, driving you crazy.
@@ -371,18 +375,19 @@
 ;;
 
 
-
-
-
-
-
-
-
-
-
-
-
 ;; just visuals:
+
+;; What a challange it would be to craft some kind of (visual) input, that would work against
+;; whatever is broken with migraines.
+;; The existence of brain stem auras however, seems to suggest some deep (neurophysiological..) causes
+;; Deep with the double meaning of 'below cortex' and 'somewhere fundamentally in the circuitry'.
+;;
+;;
+;; - why do auras blink in alpha frequency?
+;; - from considering the C shape of an aura around the boundary between where the periphery kinda starts...
+;;   ... you might wonder if the broken activation somehow is in a ring across v1
+
+
 
 (lib/append-ents
  mind-world
