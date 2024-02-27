@@ -4,9 +4,6 @@
 
 
 
-
-
-
 ;; Thalamic reticular nucleus is a candidate auto thought-pump
 ;;
 ;; Thinking of TRN, the interpretation that is most at hand is that the TRN is sort of gating
