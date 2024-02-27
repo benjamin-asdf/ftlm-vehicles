@@ -248,7 +248,9 @@
              (normal-distr 0 distr)]))
 
 (defmethod draw-entity :line
-  [{:keys [transform end-pos color]}]
+  [{:keys [transform end-pos color] :as e}]
+  (def e e)
+  (println e)
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
     (q/stroke-weight 2)
@@ -966,37 +968,46 @@
              state
              (entities state)))
 
-(defn update-update-functions-map
-  [state]
-  (transduce
-   (filter :on-update-map)
-   (completing
-    (fn [s {:keys [on-update-map id]}]
+(defonce input (atom nil))
+(defonce output (atom nil))
+
+(defn update-update-functions-map-1
+  [k]
+  (fn [state]
+    (transduce
+     (filter k)
+     (completing
+      (fn [s {:as e :keys [id]}]
+        (let [update-map (k e)]
+          (reduce
+           (fn [s [k f]]
+             (let [{:as e :keys [updated-state]}
+                   (f ((entities-by-id s) id) s k)]
+               (cond updated-state updated-state
+                     e (assoc-in s [:eid->entity id] e)
+                     :else s)))
+           s
+           update-map))))
+     state
+     (entities state))))
+
+(def update-update-functions-map (update-update-functions-map-1 :on-update-map))
+(def update-late-update-map (update-update-functions-map-1 :on-late-update-map))
+
+(defn ->call-callbacks
+  [k]
+  (fn [state e]
+    (let [s state
+          {:as e :keys [id]} e
+          cb-map (k e)]
       (reduce (fn [s [k f]]
                 (let [{:as e :keys [updated-state]}
-                      (f ((entities-by-id s) id) s k)]
+                        (f ((entities-by-id s) id) s k)]
                   (cond updated-state updated-state
                         e (assoc-in s [:eid->entity id] e)
                         :else s)))
-              s
-              on-update-map)))
-   state
-   (entities state)))
-
-(defn ->call-callbacks [k]
-  (fn [state e]
-    ((fn [s {:as e :keys [id]}]
-       (let [cb-map (k e)]
-         (reduce (fn [s [k f]]
-                   (let [{:as e :keys [updated-state]}
-                         (f ((entities-by-id s) id) s k)]
-                     (cond updated-state updated-state
-                           e (assoc-in s [:eid->entity id] e)
-                           :else s)))
-                 s
-                 cb-map)))
-     state
-     e)))
+        s
+        cb-map))))
 
 (def call-double-clicks (->call-callbacks :on-double-click-map))
 
@@ -1035,15 +1046,18 @@
 (defmulti event! (fn [e _] (or (:kind e) e)))
 
 (defn apply-events
-  [state]
-  (reduce (fn [s e] (event! e s))
-          state
-          (let [r @event-queue]
-            (reset! event-queue [])
-            r)))
+  ([state eventq]
+   (reduce (fn [s e] (event! e s))
+     state
+     (let [r @eventq]
+       (reset! eventq [])
+       r)))
+  ([state]
+   (apply-events state event-queue)))
 
 (defn ->brownian-lump
-  [{:keys [spread particle-size pos togethernes-threshold count colors]
+  [{:keys [spread particle-size pos togethernes-threshold
+           count colors]
     :or {colors [[0 255 255]]
          count 10
          particle-size 10
@@ -1057,28 +1071,35 @@
     (into [lump]
           (map
             (fn []
-              (let [spawn-pos [(normal-distr (first pos) spread)
-                               (normal-distr (second pos) spread)]]
+              (let [spawn-pos
+                      [(normal-distr (first pos) spread)
+                       (normal-distr (second pos) spread)]]
                 (->
-                  (merge (->entity :circle)
-                         {:color (rand-nth colors)
-                          :kinetic-energy 0.2
-                          :on-update [(fn [e]
-                                        (let [threshold togethernes-threshold
-                                              dist (distance (position e) pos)]
-                                          (if (< threshold dist)
-                                            (assoc (orient-towards e pos)
-                                                   :acceleration 2
-                                                   :angular-acceleration 0)
-                                            e)))]
-                          :particle? true
-                          :draggable? false
-                          :transform (assoc (->transform spawn-pos
-                                                         particle-size
-                                                         particle-size
-                                                         1)
-                                            :rotation (angle-between spawn-pos pos))
-                          :z-index 10})))))
+                  (merge
+                    (->entity :circle)
+                    {:color (rand-nth colors)
+                     :draggable? false
+                     :kinetic-energy 0.2
+                     :on-update
+                       [(fn [e]
+                          (let [threshold
+                                  togethernes-threshold
+                                dist (distance (position e)
+                                               pos)]
+                            (if (< threshold dist)
+                              (assoc (orient-towards e pos)
+                                :acceleration 2
+                                :angular-acceleration 0)
+                              e)))]
+                     :particle? true
+                     :transform
+                       (assoc (->transform spawn-pos
+                                           particle-size
+                                           particle-size
+                                           1)
+                         :rotation (angle-between spawn-pos
+                                                  pos))
+                     :z-index 10})))))
           (range count))))
 
 (defn ->organic-matter
@@ -1291,6 +1312,8 @@
                      (q/saturation c)
                      (q/brightness c)
                      new-a))))))))
+
+
 (defn with-alpha
   [color a]
   (let [c (->hsb color)]
@@ -1305,6 +1328,14 @@
             y (range 0 h y-step)]
       (q/line x 0 x h)
       (q/line 0 y w y))))
+
+(defn ->color-back-and-forth-zagged
+  [duration high low]
+  (let [s (atom {:time-since 0})]
+    (fn [e _ _]
+      (swap! s update :time-since + *dt*)
+      (let [progress (normalize-value-1 0 duration (mod (:time-since @s) duration))]
+        (assoc e :color (q/lerp-color high low progress))))))
 
 (defn ->draw-cell-assembly-grid-v1 [])
 
@@ -1394,5 +1425,54 @@
 (defn ->activation-burst
   [state-atom id]
   (fn [_ _ _]
-    (swap! state-atom update-in [:eid->entity id :activation] + 100)
+    (let [s @state-atom
+          e ((entities-by-id s) id)]
+      (when e
+        (swap! state-atom update-in [:eid->entity id :activation] + 100)))
     nil))
+
+(defn ->suicide-packt [others]
+  (fn [e s _]
+    (if-not
+        (first
+         (filter
+          (some-fn :kill? (complement :entity?))
+          (filter
+           (comp others :id)
+           (entities-by-id s))))
+        e
+        (assoc e :kill? true))))
+
+(defn with-electrode-sensitivity
+  [e]
+  (assoc-in e
+    [:on-late-update-map :electrode-sensitivity]
+    (fn [e _s _k]
+      (if-let [electrode-input (:electrode-input e)]
+        (->
+         e
+         (dissoc :electrode-input)
+         (update :activation + electrode-input))
+        e))))
+
+(defn apply-update-events
+  [state]
+  (let [updates (:updates state)]
+    ;; update f: a function of 2 args, the state and
+    ;; the event
+    (->
+     (reduce (fn [s {:as evnt :keys [f]}] (f s evnt)) state updates)
+     (dissoc :updates))))
+
+;; op: 3 args entity, state, event-data
+(defn entity-update-event
+  [id op event-data]
+  (merge event-data
+         {:entity-update? true
+          :f (fn [s _]
+               (if-let [e ((entities-by-id s) id)]
+                 (assoc-in s
+                   [:eid->entity id]
+                   (op e s event-data))
+                 s))
+          :id id}))

@@ -174,25 +174,6 @@
 ;;             then I would submit we would see synchronous activation of say number representing activity with color representing activity in people with synesthesia.
 ;;             Possibly given us clues about the puzzle of binding in cognitive machines and the brain's implementation of it.
 ;;
-;; Migraines - Just from a hunch, there seems to be something about migraines that has to do with meaning. Still, whatever is broken is very low level.
-;;             Maybe there is too much binding happening. Some kind of inappriate meme of sync. activation?
-;;             Then maybe the system starts binding a pain to the same source. Since the problem actually is *painful* to the system,
-;;             the pain and this abnormal, offending, activation supplement each other.
-;;
-;;             If this general idea is true then maybe whatever biological mechanisms and circuits make sync activation is disturbed during migraines.
-;;             It is interesting to consider that it seems like this problemm starts occipital, almost like it makes its way then across the brain.
-;;             Perhaps the pain starts when somehow this offending activation reaches the sensory areas?
-;;             Perhaps this is a clue that the driver of sync. activity comes from the input states (or at least one driver).
-;;             It does not seem like a coincidence that auras (at least the one that I experienced once) blink in an alpha frequency.
-;;             Whether this is essential or not to the puzzle of migraines is not clear to me.
-;;             Maybe everything having to do with vision is going in alpha frequencies (?)
-;;
-;;             If my hunches are true here, then whatever biological mechanism is responsible (broken, in overdrive, starved, confused or otherwise disturbed in its function)
-;;             for migraines is also responsible for making sync. activation.
-;;             (be it a circuit or a multi-step activation-shaper mechanism).
-;;
-;;             Do animals without cortex have migraines?
-;;
 ;;
 ;; Where's Waldo? - it would be interesting in the space of object recognition and binding to know the brain scan results of showing somebody Where's Waldo pictures.
 ;;                  Actually EEG is interesting, too. If my hunches are correct, you might see suddenly more spread out eeg signals - more symbols.
