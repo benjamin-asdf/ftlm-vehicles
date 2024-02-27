@@ -1,7 +1,7 @@
 (ns ftlm.vehicles.art.vehicles.taste
   (:require [clojure.walk :as walk]
             [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
-            [clojure.set :as set]
+            [ftlm.vehicles.art.extended :as elib]
             [ftlm.vehicles.art :as art]
             [quil.core :as q :include-macros true]
             [quil.middleware :as m]
@@ -43,7 +43,7 @@
 ;; of this stack of paper. (I like how there are new dimensions of behaviour available to the system now)
 ;;
 ;; -> consider genetic regulation of cells, a dynamic version of different versions of cells
-;; -> we are tackling here a little bit both the hierachical and the dyanmic part.
+;; -> we are tackling here a little bit both the hierachical and the dynamical aspects of the system
 ;;
 ;; The colors are just so we have a more striking effect.
 ;; In reality, mood is signaled via many (subtle..) body actuators
@@ -251,7 +251,7 @@
        :inhibit lib/inhibit}
       %))
    :brain/neuron
-   (comp lib/with-electrode-sensitivity lib/->neuron)
+   (comp elib/with-electrode-sensitivity lib/->neuron)
    :cart/body
    (fn [opts]
      (lib/->body
@@ -275,10 +275,10 @@
         :rot (* (rand) q/TWO-PI)
         :scale 1}
        opts)))
-   :cart/motor (comp lib/with-electrode-sensitivity lib/->motor)
+   :cart/motor (comp elib/with-electrode-sensitivity lib/->motor)
    :cart/sensor
    (comp
-    lib/with-electrode-sensitivity
+    elib/with-electrode-sensitivity
     shuffle-anchor lib/->sensor)})
 
 (defmulti build-entity first)
@@ -398,22 +398,21 @@
         ->make
           {:organic-matter
              (fn []
-               (lib/->organic-matter
+               (elib/->organic-matter
                  {:odor {:decay-rate 2 :intensity 40}
                   :pos (lib/rand-on-canvas-gauss 0.5)}))
            :oxygen (fn []
-                     (lib/->oxygen
+                     (elib/->oxygen
                        {:odor {:decay-rate 2 :intensity 40}
                         :pos (lib/rand-on-canvas-gauss
                                0.2)}))
            :temp-cold (fn []
-                        (lib/->temperature-bubble-1
-                          (rand-temperature-bubble controls
-                                                   :cold)))
+                        (elib/->temperature-bubble-1
+                         (rand-temperature-bubble controls :cold)))
            :temp-hot (fn []
-                       (lib/->temperature-bubble-1
-                         (rand-temperature-bubble controls
-                                                  :hot)))}]
+                       (elib/->temperature-bubble-1
+                        (rand-temperature-bubble controls
+                                                 :hot)))}]
     (mapcat (fn [op] (op)) (map ->make stuff))))
 
 
@@ -477,8 +476,8 @@
 (defn sketch
   [host {:keys [width height]} controls]
   (let [[screen-width screen-height] (lib/window-dimensions)
-        width (cond (= width "max") screen-width width width :else screen-width)
-        height (cond (= height "max") screen-height height height :else screen-height)
+        _width (cond (= width "max") screen-width width width :else screen-width)
+        _height (cond (= height "max") screen-height height height :else screen-height)
         width 1000
         height 800]
     (q/sketch :host host
@@ -496,7 +495,6 @@
 (defn from-left [amount]
   (- (q/width) amount))
 
-
 (defn from-bottom [amount]
   (- (q/height) amount))
 
@@ -504,8 +502,6 @@
   [state-atom {:keys [id]} f]
   (fn [e _ _]
     (merge e (f ((lib/entities-by-id @state-atom) id)))))
-
-;; (defmethod lib/event! ::electrode-burst [e s])
 
 (defn ->sensitive-to-electro-circle
   []
@@ -580,7 +576,7 @@
                                :kind :rect
                                :on-double-click-map
                                  {:activation-burst
-                                    (lib/->activation-burst
+                                    (elib/->activation-burst
                                       the-state
                                       (:id sensor))}
                                :stroke (:very-blue
@@ -628,7 +624,7 @@
                           :kind :rect
                           :on-double-click-map
                             {:activation-burst
-                               (lib/->activation-burst
+                               (elib/->activation-burst
                                  the-state
                                  (:id actuator))}
                           :stroke (:red controls/color-map)
@@ -669,7 +665,7 @@
                             :kind :rect
                             :on-double-click-map
                               {:activation-burst
-                                 (lib/->activation-burst
+                                 (elib/->activation-burst
                                    the-state
                                    (:id neuron))}
                             :stroke controls/white
@@ -696,7 +692,7 @@
                 :kind :circle
                 :on-update-map
                   {:color-change
-                   (lib/->color-back-and-forth-zagged
+                   (elib/->color-back-and-forth-zagged
                     5
                     (lib/with-alpha (:cyan
                                      controls/color-map)
@@ -795,15 +791,16 @@
                      :z-index -5
                      :draggable? true
                      :color (:mint controls/color-map)
-                     :on-update-map {:suicide-packt
-                                       (lib/->suicide-packt
-                                         #{mind-dest
-                                           mind-source})}
+                     ;; :on-update-map
+                     ;; {:suicide-packt
+                     ;;  (lib/->suicide-packt
+                     ;;   #{mind-dest
+                     ;;     mind-source})}
                      :kind :multi-line
                      :stroke-weight 2
                      ;; :on-double-click-map
                      ;; {:activation-burst
-                     ;;  (lib/->activation-burst
+                     ;;  (elib/->activation-burst
                      ;;   the-state
                      ;;   (:id model))}
                      :vertices [[0 0] [0 0] [0 0]]

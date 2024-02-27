@@ -1,10 +1,10 @@
 (ns ftlm.vehicles.art.vehicles.cell-assemblies
   (:require
-   [clojure.walk :as walk]
    [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
    [ftlm.vehicles.art :as art]
    [quil.core :as q :include-macros true]
    [quil.middleware :as m]
+   [ftlm.vehicles.art.extended :as elib]
    [ftlm.vehicles.art.controls :as controls :refer
     [versions]]
    [ftlm.vehicles.art.user-controls :as
@@ -147,7 +147,7 @@
           ([e active?]
            (-> e
                (assoc :active? active?)
-               (assoc :on-update-map (when active? (lib/->breath 1 1.3 1)))
+               (assoc :on-update-map (when active? (elib/->breath 1 1.3 1)))
                (assoc-in [:transform :scale] (if active? 1.3 0.8))
                (assoc-in [:transform :rotation] (if active? 0 q/PI)))))
         e (merge (lib/->entity :triangle)
@@ -159,7 +159,7 @@
                   :on-double-click-map
                   {:toggle-active
                    (fn [e _ _] ((:toggle-active e) e))}
-                  :on-update-map (lib/->breath 1 1.2 1)
+                  :on-update-map (elib/->breath 1 1.2 1)
                   :toggle-active toggle-active
                   :transform
                   (assoc (lib/->transform pos 40 30 1)
@@ -349,7 +349,7 @@
                            (map-indexed
                              (fn [idx to-e]
                                (concat
-                                 (lib/->plasma-balls
+                                 (elib/->plasma-balls
                                    {:color
                                       (:cyan
                                         controls/color-map)

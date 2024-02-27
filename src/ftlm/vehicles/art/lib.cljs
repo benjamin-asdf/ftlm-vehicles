@@ -225,8 +225,8 @@
                          y
                          (* scale width)
                          (* scale height)))]
-    (cond stroke (q/with-stroke (->hsb stroke) (drw))
-          no-stroke? (q/with-stroke nil (drw))
+    (cond no-stroke? (q/with-stroke nil (drw))
+          stroke (q/with-stroke (->hsb stroke) (drw))
           :else (drw))))
 
 ;; returns a fn that returns the args to q/bezier
@@ -269,8 +269,6 @@
   (q/with-stroke (->hsb color)
     (doseq [[p1 p2] (map vector vertices (drop 1 vertices))]
       (q/line p1 p2))))
-
-
 
 (defmethod draw-entity :bezier-line
   [{:keys [transform end-pos color bezier-line]}]
@@ -1055,104 +1053,6 @@
   ([state]
    (apply-events state event-queue)))
 
-(defn ->brownian-lump
-  [{:keys [spread particle-size pos togethernes-threshold
-           count colors]
-    :or {colors [[0 255 255]]
-         count 10
-         particle-size 10
-         spread 8
-         togethernes-threshold (or spread (* 2 spread))}}]
-  (let [lump (assoc (->entity :lump)
-               :hidden? true
-               :lump? true
-               :position pos
-               :spread spread)]
-    (into [lump]
-          (map
-            (fn []
-              (let [spawn-pos
-                      [(normal-distr (first pos) spread)
-                       (normal-distr (second pos) spread)]]
-                (->
-                  (merge
-                    (->entity :circle)
-                    {:color (rand-nth colors)
-                     :draggable? false
-                     :kinetic-energy 0.2
-                     :on-update
-                       [(fn [e]
-                          (let [threshold
-                                  togethernes-threshold
-                                dist (distance (position e)
-                                               pos)]
-                            (if (< threshold dist)
-                              (assoc (orient-towards e pos)
-                                :acceleration 2
-                                :angular-acceleration 0)
-                              e)))]
-                     :particle? true
-                     :transform
-                       (assoc (->transform spawn-pos
-                                           particle-size
-                                           particle-size
-                                           1)
-                         :rotation (angle-between spawn-pos
-                                                  pos))
-                     :z-index 10})))))
-          (range count))))
-
-(defn ->organic-matter
-  [opts]
-  (flatten-components
-    [(merge (->odor-source
-              (merge opts {:fragrances #{:organic-matter}} (:odor opts)))
-            {:components (->brownian-lump opts)
-             :draggable? false
-             :food? true
-             :organic-matter? true})]))
-
-(defn ->oxygen
-  [opts]
-  (flatten-components
-    [(merge
-       (->odor-source
-         (merge opts {:fragrances #{:oxygen}} (:odor opts)))
-       {:components (->brownian-lump
-                      (assoc opts
-                        :colors
-                          (into []
-                                (repeatedly
-                                  4
-                                  (fn []
-                                    {:h 178
-                                     :s (normal-distr 20 10)
-                                     :v 255})))
-                        :spread 20
-                        :count 15
-                        :particle-size 8
-                        :togethernes-threshold 50))
-        :draggable? false
-        :oxygen? true})]))
-
-(defn ->temperature-bubble-1
-  [{:keys [pos d temp max-temp low-color high-color hot-or-cold]}]
-  [(assoc (->entity :circle)
-          :transform (->transform pos d d 1)
-          :color (q/lerp-color (->hsb low-color)
-                               (->hsb high-color)
-                               (normalize-value-1 0 max-temp temp))
-          :temperature-bubble? true
-          :hot-or-cold hot-or-cold
-          :d d
-          :temp temp
-          :z-index -10
-          :particle? true
-          :draggable? true)])
-
-(defn ->temperature-bubble [opts]
-  (fn [opts-1]
-    (->temperature-bubble-1 (merge opts opts-1))))
 
 (defn dart-distants-to-middle
   [{:as entity :keys [darts?]}]
@@ -1190,47 +1090,6 @@
        (->sub-circle (* idx angle-step) radius (assoc opts :pos center)))
      (range count))))
 
-(defn ->breath
-  [initial-scale size speed]
-  (let [mystate (atom {:speed speed :time 0})]
-    {[:breath :play-with-speed]
-       (every-n-seconds
-         speed
-         (fn [_ _ _]
-           (swap! mystate update
-             :speed
-             (constantly (normal-distr speed (/ speed 2))))
-           nil))
-     [:breath :rotate]
-       (every-n-seconds
-         speed
-         (fn [e _ _]
-           (update e
-                   :angular-acceleration
-                   +
-                   (* (/ speed 3)
-                      (normal-distr 0
-                                    (/ (mod (:time @mystate)
-                                            q/TWO-PI)))))))
-     [:breath :scale]
-       (fn [e _ _]
-         (-> e
-             (update-in
-               [:transform :scale]
-               (fn [_scale]
-                 (let [progress (/ (:time @mystate) 1)]
-                   (q/lerp
-                     initial-scale
-                     (* initial-scale size)
-                     (+ 1 (q/sin (* q/PI progress)))))))))
-     [:breath :time]
-       (fn [_ _ _]
-         (let [t (fn [{:as s :keys [speed]}]
-                   (-> s
-                       (update :time + (* speed *dt*))))]
-           (swap! mystate t))
-         nil)}))
-
 
 
 ;; ---------------------------------------------------
@@ -1242,43 +1101,6 @@
 ;;       (fn [e _ _]
 ;;         (update e :angular-acceleration + (normal-distr speed (/ speed 2)))))
 ;; ----------------------------------------------------
-
-(defn ->plasma-balls
-  [{:keys [from to color start-entity]
-    :or {color {:a 0.8 :h 0 :s 100 :v 100}}}]
-  (map-indexed
-   (fn [_ _]
-     (let [pos from]
-       (->
-        (merge
-         (->entity :circle)
-         {:acceleration 150
-          :color color
-          ;; :kinetic-energy 0.1
-          :lifetime (normal-distr 5 5)
-          :on-update-map
-          {:kill (fn [e _ _]
-                   (if (<= (distance (position e) to)
-                           10)
-                     (assoc e :lifetime 0)
-                     e))
-           :target (every-n-seconds
-                    1.5
-                    (fn [e _ _]
-                      (let [mag (distance (position e)
-                                          to)]
-                        (-> (orient-towards e to)
-                            (update :acceleration
-                                    +
-                                    (normal-distr
-                                     (* mag 3)
-                                     (* mag 2)))))))}
-          :particle? true
-          :transform
-          (->transform (position start-entity) 10 10 1)
-          :z-index -1})
-        (orient-towards pos))))
-   (range 1)))
 
 (defn ->fade
   []
@@ -1313,7 +1135,6 @@
                      (q/brightness c)
                      new-a))))))))
 
-
 (defn with-alpha
   [color a]
   (let [c (->hsb color)]
@@ -1328,16 +1149,6 @@
             y (range 0 h y-step)]
       (q/line x 0 x h)
       (q/line 0 y w y))))
-
-(defn ->color-back-and-forth-zagged
-  [duration high low]
-  (let [s (atom {:time-since 0})]
-    (fn [e _ _]
-      (swap! s update :time-since + *dt*)
-      (let [progress (normalize-value-1 0 duration (mod (:time-since @s) duration))]
-        (assoc e :color (q/lerp-color high low progress))))))
-
-(defn ->draw-cell-assembly-grid-v1 [])
 
 (defn on-double-click
   [state id]
@@ -1422,15 +1233,6 @@
             {:watch (->watch-ent state-atom {:id id} f)}
           :world world}))
 
-(defn ->activation-burst
-  [state-atom id]
-  (fn [_ _ _]
-    (let [s @state-atom
-          e ((entities-by-id s) id)]
-      (when e
-        (swap! state-atom update-in [:eid->entity id :activation] + 100)))
-    nil))
-
 (defn ->suicide-packt [others]
   (fn [e s _]
     (if-not
@@ -1442,18 +1244,6 @@
            (entities-by-id s))))
         e
         (assoc e :kill? true))))
-
-(defn with-electrode-sensitivity
-  [e]
-  (assoc-in e
-    [:on-late-update-map :electrode-sensitivity]
-    (fn [e _s _k]
-      (if-let [electrode-input (:electrode-input e)]
-        (->
-         e
-         (dissoc :electrode-input)
-         (update :activation + electrode-input))
-        e))))
 
 (defn apply-update-events
   [state]
