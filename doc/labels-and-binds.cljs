@@ -225,6 +225,35 @@
 ;;                 stream, its a candidate.
 ;;
 ;;
+;;                 The interpretation most at hand is:
+;;
+;;                 - ventral stream is doing object recognition with the current input states of the point of sharpest vision
+;;                 - a second system in parietal cortex is keeping track of a) where you are looking right now and b) an inventory of the already parsed objects.
+;;                 - The eye saccade trick gives us non-overlapping sync. activation for each object we look at
+;;                 - This opens the door to wonder what happens when the eyes move across different spots of the same object? Apparently the system is capable of mapping incoming input to existing
+;;                   objects in this 'inventory', too.
+;;                 - one fun move the parietal could be doing now is biasing the system heavily to make another eye saccade just in the right timing to sync up with an already seen object.
+;;                   -> this would be joyfully low-tech
+;;                 - Another idea is the same thing but circuit wise - parietal cotext -> thalamus,
+;;                   inhibiting in just the right amount to sync with an already existing object
+;;                 -> Are there illusions where you exidentally see 1 object as 2 objects? Or 2 objects as 1 object?
+;;                 -> To the user (the mind), it seems like this parsing works so well.
+;;                 -> one edge of the scene parsing failing is when you are surprised a person coming around a corner, there is a flip where the prediction states of the system suddenly all
+;;                    need to update - presumably this surprise mechanism means activating input thalamus a lot so you get a lot of real-world states comming in.
+;;
+;;                ----------------------------
+;;                 - (These ideas center around the main idea that thalamus input activity is driving the phase and frequency of the cortex, might or might not be the case).
+;;                   Or it is the case to some degree but there is more circuits involved.
+;;                 - it is tempting to speculate on what a derived thalamic nucleus like pulvinar migth be doing in this context, maybe part of the mechanisms that keep around symbols / identities for objects in a scene
+;;                   go through this?
+;;
+;;                ---------------------------
+;;                 - Or consider it like this: The inventory in the parietal is completely fine with keeping track of aspects of an object comming in different frequencies and phases.
+;;                   (maybe I was too fixated on the sync. activation idea)
+;;                 -> because with the eye saccade-phase-trick we have solved like half of the problem, maybe this is kinda good enough to solve the hardest aspect of object binding.
+;;                 -> maybe parietal can now use ordinary assembly calculus (neuron cell assemblies firing) to represent objects and locations
+;;                    And the information states are enough to solve the ghostly symbol binding problem
+;;
 
 
 

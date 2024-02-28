@@ -487,18 +487,21 @@
 (defn draw-entities-1
   [entities]
   (doseq [{:as entity :keys [color draw-functions]}
-            (sort (u/by (some-fn :z-index (constantly 0))
-                        u/ascending
-                        :id
-                        u/ascending)
-                  (sequence (comp (remove :hidden?)
-                                  (map validate-entity))
-                            entities))]
+          (sort (u/by (some-fn :z-index (constantly 0))
+                      u/ascending
+                      :id
+                      u/ascending)
+                (sequence (comp (remove :hidden?)
+                                (map validate-entity))
+                          entities))]
+    (when (= (:world entity) :mind)
+      (def e entity)
+      )
     (q/stroke-weight (or (:stroke-weight entity) 1))
     (draw-color color)
     (let [drw (fn [] (draw-entity entity))]
       (cond (:stroke entity)
-              (q/with-stroke (->hsb (:stroke entity)) (drw))
+            (q/with-stroke (->hsb (:stroke entity)) (drw))
             :else (drw)))
     (doall (map (fn [op] (op entity))
                 (vals draw-functions)))))

@@ -415,6 +415,13 @@
                                                  :hot)))}]
     (mapcat (fn [op] (op)) (map ->make stuff))))
 
+(defn autoselect-body
+  [state]
+  (assoc state
+    :selection {:id (first (map :id
+                             (filter :body?
+                               (lib/entities state))))
+                :time (q/millis)}))
 
 (defn setup
   [controls]
@@ -448,10 +455,7 @@
         state
         (-> state
             (lib/append-ents
-             (->> [:multi-sensory
-                   ;; :multi-sensory
-                   ;; :multi-sensory
-                   ]
+             (->> (or (:spawn-people controls) [:multi-sensory])
                   (sequence
                    (comp
                     (map (juxt identity controls))
@@ -465,12 +469,15 @@
                     cat))))
             (lib/append-ents
              (some-rand-environment-things controls 6)))
-        state (assoc state
-                     :selection {:id (first (map :id
-                                                 (filter :body?
-                                                         (lib/entities
-                                                          state))))
-                                 :time (q/millis)})]
+        state
+        (if (:auto-select? controls)
+          (assoc state
+                 :selection {:id (first (map :id
+                                             (filter :body?
+                                                     (lib/entities
+                                                      state))))
+                             :time (q/millis)})
+          state)]
     (reset! the-state state)))
 
 (defn sketch
@@ -533,28 +540,35 @@
             {:electrode-input act}))
         nil))))
 
+(defn ->world-eid->mind-e
+  [s]
+  (into {}
+        (comp (filter :underlying-e)
+              (map (juxt :underlying-e identity)))
+        (lib/entities s)))
+
 (defn derive-mind-world
   [state]
-  (let [components (map (lib/entities-by-id state)
-                     (:components ((lib/entities-by-id
-                                     state)
-                                    (-> state
-                                        :selection
-                                        :id))))
-        mind-world {:controls (:controls state)
-                    :world :mind}
-        mind-world
-          (let [sensors (filter :sensor? components)]
-            (lib/append-ents
-              mind-world
-              (for [[row sensor-row]
-                      (map-indexed vector
-                                   (partition-all 3
-                                                  sensors))
-                    [col sensor] (map-indexed vector
-                                              sensor-row)]
-                (let
-                  [e (->
+  (let
+    [selected-id (-> state
+                     :selection
+                     :id)
+     components (map (lib/entities-by-id state)
+                  (:components ((lib/entities-by-id state)
+                                 selected-id)))
+     mind-world {:controls (:controls state)
+                 :inspected {:id selected-id}
+                 :world :mind}
+     mind-world
+       (let [sensors (filter :sensor? components)]
+         (lib/append-ents
+           mind-world
+           (for [[row sensor-row]
+                   (map-indexed vector
+                                (partition-all 3 sensors))
+                 [col sensor] (map-indexed vector
+                                           sensor-row)]
+             (let [e (->
                        (lib/->derived-entity
                          the-state
                          :mind
@@ -592,229 +606,222 @@
                          [:on-update-map
                           :electrode-sensitive]
                          (->sensitive-to-electro-circle)))]
-                  e))))
-        mind-world
-          (let [actuators (filter :actuator? components)]
-            (lib/append-ents
-              mind-world
-              (for [[row actuators-row]
-                      (map-indexed
-                        vector
-                        (partition-all 3 actuators))
-                    [col actuator]
-                      (map-indexed vector actuators-row)]
-                (->
-                  (lib/->derived-entity
-                    the-state
-                    :mind
-                    actuator
-                    (fn [e ue]
-                      (if-not ue
-                        (assoc e :kill? true)
-                        (-> e
-                            (merge (select-keys
-                                     ue
-                                     [:color :activation]))
-                            (assoc-in [:transform :rotation]
-                                      (-> ue
-                                          :transform
-                                          :rotation))))))
-                  (merge {:corner-r 0
-                          :draggable? true
-                          :kind :rect
-                          :on-double-click-map
-                            {:activation-burst
-                               (elib/->activation-burst
-                                 the-state
-                                 (:id actuator))}
-                          :stroke (:red controls/color-map)
-                          :stroke-weight 2
-                          :transform (:transform actuator)
-                          :underlying-e (:id actuator)})
-                  (assoc-in [:transform :pos]
-                            [(from-left (+ 200 (* col 25)))
-                             (from-bottom (+ 100
-                                             (* row 25)))])
-                  (assoc-in [:transform :width] 20)
-                  (assoc-in [:transform :height] 20)
-                  (assoc-in
-                    [:on-update-map :electrode-sensitive]
-                    (->sensitive-to-electro-circle))))))
-        mind-world
-          (let [nuclei-neurons (filter :nucleus components)]
-            (lib/append-ents
-              mind-world
-              (for [neuron nuclei-neurons]
-                (let [nucleus-pos (lib/rand-on-canvas-gauss
-                                    0.1)]
-                  (->
-                    (lib/->derived-entity
-                      the-state
-                      :mind
-                      neuron
-                      (fn [e ue]
-                        (if-not ue
-                          (assoc e :kill? true)
-                          (-> e
-                              (merge (select-keys
-                                       ue
-                                       [:color
-                                        :activation]))))))
-                    (merge {:corner-r 5
-                            :draggable? true
-                            :kind :rect
-                            :on-double-click-map
-                              {:activation-burst
-                                 (elib/->activation-burst
-                                   the-state
-                                   (:id neuron))}
-                            :stroke controls/white
-                            :underlying-e (:id neuron)})
-                    (assoc :transform (lib/->transform
-                                        nucleus-pos
-                                        25
-                                        25
-                                        1))
-                    (assoc-in
-                      [:on-update-map :electrode-sensitive]
-                      (->sensitive-to-electro-circle)))))))
-        mind-world
-          (lib/append-ents
-            mind-world
-            [(lib/->entity
-               :circle
-               {:color (lib/with-alpha (:cyan
-                                         controls/color-map)
-                                       150)
-                :draggable? true
-                :electro-circle? true
-                :electrode? true
-                :kind :circle
-                :on-update-map
-                  {:color-change
-                   (elib/->color-back-and-forth-zagged
+               e))))
+     mind-world
+       (let [actuators (filter :actuator? components)]
+         (lib/append-ents
+           mind-world
+           (for [[row actuators-row]
+                   (map-indexed vector
+                                (partition-all 3 actuators))
+                 [col actuator] (map-indexed vector
+                                             actuators-row)]
+             (-> (lib/->derived-entity
+                   the-state
+                   :mind
+                   actuator
+                   (fn [e ue]
+                     (if-not ue
+                       (assoc e :kill? true)
+                       (-> e
+                           (merge (select-keys
+                                    ue
+                                    [:color :activation]))
+                           (assoc-in [:transform :rotation]
+                                     (-> ue
+                                         :transform
+                                         :rotation))))))
+                 (merge {:corner-r 0
+                         :draggable? true
+                         :kind :rect
+                         :on-double-click-map
+                           {:activation-burst
+                              (elib/->activation-burst
+                                the-state
+                                (:id actuator))}
+                         :stroke (:red controls/color-map)
+                         :stroke-weight 2
+                         :transform (:transform actuator)
+                         :underlying-e (:id actuator)})
+                 (assoc-in [:transform :pos]
+                           [(from-left (+ 200 (* col 25)))
+                            (from-bottom (+ 100
+                                            (* row 25)))])
+                 (assoc-in [:transform :width] 20)
+                 (assoc-in [:transform :height] 20)
+                 (assoc-in
+                   [:on-update-map :electrode-sensitive]
+                   (->sensitive-to-electro-circle))))))
+     mind-world
+       (let [nuclei-neurons (filter :nucleus components)]
+         (lib/append-ents
+           mind-world
+           (for [neuron nuclei-neurons]
+             (let [nucleus-pos (lib/rand-on-canvas-gauss
+                                 0.1)]
+               (->
+                 (lib/->derived-entity
+                   the-state
+                   :mind
+                   neuron
+                   (fn [e ue]
+                     (if-not ue
+                       (assoc e :kill? true)
+                       (-> e
+                           (merge (select-keys
+                                    ue
+                                    [:color
+                                     :activation]))))))
+                 (merge {:corner-r 5
+                         :draggable? true
+                         :kind :rect
+                         :on-double-click-map
+                           {:activation-burst
+                              (elib/->activation-burst
+                                the-state
+                                (:id neuron))}
+                         :stroke controls/white
+                         :underlying-e (:id neuron)})
+                 (assoc
+                   :transform
+                     (lib/->transform nucleus-pos 25 25 1))
+                 (assoc-in
+                   [:on-update-map :electrode-sensitive]
+                   (->sensitive-to-electro-circle)))))))
+     mind-world
+       (lib/append-ents
+         mind-world
+         [(lib/->entity
+            :circle
+            {:color (lib/with-alpha (:cyan
+                                      controls/color-map)
+                                    150)
+             :draggable? true
+             :electro-circle? true
+             :electrode? true
+             :kind :circle
+             :on-update-map
+               {:color-change
+                  (elib/->color-back-and-forth-zagged
                     5
                     (lib/with-alpha (:cyan
-                                     controls/color-map)
-                      150)
+                                      controls/color-map)
+                                    150)
                     (lib/with-alpha (:navajo-white
-                                     controls/color-map)
-                      150))}
-                :transform (lib/->transform
-                             [100 (from-bottom 100)]
-                             80
-                             80
-                             1)})])
-        ->world-eid->mind-e
-          (fn [s]
-            (into {}
-                  (comp (filter :underlying-e)
-                        (map (juxt :underlying-e identity)))
-                  (lib/entities s)))
-        mind-world
-          (lib/append-ents
-            mind-world
-            (for [model (filter :transduction-model
-                          (lib/entities state))]
-              (let [model (:transduction-model model)
-                    mind-source (:id ((->world-eid->mind-e
-                                        state)
-                                       (:source model)))
-                    mind-dest (:id ((->world-eid->mind-e
-                                      state)
-                                     (:destination model)))]
-                (->
-                  (lib/->derived-entity
-                    the-state
-                    :mind
-                    model
-                    (fn [e ue s]
-                      (let [source-e ((->world-eid->mind-e
+                                      controls/color-map)
+                                    150))}
+             :transform (lib/->transform [100
+                                          (from-bottom 100)]
+                                         80
+                                         80
+                                         1)})])
+     mind-world
+       (lib/append-ents
+         mind-world
+         (remove nil?
+           (for [model (filter :transduction-model
+                         components)]
+             (let [model (:transduction-model model)]
+               (when (and ((->world-eid->mind-e mind-world)
+                            (:source model))
+                          ((->world-eid->mind-e mind-world)
+                            (:destination model)))
+                 (->
+                   (lib/->entity
+                     :multi-line
+                     {:color (:mint controls/color-map)
+                      :corner-r 5
+                      :draggable? true
+                      :kind :multi-line
+                      :on-update-map
+                        {:line-model
+                           (fn [e s _]
+                             (let [source-e
+                                     ((->world-eid->mind-e
                                         s)
                                        (:source model))
-                            start-pos (lib/position
-                                        source-e)
-                            dest-e ((->world-eid->mind-e s)
-                                     (:destination model))
-                            end-pos (lib/position dest-e)
-                            e (-> e
-                                  (merge (select-keys
-                                           ue
-                                           [:activation])))
-                            update-pos
-                              (fn [e]
-                                (let [start-pos
-                                        (update
-                                          start-pos
-                                          1
-                                          (fn [v]
-                                            (+ v
-                                               (rand-nth
-                                                 (range
-                                                   -10
-                                                   10
-                                                   5)))))
-                                      end-pos
-                                        (update
-                                          end-pos
-                                          0
-                                          (fn [v]
-                                            (+ v
-                                               (rand-nth
-                                                 (range
-                                                   -10
-                                                   10
-                                                   5)))))]
-                                  (assoc e
-                                    :vertices
-                                      [start-pos
-                                       [(first end-pos)
-                                        (second start-pos)]
-                                       end-pos])))
-                            e (assoc e
-                                :hidden? (some :dragged?
-                                               [source-e
-                                                dest-e]))
-                            e (cond-> e
-                                (or (not= start-pos
-                                          (get-in e
-                                                  [:vertices
-                                                   0]))
-                                    (not= end-pos
-                                          (get-in e
-                                                  [:vertices
-                                                   2])))
-                                  update-pos)]
-                        e)))
-                  (merge
-                    {:corner-r 5
-                     :z-index -5
-                     :draggable? true
-                     :color (:mint controls/color-map)
-                     ;; :on-update-map
-                     ;; {:suicide-packt
-                     ;;  (lib/->suicide-packt
-                     ;;   #{mind-dest
-                     ;;     mind-source})}
-                     :kind :multi-line
-                     :stroke-weight 2
-                     ;; :on-double-click-map
-                     ;; {:activation-burst
-                     ;;  (elib/->activation-burst
-                     ;;   the-state
-                     ;;   (:id model))}
-                     :vertices [[0 0] [0 0] [0 0]]
-                     :underlying-e (:id model)})
-                  ;;
-                  ;; this is for later, when I have
-                  ;; some meaning for this... For now,
-                  ;; lets keep it low confusion. Only
-                  ;; the amount of visuals as concepts.
-                  ;; (assoc-in [:on-update-map :fade]
-                  ;;           (lib/->fade-pulse
-                  ;;            (rand-nth [2.0 2.0
-                  ;;            2.5 2.5])))
-                ))))]
+                                   dest-e
+                                     ((->world-eid->mind-e
+                                        s)
+                                       (:destination
+                                         model))]
+                               (if-not (and source-e dest-e)
+                                 (assoc e :kill? true)
+                                 (let
+                                   [start-pos (lib/position
+                                                source-e)
+                                    end-pos (lib/position
+                                              dest-e)
+                                    update-pos
+                                      (fn [e]
+                                        (let
+                                          [start-pos
+                                             (update
+                                               start-pos
+                                               1
+                                               (fn [v]
+                                                 (+
+                                                   v
+                                                   (rand-nth
+                                                     (range
+                                                       -10
+                                                       10
+                                                       5)))))
+                                           end-pos
+                                             (update
+                                               end-pos
+                                               0
+                                               (fn [v]
+                                                 (+
+                                                   v
+                                                   (rand-nth
+                                                     (range
+                                                       -10
+                                                       10
+                                                       5)))))]
+                                          (assoc e
+                                            :vertices
+                                              [start-pos
+                                               [(first
+                                                  end-pos)
+                                                (second
+                                                  start-pos)]
+                                               end-pos])))
+                                    e (assoc e
+                                        :hidden?
+                                          (some :dragged?
+                                                [source-e
+                                                 dest-e]))
+                                    e (cond-> e
+                                        (or (not=
+                                              start-pos
+                                              (get-in
+                                                e
+                                                [:vertices
+                                                 0]))
+                                            (not=
+                                              end-pos
+                                              (get-in
+                                                e
+                                                [:vertices
+                                                 2])))
+                                          update-pos)]
+                                   e))))}
+                      :stroke-weight 2
+                      :vertices [[0 0] [0 0] [0 0]]
+                      :world :mind
+                      :z-index -5})
+                   ;;
+                   ;; this is for later, when I have
+                   ;; some meaning for this... For
+                   ;; now, lets keep it low confusion.
+                   ;; Only the amount of visuals as
+                   ;; concepts.
+                   ;; (assoc-in [:on-update-map :fade]
+                   ;;           (lib/->fade-pulse
+                   ;;            (rand-nth [2.0 2.0
+                   ;;            2.5 2.5])))
+                 ))))))]
     mind-world))
 
 (defn draw-inspect
@@ -833,13 +840,22 @@
                                    :background-color)))))
   (lib/draw-entities-1 (lib/entities state)))
 
+(defn say-new-inspection
+  [{:as state :keys [inspected selection]}]
+  (when (and (:body? ((lib/entities-by-id state) (:id selection)))
+             (not= (:id inspected) (:id selection)))
+    (:id selection)))
+
 ;; update when you click another guy
 (defn update-inspect
   [inspect-state]
   (update-state-inner
-   (if (:world inspect-state)
-     inspect-state
-     (derive-mind-world @the-state))))
+   (let [state @the-state]
+     (if-let [id (say-new-inspection state)]
+       (do
+         (swap! the-state assoc :inspected {:id id})
+         (derive-mind-world @the-state))
+       inspect-state))))
 
 (defn setup-inspect
   [controls]
@@ -892,5 +908,6 @@
 
 (comment
   ((:eid->entity  (swap! the-state update-in [:eid->entity 23 :activation] + 1000)) 23))
+
 
 ;; make a list of updates for state
