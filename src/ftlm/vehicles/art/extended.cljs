@@ -284,3 +284,9 @@
                 (lib/with-alpha c
                                 (* (- 1 (* lib/*dt* speed))
                                    (q/alpha c))))))))
+
+(defn from-right [amount]
+  (- (q/width) amount))
+
+(defn from-bottom [amount]
+  (- (q/height) amount))
