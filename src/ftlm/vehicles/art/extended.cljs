@@ -257,3 +257,30 @@
                              (rand-nth (range -20 20 5)))))]
     [start-pos [(first end-pos) (second start-pos)]
      end-pos]))
+
+(defn rect-line-vertices-1
+  [start-pos end-pos]
+  (let [start-pos (update
+                   start-pos
+                   1
+                   (fn [v]
+                     (+ v (rand-nth (range -10 10 5)))))
+        end-pos (update end-pos
+                        0
+                        (fn [v]
+                          (+ v
+                             (rand-nth (range -10 10 5)))))]
+    [start-pos [(first end-pos) (second start-pos)]
+     end-pos]))
+
+
+(defn ->fade
+  [speed]
+  (fn [e s _]
+    (update e
+            :color
+            (fn [c]
+              (let [c (lib/->hsb c)]
+                (lib/with-alpha c
+                                (* (- 1 (* lib/*dt* speed))
+                                   (q/alpha c))))))))

@@ -9,8 +9,12 @@
     [versions]]
    [ftlm.vehicles.art.user-controls :as
     user-controls]
+   [ftlm.vehicles.art.grid :as grid]
    [goog.style]
-   [ftlm.vehicles.hdv]))
+   [ftlm.vehicles.hdv]
+   [tech.v3.datatype.argops :as argops]
+   [tech.v3.datatype.functional :as dtype-fn]
+   [tech.v3.datatype :as dtype]))
 
 ;; -> The pyramidal cells
 ;; I decide it makes sense to think of pyramidal cell activity as the center
@@ -144,43 +148,6 @@
 
   )
 
-;; (defn ->neuronal-area [n-neurons density]
-
-;;   {
-;;    ;; :graph
-;;    ;; ;; matrix
-;;    ;; ;; n-neurons/n-neurons
-;;    ;; ;;
-;;    ;; ;; making a directed graph
-;;    ;; ;; - decide neurons going to themselves ?
-;;    ;; (into []
-;;    ;;       (for [i (range n-neurons)]
-;;    ;;         (into []
-;;    ;;               (for [j (range n-neurons)]
-;;    ;;                 (if
-;;    ;;                     (= i j)
-;;    ;;                   false
-;;    ;;                   (if (< (rand) density) true false))))))
-
-
-;;    :graph
-;;    ;; matrix
-;;    ;; n-neurons/n-neurons
-;;    ;;
-;;    ;; making a directed graph
-;;    ;; - decide neurons going to themselves ?
-;;    (into []
-;;          (for [i (range n-neurons)]
-;;            (into []
-;;                  (for [j (range n-neurons)]
-;;                    (if
-;;                        (= i j)
-;;                        false
-;;                        (if (< (rand) density) true false))))))
-
-
-;;    })
-
 (defn ->weight [{:keys [weights]} neuron-i neuron-j]
   (get-in  weights [neuron-i neuron-j]))
 
@@ -191,7 +158,7 @@
         :when (not (zero? w))]
     [i j w]))
 
-(defn ->neuronal-area
+(defn ->neuronal-area-1
   [n-neurons density {:keys [pos n-width spacing]}]
   (let [e (lib/->entity
             :neuronal-area
@@ -230,7 +197,7 @@
                                 (fn [e s _]
                                   (assoc e :hidden? true)))}
                      :transform
-                       (lib/->transform pos 25 25 1)})))))
+                     (lib/->transform pos 25 25 1)})))))
         edges (->edges e neurons)
         edges
           (into
@@ -284,10 +251,10 @@
         e (assoc e :components (map :id neurons))]
     (concat [e] neurons edges)))
 
-(defmethod setup-version :grid
+(defmethod setup-version :grid-1
   [state]
   (let [state (-> state
-                  (lib/append-ents (->neuronal-area
+                  (lib/append-ents (->neuronal-area-1
                                      ;; 6 10
                                      200
                                      ;; 6
@@ -342,6 +309,199 @@
               (-> s
                   (update :tick (fnil inc 0))))))))))
 
+;; {:flip
+      ;;  (lib/every-n-seconds
+      ;;   0.1
+      ;;   (fn [e s _]
+      ;;     e
+      ;;     (update
+      ;;      e :elements
+      ;;      (fn [elements]
+      ;;        (dtype/clone
+      ;;         (dtype/emap
+      ;;          (fn [active?]
+      ;;            (not active?))
+      ;;          :boolean
+      ;;          elements))))))}
+
+;; neuron elements is an array of neurons
+;; each neuron is active or not active
+
+(defn dot-product [v1 v2]
+  (dtype-fn/sum (dtype/emap (fn [a b] (* a b)) :float v1 v2)))
+
+(defn cap-k [activations k]
+  (take k (argops/argsort > activations)))
+
+(defn ->synaptic-input
+  [state n-neurons]
+  (for [i (range n-neurons)]
+    (dot-product ((:weights state) i) (:elements state))))
+
+
+;; --- I am allowing the neurons to
+;; connect to themselves ---
+(defn ->random-directed-graph [n-neurons density]
+  (into []
+      (for [i (range n-neurons)]
+        (dtype/clone
+          (dtype/emap
+            (fn [] (if (< (rand) density) 1.0 0.0))
+            :float
+            (dtype/make-container :float n-neurons))))))
+
+;; (defn ->random-directed-graph-with-geometry
+;;   [n-neurons density spread]
+;;   (into []
+;;         (for [i (range n-neurons)]
+;;           (dtype/clone
+;;            (dtype/make-container
+;;             :float
+;;             (for [j (range n-neurons)]
+;;               (lib/normal-distr )
+;;               )
+;;             n-neurons))
+;;           (dtype/clone
+;;            (dtype/emap
+;;             (fn [] (if (< (rand) density) 1.0 0.0))
+;;             :float
+;;             (dtype/make-container :float n-neurons))))))
+
+(defn ->random-directed-graph-with-geometry-per-row
+  [n-neurons density row-length]
+  (let [row (fn [i] (quot i row-length))
+        high-probablity (* density 10)
+        low-probablity (/ density 10)]
+    (into []
+          (for [i (range n-neurons)]
+            (dtype/clone
+             (dtype/make-container
+              :float
+              (for [j (range n-neurons)]
+                (if (< (rand)
+                       (if (= (row i) (row j))
+                         high-probablity
+                         low-probablity))
+                  1.0
+                  0.0))))))))
+
+(defn ->neuronal-area
+  [{:as opts
+    :keys [n-neurons density spacing inhibition-model
+           grid-width]}]
+  (lib/->entity
+   :grid
+   (merge
+    {:color (:cyan controls/color-map)
+     :draw-element (fn [active?]
+                     (when active? (q/rect 0 0 25 25)))
+     :elements (dtype/make-container :boolean n-neurons)
+     :i->pos
+     (fn [{:keys [transform]} i]
+       (let [[x y] (:pos transform)
+             coll (mod i grid-width)
+             row (quot i grid-width)
+             x (+ x (* coll spacing))
+             y (+ y (* row spacing))]
+         [x y])
+       )
+     :weights
+     (->random-directed-graph-with-geometry-per-row
+      n-neurons
+      density
+      grid-width)
+     ;; (->random-directed-graph n-neurons density)
+     :on-update-map
+     {:flip
+      (lib/every-n-seconds
+       1
+       (fn [e s _]
+         (let [synaptic-input
+               (->synaptic-input e n-neurons)
+               next-active
+               (inhibition-model e synaptic-input)
+               next-active? (into #{} next-active)]
+           (assoc e
+                  :elements (dtype/clone
+                             (dtype/make-container
+                              :boolean
+                              (for [i (range
+                                       n-neurons)]
+                                (boolean (next-active?
+                                          i)))))))))}
+     :spacing spacing}
+    opts)))
+
+(defn gaussian [amplitude mean std-deviation x]
+  (* amplitude (Math/exp
+                (-
+                 (/ (Math/pow (- x mean) 2)
+                    (* 2 (Math/pow std-deviation 2)))))))
+
+(defmethod setup-version :grid
+  [state]
+  (let [n-area (->neuronal-area
+                 {:density 0.1
+                  :grid-width 20
+                  :n-neurons 300
+                  :spacing 25
+                  :inhibition-model
+                    ;; (fn [state activations]
+                    ;;   (let [k
+                    ;;         (int
+                    ;;          (+ 10
+                    ;;             (gaussian
+                    ;;              100
+                    ;;              20
+                    ;;              10
+                    ;;              (count
+                    ;;              (argops/argfilter
+                    ;;              true? (:elements
+                    ;;              state))))))]
+                    ;;     (println k)
+                    ;;     (cap-k activations k)))
+                    (fn [state activations]
+                      (cap-k activations 20))
+                  :transform
+                    (lib/->transform [100 100] 20 20 1)})
+        id-area (:id n-area)
+        state (-> state
+                  (lib/append-ents [n-area]))]
+    (->
+      state
+      (assoc-in
+        [:on-update-map :time-tick]
+        (lib/every-n-seconds
+          1
+          (fn [s _]
+            (let
+                [show-one-line
+                 (fn [s]
+                   (let [e ((lib/entities-by-id s) id-area)
+                         rand-coll (rand-int (count (:weights e)))
+                         i->pos (fn [i] ((e :i->pos) e i))
+                         rand-edge-j
+                         (first
+                          (take 1 (argops/argfilter #(not (zero? %)) (get (:weights e) rand-coll))))]
+                     (when rand-edge-j
+                       (let [i rand-coll j rand-edge-j]
+                         [(lib/->entity
+                           :multi-line
+                           {:vertices (elib/rect-line-vertices-1 (i->pos i) (i->pos j))
+                            :color (:cyan controls/color-map)
+                            :stroke-weight 3
+                            :on-update-map
+                            {:fade
+                             (elib/->fade 1)}
+                            ;; :end-pos (i->pos j)
+                            :lifetime 3
+                            :transform (lib/->transform (i->pos i) 1 1 1)})]))))]
+              (-> s
+                    (lib/append-ents
+
+                     (apply concat (repeatedly 3 #(show-one-line s))))))))))))
+
+
 (defn setup
   [controls]
   (q/rect-mode :center)
@@ -349,8 +509,7 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (let [state {:controls controls :on-update []}
-        state (-> state
-                  setup-version)]
+        state (-> state setup-version)]
     (reset! the-state state)))
 
 (defn on-double-click
