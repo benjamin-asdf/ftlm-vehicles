@@ -370,7 +370,8 @@
 (defn ->random-directed-graph-with-geometry-per-row
   [n-neurons density row-length]
   (let [row (fn [i] (quot i row-length))
-        high-probablity (* density 10)
+        high-probablity density
+        ;; (* density 10)
         low-probablity (/ density 10)]
     (into []
           (for [i (range n-neurons)]
@@ -390,47 +391,62 @@
     :keys [n-neurons density spacing inhibition-model
            grid-width]}]
   (lib/->entity
-   :grid
-   (merge
-    {:color (:cyan controls/color-map)
-     :draw-element (fn [active?]
-                     (when active? (q/rect 0 0 25 25)))
-     :elements (dtype/make-container :boolean n-neurons)
-     :i->pos
-     (fn [{:keys [transform]} i]
-       (let [[x y] (:pos transform)
-             coll (mod i grid-width)
-             row (quot i grid-width)
-             x (+ x (* coll spacing))
-             y (+ y (* row spacing))]
-         [x y])
-       )
-     :weights
-     (->random-directed-graph-with-geometry-per-row
-      n-neurons
-      density
-      grid-width)
-     ;; (->random-directed-graph n-neurons density)
-     :on-update-map
-     {:flip
-      (lib/every-n-seconds
-       1
-       (fn [e s _]
-         (let [synaptic-input
-               (->synaptic-input e n-neurons)
-               next-active
-               (inhibition-model e synaptic-input)
-               next-active? (into #{} next-active)]
-           (assoc e
-                  :elements (dtype/clone
-                             (dtype/make-container
-                              :boolean
-                              (for [i (range
-                                       n-neurons)]
-                                (boolean (next-active?
-                                          i)))))))))}
-     :spacing spacing}
-    opts)))
+    :grid
+    (merge
+      {:color (:cyan controls/color-map)
+       :draw-element (fn [active?]
+                       (when active? (q/rect 0 0 25 25)))
+       :elements (dtype/make-container :boolean n-neurons)
+       :i->pos (fn [{:keys [transform]} i]
+                 (let [[x y] (:pos transform)
+                       coll (mod i grid-width)
+                       row (quot i grid-width)
+                       x (+ x (* coll spacing))
+                       y (+ y (* row spacing))]
+                   [x y]))
+       :weights
+         (->random-directed-graph-with-geometry-per-row
+           n-neurons
+           density
+           grid-width)
+       ;; (->random-directed-graph n-neurons density)
+       :on-update-map
+         {:flip
+            (lib/every-n-seconds
+              1
+              (fn [e s _]
+                (let [synaptic-input
+                        (->synaptic-input e n-neurons)
+                      next-active
+                        (inhibition-model e synaptic-input)
+                      next-active? (into #{} next-active)]
+                  (assoc e
+                    :elements (dtype/clone
+                                (dtype/make-container
+                                  :boolean
+                                  (for [i (range n-neurons)]
+                                    (boolean (next-active?
+                                               i)))))))))
+          :sensory-input
+            (lib/every-n-seconds
+              1
+              (fn [e s _]
+                ;; takes the mouse position decides on
+                ;; some neurons to activate
+                (let [synaptic-input
+                        (->synaptic-input e n-neurons)
+                      next-active
+                        (inhibition-model e synaptic-input)
+                      next-active? (into #{} next-active)]
+                  (assoc e
+                    :elements (dtype/clone
+                                (dtype/make-container
+                                  :boolean
+                                  (for [i (range n-neurons)]
+                                    (boolean (next-active?
+                                               i)))))))))}
+       :spacing spacing}
+      opts)))
 
 (defn gaussian [amplitude mean std-deviation x]
   (* amplitude (Math/exp
@@ -446,24 +462,24 @@
                   :n-neurons 300
                   :spacing 25
                   :inhibition-model
-                    ;; (fn [state activations]
-                    ;;   (let [k
-                    ;;         (int
-                    ;;          (+ 10
-                    ;;             (gaussian
-                    ;;              100
-                    ;;              20
-                    ;;              10
-                    ;;              (count
-                    ;;              (argops/argfilter
-                    ;;              true? (:elements
-                    ;;              state))))))]
-                    ;;     (println k)
-                    ;;     (cap-k activations k)))
-                    (fn [state activations]
-                      (cap-k activations 20))
+                  ;; (fn [state activations]
+                  ;;   (let [k
+                  ;;         (int
+                  ;;          (+ 10
+                  ;;             (gaussian
+                  ;;              100
+                  ;;              20
+                  ;;              10
+                  ;;              (count
+                  ;;              (argops/argfilter
+                  ;;              true? (:elements
+                  ;;              state))))))]
+                  ;;     (println k)
+                  ;;     (cap-k activations k)))
+                  (fn [state activations]
+                    (cap-k activations 25))
                   :transform
-                    (lib/->transform [100 100] 20 20 1)})
+                  (lib/->transform [100 100] 20 20 1)})
         id-area (:id n-area)
         state (-> state
                   (lib/append-ents [n-area]))]
@@ -472,7 +488,7 @@
       (assoc-in
         [:on-update-map :time-tick]
         (lib/every-n-seconds
-          1
+          0.1
           (fn [s _]
             (let
                 [show-one-line
@@ -491,9 +507,7 @@
                             :color (:cyan controls/color-map)
                             :stroke-weight 3
                             :on-update-map
-                            {:fade
-                             (elib/->fade 1)}
-                            ;; :end-pos (i->pos j)
+                            {:fade (elib/->fade 1)}
                             :lifetime 3
                             :transform (lib/->transform (i->pos i) 1 1 1)})]))))]
               (-> s
