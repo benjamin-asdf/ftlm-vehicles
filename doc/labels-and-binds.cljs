@@ -172,7 +172,9 @@
 ;; Synesthesia -
 ;;             If bind is implemented in the brain with synchronous activation, and bind is also the operation that we use to say what color what object has,
 ;;             then I would submit we would see synchronous activation of say number representing activity with color representing activity in people with synesthesia.
-;;             Possibly given us clues about the puzzle of binding in cognitive machines and the brain's implementation of it.
+;;             Possibly giving us clues about the puzzle of binding in cognitive machines and the brain's implementation of it.
+;;             -> I would submit that we would find neurons that are labeling numbers with colors in the ventral stream.
+;;             -> my main thinking right now is that this part of perception is allowed to be feed forward feature detectors (Rosenblatt)
 ;;
 ;;
 ;; Where's Waldo? - it would be interesting in the space of object recognition and binding to know the brain scan results of showing somebody Where's Waldo pictures.

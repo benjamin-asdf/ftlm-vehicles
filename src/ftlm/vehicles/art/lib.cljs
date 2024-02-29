@@ -196,6 +196,7 @@
 
 (defn kill-entities-1
   [state]
+  ;; (println (filter :kill? (entities state)))
   (update--entities state (fn [ents] (remove (comp :kill? val) ents))))
 
 (def kill-entities (comp kill-entities-1 kill-connections kill-components))
@@ -249,8 +250,6 @@
 
 (defmethod draw-entity :line
   [{:keys [transform end-pos color] :as e}]
-  (def e e)
-  (println e)
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
     (q/stroke-weight 2)
@@ -259,13 +258,6 @@
 
 (defmethod draw-entity :multi-line
   [{:keys [color vertices]}]
-  (def vertices vertices)
-
-  ;; vertices
-  ;; (map vector vertices (drop 1 vertices))
-  ;; ([[90 90] [90 300]]
-  ;;  [[90 300] [800 300]])
-
   (q/with-stroke (->hsb color)
     (doseq [[p1 p2] (map vector vertices (drop 1 vertices))]
       (q/line p1 p2))))
@@ -1014,6 +1006,7 @@
 
 (defn update-update-functions
   [state]
+  (def state state)
   (-> state
       update-update-functions-1
       update-update-functions-map))

@@ -219,3 +219,41 @@
          (dissoc :electrode-input)
          (update :activation + electrode-input))
         e))))
+
+(defn assembling-multi-line
+  [{:keys [source dest]}]
+  (fn [e s _]
+    (let [source-e ((lib/entities-by-id s) source)
+          dest-e ((lib/entities-by-id s) dest)
+          start-pos (lib/position source-e)
+          end-pos (lib/position dest-e)
+          update-pos
+          (fn [e]
+            (let [start-pos (update start-pos 1 (fn [v] (+ v (rand-nth (range -10 10 5)))))
+                  end-pos (update end-pos 0 (fn [v] (+ v (rand-nth (range -10 10 5)))))]
+              (assoc e
+                     :vertices [start-pos [(first end-pos) (second start-pos)] end-pos])))
+          e (assoc e
+                   :hidden? (some :dragged? [source-e dest-e]))
+          e (cond-> e
+              (or (not= start-pos (get-in e [:vertices 0]))
+                  (not= end-pos (get-in e [:vertices 2])))
+              update-pos)]
+      e)))
+
+(defn rect-multi-line-vertices
+  [source-e dest-e]
+  (let [start-pos (lib/position source-e)
+        end-pos (lib/position dest-e)
+        start-pos (update
+                    start-pos
+                    1
+                    (fn [v]
+                      (+ v (rand-nth (range -20 20 5)))))
+        end-pos (update end-pos
+                        0
+                        (fn [v]
+                          (+ v
+                             (rand-nth (range -20 20 5)))))]
+    [start-pos [(first end-pos) (second start-pos)]
+     end-pos]))

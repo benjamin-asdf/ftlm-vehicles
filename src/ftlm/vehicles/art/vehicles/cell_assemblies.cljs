@@ -349,25 +349,25 @@
                            (map-indexed
                              (fn [idx to-e]
                                (concat
-                                 (elib/->plasma-balls
-                                   {:color
-                                      (:cyan
-                                        controls/color-map)
-                                    :duration 1
-                                    :from
-                                      (lib/position-on-circle
-                                        (lib/position
-                                          from-e)
-                                        (* (-> from-e
-                                               :transform
-                                               :width)
-                                           (-> from-e
-                                               :transform
-                                               :scale))
-                                        (* idx angle-step))
-                                    :start-entity from-e
-                                    :to (lib/position
-                                          to-e)})
+                                 ;; (elib/->plasma-balls
+                                 ;;   {:color
+                                 ;;      (:cyan
+                                 ;;        controls/color-map)
+                                 ;;    :duration 1
+                                 ;;    :from
+                                 ;;      (lib/position-on-circle
+                                 ;;        (lib/position
+                                 ;;          from-e)
+                                 ;;        (* (-> from-e
+                                 ;;               :transform
+                                 ;;               :width)
+                                 ;;           (-> from-e
+                                 ;;               :transform
+                                 ;;               :scale))
+                                 ;;        (* idx angle-step))
+                                 ;;    :start-entity from-e
+                                 ;;    :to (lib/position
+                                 ;;          to-e)})
                                  (when make-lines?
                                    [(merge
                                       (lib/->connection-line

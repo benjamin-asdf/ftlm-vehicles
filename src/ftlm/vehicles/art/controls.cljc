@@ -135,7 +135,7 @@
 
 (def versions
   {"assembly" {"0" {}}
-   "assembly-fun" {"0" {}}
+   "assembly-fun" {"0" {:v :grid}}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614
@@ -455,7 +455,8 @@
                      :spread-speed 1}}
    "cell-assemblies" {"0" {:v :just-triangles}
                       "1" {:v :world}
-                      "2" {:v :neighbours-lines}
+                      "2" {:v  (def e e)
+ :neighbours-lines}
                       "4" {:v :grid}}
    "fear_and_aggression"
      {"0" {}

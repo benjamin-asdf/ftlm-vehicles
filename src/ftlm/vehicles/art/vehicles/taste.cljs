@@ -23,7 +23,6 @@
 ;; === Interlude 1: === (maybe) (skipping)
 ;; assemble connections
 
-
 ;; === Interlude 2: ===
 ;; - interneurons -> visible in inspection window ((done))
 ;; - another small kind of effect (another actuator): change the color of the vehicle
@@ -74,6 +73,11 @@
 ;; If time is a concept to you, resource constraintnes is allowed to be a concept to you.
 ;; -> On of the fundamental aspects of cybernetics and intelligence I think.
 ;;
+
+(defn gaussian [amplitude mean std-deviation x]
+  (* amplitude (Math/exp (- (/ (Math/pow (- x mean) 2) (* 2 (Math/pow std-deviation 2)))))))
+
+
 
 (defn rand-temperature-bubble
   ([_]
@@ -528,7 +532,7 @@
                                        :transform
                                        :width))))
                             (lib/entities s)))]
-                  (* amount 3))
+                  (* amount 8))
             source-id (:underlying-e e)]
         (swap! the-state update
           :updates
@@ -748,10 +752,8 @@
                                (if-not (and source-e dest-e)
                                  (assoc e :kill? true)
                                  (let
-                                   [start-pos (lib/position
-                                                source-e)
-                                    end-pos (lib/position
-                                              dest-e)
+                                   [start-pos (lib/position source-e)
+                                    end-pos (lib/position dest-e)
                                     update-pos
                                       (fn [e]
                                         (let
@@ -793,19 +795,9 @@
                                                 [source-e
                                                  dest-e]))
                                     e (cond-> e
-                                        (or (not=
-                                              start-pos
-                                              (get-in
-                                                e
-                                                [:vertices
-                                                 0]))
-                                            (not=
-                                              end-pos
-                                              (get-in
-                                                e
-                                                [:vertices
-                                                 2])))
-                                          update-pos)]
+                                        (or (not= start-pos (get-in e [:vertices 0]))
+                                            (not= end-pos (get-in e [:vertices 2])))
+                                        update-pos)]
                                    e))))}
                       :stroke-weight 2
                       :vertices [[0 0] [0 0] [0 0]]
@@ -821,7 +813,7 @@
                    ;;           (lib/->fade-pulse
                    ;;            (rand-nth [2.0 2.0
                    ;;            2.5 2.5])))
-                 ))))))]
+                   ))))))]
     mind-world))
 
 (defn draw-inspect
