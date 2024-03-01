@@ -174,8 +174,6 @@
         (* plasticity firing-j? firing-i-next?)))))
 
 
-
-
 ;; homeostatis
 ;; renormalize the weights at a slower time scale
 ;;
