@@ -14,7 +14,9 @@
    [ftlm.vehicles.hdv]
    [tech.v3.datatype.argops :as argops]
    [tech.v3.datatype.functional :as dtype-fn]
-   [tech.v3.datatype :as dtype]))
+   [tech.v3.dataset :as ds]
+   [tech.v3.datatype :as dtype]
+   ["mathjs" :as mathjs]))
 
 ;; -> The pyramidal cells
 ;; I decide it makes sense to think of pyramidal cell activity as the center
@@ -47,7 +49,7 @@
 ;; But now we have this cool brainbow in our minds, so I am allowed to give my neurons all kinds of colors, too.
 ;; [youtube Heinz von Foerster 'Tanz Mit Der Welt' why I think McCulloch drew black triangles]
 
-;; ==== assebly caclulus
+;; ==== assembly calculus ====
 
 ;; 1. neuronal area
 ;;   -> n neurons / 'neuronal units'
@@ -71,49 +73,83 @@
                  (/ (Math/pow (- x mean) 2)
                     (* 2 (Math/pow std-deviation 2)))))))
 
-;; if j fires at time t and i fires at time t + 1,
-;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
-;;;; -- hebbian plasticity impl. --
-;; (defn next-weight [state i j t]
-;;   (let [plasticity (:plasticity state)
-;;         firing-j? (fires? state j t)
-;;         firing-i-next? (fires state i (inc t))]
-;;     (*
-;;      (weight state i j t)
-;;      (+ 1
-;;         (* plasticity firing-j? firing-i-next?)))))
-
-
 (defn fires? [activations i]
   (nth activations i))
+
+;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
+;; if j fires at time t and i fires at time t + 1,
+;; --------------------------------------------------------------------------------------
+
+;; (defn ->hebbian-plasticity
+;;   [plasticity]
+;;   (fn [current-activations next-activations weights]
+;;     (time
+;;      (into
+;;       []
+;;       (let [weight (fn [i j] (nth (nth weights i) j))]
+;;         (for [i (range (count weights))]
+;;           (dtype/make-container
+;;            :float
+;;            (for [j (range (count weights))]
+;;              (if (and (fires? current-activations j)
+;;                       (fires? next-activations i))
+;;                (* (weight i j) (+ 1 plasticity))
+;;                (weight i j))))))))))
+;; (made it a bit more performant)
 
 (defn ->hebbian-plasticity
   [plasticity]
   (fn [current-activations next-activations weights]
     (into []
-          (let [weight (fn [i j] (nth (nth weights i) j))]
-            (for [i (range (count weights))]
-              (dtype/make-container
-               :float
-               (for [j (range (count weights))]
-                 (if (and (fires? current-activations j)
-                          (fires? next-activations i))
-                   (* (weight i j) (+ 1 plasticity))
-                   (weight i j)))))))))
+          (map (fn [w i-fires?]
+                 (if-not i-fires?
+                   w
+                   (dtype/clone
+                    (dtype/emap
+                     (fn [w j-fires?]
+                       (if j-fires?
+                         (* w (+ 1 plasticity))
+                         w))
+                     :float
+                     w
+                     current-activations))))
+               weights
+               next-activations))))
+
+(comment
+  ((->hebbian-plasticity 10)
+    [true false true]
+    [true true false]
+    [[1 1 1] [1 1 1] [1 1 1]])
+  ;; [#typed-buffer [[:float 3] [11 1 11]]
+  ;;  #typed-buffer [[:float 3] [11 1 11]] [1 1 1]]
+  )
 
 (defn normalize-weigths
   [weights]
-  (into []
-        (for [i (range (count weights))
-              :let [weight (nth weights i)
-                    sum (dtype-fn/sum weight)]]
-          (if (zero? sum)
-            weight
-            (dtype/clone
-             (dtype/emap
-              (fn [w] (/ w sum))
-              :float
-              (nth weights i)))))))
+  ;; impl with mathjs
+  weights
+  ;; (time
+  ;;  (let [weights (mathjs/matrix
+  ;;                 (clj->js (map (fn [ws] (into-array :int ws)) weights)))
+  ;;        sum (mathjs/sum weights)
+  ;;        weights (mathjs/multiply weights (/ 1 sum))]
+  ;;    ;; (def weights weights)
+  ;;    (.valueOf weights)))
+
+  ;; (time
+  ;;  (into []
+  ;;        (for [i (range (count weights))
+  ;;              :let [weight (nth weights i)
+  ;;                    sum (dtype-fn/sum weight)]]
+  ;;          (if (zero? sum)
+  ;;            weight
+  ;;            (dtype/clone
+  ;;             (dtype/emap
+  ;;              (fn [w] (/ w sum))
+  ;;              :float
+  ;;              (nth weights i)))))))
+  )
 
 ;; Assembly calculus command
 (defn set-inputs
@@ -125,8 +161,6 @@
                     :boolean
                     (for [i (range (count weights))]
                       (boolean (next-active? i))))))))
-
-
 
 
 
@@ -351,20 +385,7 @@
               (-> s
                   (update :tick (fnil inc 0))))))))))
 
-;; {:flip
-      ;;  (lib/every-n-seconds
-      ;;   0.1
-      ;;   (fn [e s _]
-      ;;     e
-      ;;     (update
-      ;;      e :elements
-      ;;      (fn [elements]
-      ;;        (dtype/clone
-      ;;         (dtype/emap
-      ;;          (fn [active?]
-      ;;            (not active?))
-      ;;          :boolean
-      ;;          elements))))))}
+
 
 ;; neuron elements is an array of neurons
 ;; each neuron is active or not active
@@ -372,18 +393,68 @@
 (defn dot-product [v1 v2]
   (dtype-fn/sum (dtype/emap (fn [a b] (* a b)) :float v1 v2)))
 
-(defn cap-k [activations k]
-  (take k (argops/argsort > activations)))
-
 (defn ->synaptic-input-1
   [weights inputs]
-  (for [i (range (count weights))]
-    (dot-product (weights i) inputs)))
+  (map (fn [v] (. v -value))
+       (let [w (mathjs/matrix
+                (clj->js (map (fn [ws] (into-array :int ws)) weights)))
+             inputs (mathjs/matrix (into-array (map (fn [i] (if i 1 0)) inputs)))]
+         (mathjs/multiply w inputs)))
+
+
+  ;; (let [w (mathjs/matrix
+  ;;          (clj->js (map (fn [ws] (into-array :int ws)) weights)))
+  ;;       inputs (mathjs/matrix (into-array (map (fn [i] (if i 1 0)) inputs)))]
+  ;;   (mathjs/multiply w inputs))
+
+  ;; this would be so easy to parallelize...
+  ;; (for [i (range (count weights))]
+  ;;   (dot-product (weights i) inputs))
+  )
+
+(comment
+  (cap-k
+   (map (fn [v] (. v -value))
+        (let [w (mathjs/matrix
+                 (clj->js (map (fn [ws] (into-array :int ws)) weights)))
+              inputs (mathjs/matrix (into-array (map (fn [i] (if i 1 0)) inputs)))]
+          (mathjs/multiply w inputs)))
+   10)
+
+  (def w (ds/->dataset
+          [{0 [1 1 1]
+            1 [1 0 1]
+            2 [1 1 1]}]
+          ))
+  (def inputs [1 1 1])
+
+  (ds/column-map w :synaptic-input (fn [coll] (dot-product coll inputs)))
+
+  (map (fn [coll] (dot-product coll inputs)) (ds/columns w))
+  (first (ds/columns w))
+  (ds/rowvecs w)
+
+  ;; (ds/ :synaptic-input (fn [coll] (dot-product coll inputs)))
+
+  (mathjs/matrix (clj->js [[0 1] [2 3] [4 5]]))
+
+
+  (def w (mathjs/matrix (clj->js [[1 1 1] [1 0 1] [1 1 1]])))
+  (def inputs (mathjs/matrix (clj->js [1 1 1])))
+  (mathjs/multiply w inputs)
+
+
+  (let [testds (ds/->dataset [{:a 1.0 :b 2.0} {:a 3.0 :b 5.0} {:a 4.0 :b nil}])]
+    ;;result scanned for both datatype and missing set
+    (ds/column-map testds :b2 #(when % (inc %)) [:b])))
+
 
 (defn ->synaptic-input
   [state]
   (->synaptic-input-1 (:weights state) (:elements state)))
 
+(defn cap-k [activations k]
+  (take k (argops/argsort > activations)))
 
 ;; --- I am allowing the neurons to
 ;; connect to themselves ---
@@ -436,6 +507,14 @@
 (defn ->input-space-elements
   [n]
   (dtype/make-container :boolean n))
+
+;; ===
+;; input
+;; -------------------
+;; 1. Each input neuron is connected to a random subset of the neurons in the neuronal area.
+;; 2. Likewise for each off-state,
+;;    simulating an inhibitory neuron in between
+;; This allows the area to represent the absence of something.
 
 (defn ->input-space
   [n]
@@ -511,7 +590,7 @@
                 (update e :weights normalize-weigths)))
           :sensory-input
             (lib/every-n-seconds
-              2
+              3
               (fn [e s _k]
                 (let [{:keys [elements input-projection]}
                         ((lib/entities-by-id s)
@@ -524,7 +603,8 @@
                       ;; not do the inhibition model?
                       ;; -> input inhibition model
                       ;; ==========
-                      next-active (inhibition-model e synaptic-input)]
+                      next-active
+                        (inhibition-model e synaptic-input)]
                   (->
                     e
                     (set-inputs next-active)
@@ -541,7 +621,7 @@
                                 controls/color-map)))))))))
           :update-neurons
             (lib/every-n-seconds
-              0.2
+              0.5
               (fn [e _s _]
                 (let [current-activations (:elements e)
                       synaptic-input (->synaptic-input e)
@@ -584,20 +664,20 @@
   [input-space-size neuronal-area connection-probability]
   (let [neuron-n (count (:elements neuronal-area))]
     (into
-      []
-      (for [_ (range neuron-n)]
-        (dtype/clone
-          (dtype/emap
-            (fn []
-              (if (< (rand) connection-probability) 1 0))
-            :int32
-            (dtype/make-container :int32
-                                  input-space-size)))))))
+     []
+     (for [_ (range neuron-n)]
+       (dtype/clone
+        (dtype/emap
+         (fn []
+           (if (< (rand) connection-probability) 1 0))
+         :int32
+         (dtype/make-container :int32
+                               input-space-size)))))))
 
 (defmethod setup-version :grid
   [state]
   (let [input-space-size 10
-        n-neurons 200
+        n-neurons 500
         n-area (->neuronal-area
                 {:density 0.1
                  :grid-width 20
@@ -662,7 +742,6 @@
              (-> s
                  (lib/append-ents
                   (apply concat (repeatedly 3 #(show-one-line s))))))))))))
-
 
 (defn setup
   [controls]
@@ -762,3 +841,29 @@
 (defmethod user-controls/action-button ::restart
   [_]
   (some-> @restart-fn (apply nil)))
+
+
+
+(comment
+
+  (into-array :int (take 3 (argops/argsort > (.valueOf (mathjs/matrix #js [1 2 3 4])))))
+
+
+  (dtype/set-and
+   (dtype/indexed-buffer [0 1 2] (dtype/make-container :float (range 10))))
+
+  (first (dtype/set-and (dtype/->set a1) (dtype/->set a2)))
+  (dtype/set-and (dtype/->set a1) (dtype/->set a2))
+
+  (dtype/indexed-iterate!)
+
+  (do
+    (def a1 (dtype/make-container :int32 [0 1 2]))
+    (def a2 (dtype/make-container :int32 [2]))
+    (dtype/emap
+     (fn [w] (* 1.1 w))
+     :float
+     (dtype/indexed-buffer
+      (dtype/set-and (dtype/->set a1) (dtype/->set a2))
+      (dtype/make-container :float (range 10)))))
+  )
