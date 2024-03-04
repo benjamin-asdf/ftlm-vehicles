@@ -132,24 +132,33 @@
 
 (defn synaptic-input
   [weights activations]
-  (let [n (.get (mathjs/size weights) #js [0])]
+  (let [n (.get (mathjs/squeeze (mathjs/size weights)) #js[0])]
     (-> (mathjs/subset weights
                        (mathjs/index activations
                                      (mathjs/range 0 n)))
-        (mathjs/sum 0))))
+        (mathjs/sum 0)
+        (mathjs/squeeze))))
 
 (comment
-  (do (defn ->synaptic-input
-        [weights activations]
-        (let [n (.get (mathjs/size (mathjs/matrix weights))
-                      #js [0])]
-          (-> (mathjs/subset
-               weights
-               (mathjs/index activations (mathjs/range 0 n)))
-              (mathjs/sum 0))))
-      (let [d #js [#js [0 1 0] #js [0 1 1] #js [1 1 1]]
-            activations #js [0 2]]
-        (->synaptic-input (mathjs/matrix d) activations))))
+  (do
+    (let [weights (mathjs/matrix
+                   #js
+                   [#js [0 1 0]
+                    #js [0 1 1]
+                    #js [1 1 1]]
+                   "sparse")
+          activations #js [0 2]]
+      (synaptic-input weights activations)))
+
+  (do
+    (let [weights (mathjs/matrix
+                   #js
+                   [#js [0 1 0]
+                    #js [0 1 1]
+                    #js [1 1 1]]
+                   "dense")
+          activations #js [0 2]]
+      (synaptic-input weights activations))))
 
 
 ;; self.recurrent_weights /= self.recurrent_weights.sum(axis=0, keepdims=True)
@@ -190,8 +199,6 @@
     (normalize1 #js [#js [0 1 0]
                      #js [0 1 1]
                      #js [1 1 1]]))
-
-
 
   )
 
@@ -348,9 +355,97 @@
 ;; - no plasticity
 ;;
 
-(defn ->directed-graph-with-geometry [])
+(def n-neurons 10)
+
+(defn gaussian [amplitude mean std-deviation x]
+  (* amplitude (Math/exp
+                (-
+                 (/ (Math/pow (- x mean) 2)
+                    (* 2 (Math/pow std-deviation 2)))))))
+
+;;
+;; You have the highest probability of connecting to yourself
+;; then you count the distance, just the linear distance
+;;
+;; +--------------------------------+
+;; |                                |
+;; +------------+----+--------------+
+;; | .. i - 1   | i  | i + 1, ..    |
+;; +------------+----+--------------+
+;;                ^
+;;                |
+;;                |
+;;            highest connection probability to iself
+;;  basically each neuron has a strip connectivity probably following a gaussian
+;;  (consider the colls I draw in the ui purely visual with this model.
+;;  the connectivity goes across the width boundary)
+;;
+;;
+;; This creates something like 'collumns' of std-deviation length neurons,
+;; they overlap
+;;
+(defn lin-gaussian-geometry
+  [{:keys [amplitude std-deviation density-factor]}]
+  (fn [i j]
+    (gaussian
+     (or amplitude (+ 0.5 density-factor))
+     0
+     std-deviation
+     (- j i))))
+
+;; geometry model takes 3 args, the neuron that will recieve the connection (i)
+;; the neurons that will provide the connection (j)
+;; it returns a connection probability
+
+(defn ->directed-graph-with-geometry
+  [n-neurons geometry-model]
+  (.map
+   (mathjs/matrix (mathjs/zeros #js [n-neurons n-neurons]) "sparse")
+   (fn [_ idx _]
+     (if (< (mathjs/random 0 1)
+            (geometry-model (aget idx 0) (aget idx 1)))
+       1
+       0))))
+
+(def identity-plasticity :weights)
 
 (comment
+  (do
+    (def mystate {:activations (->neurons 3)
+                  :weights (->directed-graph-with-geometry
+                            3
+                            (lin-gaussian-geometry {:amplitude 0.7 :std-deviation 1}))
+                  :inhibition-model (fn [_ synaptic-input] (cap-k 2 synaptic-input))
+                  :plasticity nil
+                  :plasticity-model identity-plasticity})
+    [:weights
+     (:weights mystate)
+     :activations
+     (:activations mystate)
+     :input
+     (synaptic-input (:weights mystate)
+                     (:activations mystate))
+     :next-active
+     ((:inhibition-model mystate) mystate (synaptic-input (:weights mystate)
+                                                          (:activations mystate)))
+     ;; (update-neuronal-area mystate)
+     :next-weights
+     (:weights (update-neuronal-area mystate))]))
+
+
+
+(comment
+
+  (->directed-graph-with-geometry 100 (lin-gaussian-geometry {:amplitude 0.7 :std-deviation 20}))
+
+
+
+
+  (map (fn [i] (gaussian 1.0 0 1 i)) (range -10 10))
+
+  (map (fn [i] (gaussian 1.0 0 10 i)) (range -10 10))
+
+
 
 
   (.map
@@ -360,11 +455,8 @@
    (fn [v i m] (def i i) v)
    true)
 
-
   (mathjs/SparseMatrix.diagonal #js[3 3] 1 0)
-  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0)
-
-  )
+  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0))
 
 (comment
   (def n-neurons 4)
