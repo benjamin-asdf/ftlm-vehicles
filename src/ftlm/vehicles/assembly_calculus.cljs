@@ -122,13 +122,27 @@
 ;; Allowing self-connections
 ;;
 
+;; geometry model takes 3 args, the neuron that will recieve the connection (i)
+;; the neurons that will provide the connection (j)
+;; it returns a connection probability
+
+(defn ->directed-graph-with-geometry
+  [n-neurons geometry-model]
+  (.map (mathjs/matrix (mathjs/zeros #js [n-neurons
+                                          n-neurons])
+                       "sparse")
+        (fn [_ idx _]
+          (if (< (mathjs/random 0 1)
+                 (geometry-model (aget idx 0) (aget idx 1)))
+            1
+            0))))
+
 (defn ->random-directed-graph
   [n-neurons density]
-  (-> (mathjs/map
-        (mathjs/ones (* n-neurons n-neurons))
-        (fn [_]
-          (if (< (mathjs/random 0 1) density) 1.0 0.0)))
-      (mathjs/reshape #js [n-neurons n-neurons])))
+  (->directed-graph-with-geometry
+   n-neurons
+   (fn [_ _]
+     (< (mathjs/random 0 1) density))))
 
 (defn synaptic-input
   [weights activations]
@@ -166,39 +180,36 @@
 ;; this basically says, 'everything that is my inputs is normalized between 0 and 1'
 ;; for each neuron
 
+;; this is the perf bottleneck atm for the hebbian neuronal area
 (defn normalize
   [weights]
-  ;; weights
-  (let [sums (mathjs/sum weights 0)]
-    (mathjs/dotDivide weights sums))
-  )
+  (let [sums (mathjs/squeeze (mathjs/sum weights 0))]
+    (.map weights
+          (fn [v idx _m]
+            (mathjs/divide v (.get sums #js[(aget idx 1)])))
+          true)))
 
 (comment
+
   (do
     (defn normalize
       [weights]
-      (let
-          [d #js[#js[0 1 0]
-                 #js[0 1 1]
-                 #js[1 1 1]]
-           weights (mathjs/matrix d)
-           sums (mathjs/sum weights 0)]
-          (mathjs/dotDivide weights sums)))
-    (let [a (mathjs/matrix #js [1 2])
-          b (mathjs/matrix #js [#js [3] #js [4]])]
-      (mathjs/add a 3)
-      (mathjs/add a b)))
+      (let [sums (mathjs/squeeze (mathjs/sum weights 0))]
+        (.map
+         weights
+         (fn [v idx _m]
+           (mathjs/divide v (.get sums #js [(aget idx 1)])))
+         true
+         )))
+    (normalize
+     (mathjs/matrix
+      #js
+      [#js [0 1 0]
+       #js [0 1 1]
+       #js [1 1 1]] "sparse")))
 
-  (do
-    (defn normalize1
-      [weights]
-      (let [sums (mathjs/sum weights 0)]
-        (-> (mathjs/dotDivide weights sums)
-            (mathjs/add 0.5)
-            (mathjs/round))))
-    (normalize1 #js [#js [0 1 0]
-                     #js [0 1 1]
-                     #js [1 1 1]]))
+
+
 
   )
 
@@ -217,7 +228,7 @@
 
 (defn hebbian-plasticity
   [{:keys [plasticity weights current-activations next-activations]}]
-  (-> (mathjs/ones (mathjs/size weights))
+  (-> (mathjs/ones (mathjs/squeeze (mathjs/size weights)))
       (mathjs/subset (mathjs/index current-activations
                                    next-activations)
                      (+ plasticity 1.0))
@@ -225,19 +236,36 @@
 
 (comment
   (do
-    (defn ->hebbian-plasticity
-      [plasticity]
-      (fn [weights current-activations next-activations]
-        (-> (mathjs/ones (mathjs/size weights))
-            (mathjs/subset (mathjs/index current-activations
-                                         next-activations)
-                           (+ plasticity 1.0))
-            (mathjs/dotMultiply weights))))
-    ((->hebbian-plasticity 0.1)
-     (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
-                         #js [1 1 1]])
-     (mathjs/matrix #js [0 1])
-     (mathjs/matrix #js [0])))
+    (defn hebbian-plasticity
+      [{:keys [plasticity weights current-activations next-activations]}]
+      (-> (mathjs/ones (mathjs/squeeze (mathjs/size weights)))
+          (mathjs/subset (mathjs/index current-activations
+                                       next-activations)
+                         (+ plasticity 1.0))
+          (mathjs/dotMultiply weights)))
+    (hebbian-plasticity
+     {:plasticity
+      0.1
+      :weights
+      (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
+                          #js [1 1 1]])
+      :current-activations
+      (mathjs/matrix #js [0 1])
+      :next-activations
+      (mathjs/matrix #js [0])})
+    (hebbian-plasticity
+     {:plasticity
+      0.1
+      :weights
+      (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
+                          #js [1 1 1]] "sparse")
+      :current-activations
+      (mathjs/matrix #js [0 1])
+      :next-activations
+      (mathjs/matrix #js [0])}))
+
+
+
 
   ;; (for [i (mathjs/matrix #js [0 1])]
   ;;   i)
@@ -355,13 +383,12 @@
 ;; - no plasticity
 ;;
 
-(def n-neurons 10)
-
 (defn gaussian [amplitude mean std-deviation x]
   (* amplitude (Math/exp
                 (-
                  (/ (Math/pow (- x mean) 2)
                     (* 2 (Math/pow std-deviation 2)))))))
+
 
 ;;
 ;; You have the highest probability of connecting to yourself
@@ -393,19 +420,7 @@
      std-deviation
      (- j i))))
 
-;; geometry model takes 3 args, the neuron that will recieve the connection (i)
-;; the neurons that will provide the connection (j)
-;; it returns a connection probability
 
-(defn ->directed-graph-with-geometry
-  [n-neurons geometry-model]
-  (.map
-   (mathjs/matrix (mathjs/zeros #js [n-neurons n-neurons]) "sparse")
-   (fn [_ idx _]
-     (if (< (mathjs/random 0 1)
-            (geometry-model (aget idx 0) (aget idx 1)))
-       1
-       0))))
 
 (def identity-plasticity :weights)
 

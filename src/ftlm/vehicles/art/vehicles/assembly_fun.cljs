@@ -258,29 +258,28 @@
                                       1.0
                                       0.0))))))})
         neurons
-          (time
-            (into
-              []
-              (for [i (range n-neurons)]
-                (let [coll (mod i n-width)
-                      row (quot i n-width)
-                      pos [(+ (first pos) (* coll spacing))
-                           (+ (second pos)
-                              (* row spacing))]]
-                  (lib/->entity
-                    :circle
-                    {:active? false
-                     :color (:cyan controls/color-map)
-                     :hidden? true
-                     :neuron-i i
-                     :neuronal-unit? true
-                     :on-update-map
-                       {:hide (lib/every-n-seconds
-                                3
-                                (fn [e s _]
-                                  (assoc e :hidden? true)))}
-                     :transform
-                     (lib/->transform pos 25 25 1)})))))
+          (into
+           []
+           (for [i (range n-neurons)]
+             (let [coll (mod i n-width)
+                   row (quot i n-width)
+                   pos [(+ (first pos) (* coll spacing))
+                        (+ (second pos)
+                           (* row spacing))]]
+               (lib/->entity
+                :circle
+                {:active? false
+                 :color (:cyan controls/color-map)
+                 :hidden? true
+                 :neuron-i i
+                 :neuronal-unit? true
+                 :on-update-map
+                 {:hide (lib/every-n-seconds
+                         3
+                         (fn [e s _]
+                           (assoc e :hidden? true)))}
+                 :transform
+                 (lib/->transform pos 25 25 1)}))))
         edges (->edges e neurons)
         edges
           (into
@@ -570,8 +569,7 @@
      {:normalize-weights
       (lib/every-n-seconds
        5
-       (fn [e _s _]
-         (update e :weights normalize-weigths)))
+       (fn [e s _k] (update e :weights normalize-weigths)))
       :sensory-input
       (lib/every-n-seconds
        3
@@ -790,42 +788,39 @@
 (defmethod setup-version :dots
   [state]
   (let [input-space-size 10
-        n-neurons 200
+        n-neurons 400
         n-area
-          (->neuronal-area-ac
-            {:density 0.1
-             :frequency 10
-             :grid-width 20
-             :inhibition-model (fn [_state activations]
-                                 (cap-k activations 10))
-             :n-neurons n-neurons
-             :plasticity 0.1
-             :plasticity-model (->hebbian-plasticity 0.8)
-             :spacing 20
-             :transform
-               (lib/->transform [100 100] 20 20 1)})
+        (->neuronal-area-ac
+         {:density 0.1
+          :frequency 10
+          :grid-width 20
+          :n-neurons n-neurons
+          :plasticity 0.1
+          :plasticity-model (->hebbian-plasticity 0.8)
+          :spacing 20
+          :transform
+          (lib/->transform [100 100] 20 20 1)})
         n-area
-          (-> n-area
-              (assoc :ac-area
-                       {:activations (ac/->neurons
-                                       n-neurons)
-                        :inhibition-model
-                          (fn [_ synaptic-input]
-                            (ac/cap-k 25 synaptic-input))
-                        :normalize-weights? true
-                        :plasticity 0.1
-                        :plasticity-model
-                          ac/hebbian-plasticity
-                        :weights (ac/->random-directed-graph
-                                   n-neurons
-                                   0.1)})
-              (assoc-in [:on-update-map :normalize-weights]
-                        (lib/every-n-seconds
-                          1
-                          (fn [e _s _]
-                            (update-in e
-                                       [:ac-area :weights]
-                                       ac/normalize)))))
+        (-> n-area
+            (assoc :ac-area
+                   {:activations (ac/->neurons
+                                  n-neurons)
+                    :inhibition-model
+                    (fn [_ synaptic-input]
+                      (ac/cap-k 100 synaptic-input))
+                    :normalize-weights? true
+                    :plasticity 0.1
+                    :plasticity-model
+                    ac/hebbian-plasticity
+                    :weights (ac/->random-directed-graph n-neurons 0.01)})
+            (assoc-in [:on-update-map :normalize-weights]
+                      (lib/every-n-seconds
+                       20
+                       (fn [e _s _]
+                         (time
+                          (update-in e
+                                     [:ac-area :weights]
+                                     ac/normalize))))))
         id-area (:id n-area)
         input-space (->input-space-ac input-space-size
                                       n-neurons)
@@ -833,47 +828,47 @@
         state (-> state
                   (assoc :neuronal-area (:id n-area))
                   (lib/append-ents [n-area input-space]))]
+
+
     (->
-      state
-      (assoc-in
-        [:on-update-map :time-tick]
-        (lib/every-n-seconds
-          0.1
-          (fn [s _]
-            (let [show-lines
-                    (fn [s]
-                      (let [activations
-                              (ac/read-activations
-                                (:ac-area
-                                  ((lib/entities-by-id s)
-                                    id-area)))
-                            e ((lib/entities-by-id s)
-                                id-area)
-                            i->pos (fn [i]
-                                     ((e :i->pos) e i))]
-                        (for [[i j] (partition-all
-                                      2
-                                      (take (* 3 2)
-                                            activations))]
-                          (lib/->entity
-                            :multi-line
-                            {:color (:cyan
-                                      controls/color-map)
-                             :lifetime 3
-                             :on-update-map
-                               {:fade (elib/->fade 1)}
-                             :stroke-weight 1
-                             :transform (lib/->transform
-                                          (i->pos i)
-                                          1
-                                          1
-                                          1)
-                             :vertices
-                               (elib/rect-line-vertices-1
-                                 (i->pos i)
-                                 (i->pos j))}))))]
-              (-> s
-                  (lib/append-ents (show-lines s))))))))))
+     state
+     (assoc-in
+      [:on-update-map :time-tick]
+      (lib/every-n-seconds
+       0.1
+       (fn [s _]
+         (let [show-lines
+               (fn [s]
+                 (let [activations
+                       (ac/read-activations
+                        (:ac-area
+                         ((lib/entities-by-id s)
+                          id-area)))
+                       e ((lib/entities-by-id s)
+                          id-area)
+                       i->pos (fn [i]
+                                ((e :i->pos) e i))]
+                   (for [[i j] (partition-all 2 (take (* 3 2) (shuffle activations)))]
+                     (lib/->entity
+                      :multi-line
+                      {:color (:cyan
+                               controls/color-map)
+                       :lifetime 3
+                       :on-update-map
+                       {:fade (elib/->fade 1)}
+                       :stroke-weight 1
+                       :transform (lib/->transform
+                                   (i->pos i)
+                                   1
+                                   1
+                                   1)
+                       :vertices
+                       (elib/rect-line-vertices-1
+                        (i->pos i)
+                        (i->pos j))}))))]
+           (-> s
+               (lib/append-ents (show-lines s))))))))
+    ))
 
 (defn setup
   [controls]
