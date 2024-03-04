@@ -138,6 +138,11 @@
    "assembly-fun"
    {"0" {:v :grid-1}
     "1" {:v :grid}
+    "2" {:v :dots
+             :background-color {:h 0 :s 0 :v 89}
+
+
+         }
     }
    "brownians" {"0" {}
                 "1" {:background 230

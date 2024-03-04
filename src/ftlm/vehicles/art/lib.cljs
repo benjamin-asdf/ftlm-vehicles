@@ -230,6 +230,8 @@
           stroke (q/with-stroke (->hsb stroke) (drw))
           :else (drw))))
 
+(defmethod draw-entity :default [_])
+
 ;; returns a fn that returns the args to q/bezier
 (defn ->bezier
   [rel-control-point-1 rel-control-point-2]
@@ -479,24 +481,22 @@
 (defn draw-entities-1
   [entities]
   (doseq [{:as entity :keys [color draw-functions]}
-          (sort (u/by (some-fn :z-index (constantly 0))
-                      u/ascending
-                      :id
-                      u/ascending)
-                (sequence (comp (remove :hidden?)
-                                (map validate-entity))
-                          entities))]
-    (when (= (:world entity) :mind)
-      (def e entity)
-      )
+            (sort (u/by (some-fn :z-index (constantly 0))
+                        u/ascending
+                        :id
+                        u/ascending)
+                  (sequence (comp (remove :hidden?)
+                                  (map validate-entity))
+                            entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
     (draw-color color)
-    (let [drw (fn [] (draw-entity entity))]
+    (let [drw (fn []
+                (draw-entity entity)
+                (doall (map (fn [op] (op entity))
+                         (vals draw-functions))))]
       (cond (:stroke entity)
-            (q/with-stroke (->hsb (:stroke entity)) (drw))
-            :else (drw)))
-    (doall (map (fn [op] (op entity))
-                (vals draw-functions)))))
+              (q/with-stroke (->hsb (:stroke entity)) (drw))
+            :else (drw)))))
 
 (defn draw-entities
   [state]

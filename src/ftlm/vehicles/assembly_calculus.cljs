@@ -1,6 +1,8 @@
 (ns ftlm.vehicles.assembly-calculus
   (:require
    [tech.v3.datatype.argops :as argops]
+   [tech.v3.datatype.functional :as dtype-fn]
+   [tech.v3.datatype :as dtype]
    ["mathjs" :as mathjs]))
 
 ;; paper: https://arxiv.org/abs/2110.03171
@@ -13,16 +15,13 @@
 
 ;; https://github.com/mdabagia/learning-with-assemblies
 
-;; 1. In assembly calculus, you have a
-;;
-
 ;; insert Braitenberg quote, musing about the structure of cell assemblies (1977)
 ;; []
 
 ;; Braibenberg is stretching them up to memes and memeplexes!
 ;; But it is still all the activity of the cell assemblies.
 ;; Thus, we firmly get into the territory of traversing intermediate space between
-;; neurons and cognition
+;; activations and cognition
 ;; -> the cell assemblies are a datastructure, a building material
 ;;
 ;;
@@ -36,7 +35,7 @@
 ;; substance of cognition
 ;;                         you can implement the substance with cell assemblies
 ;;                         or hypervectors
-;;                         or McCulloch-Pitts neurons, too
+;;                         or McCulloch-Pitts activations, too
 ;;
 
 ;;
@@ -50,7 +49,7 @@
 
 ;; Essentials:
 ;; 1. Hebbian plasticity - fire together, wire together
-;; 2. Directed graph of excitatory neurons with dynamic edge weights
+;; 2. Directed graph of excitatory activations with dynamic edge weights
 ;; 3. Discrete timesteps
 ;; 4. Inhibition (Braitenberg calls this a thought pump)
 ;;
@@ -60,8 +59,8 @@
 ;;
 
 ;;
-;; I. Devide the brain into areas containg n neurons connected through a G(n,p) directed graph
-;; II. implement a k-cap selection, the top k excitied neurons fire at the next time step
+;; I. Devide the brain into areas containg n activations connected through a G(n,p) directed graph
+;; II. implement a k-cap selection, the top k excitied activations fire at the next time step
 
 
 ;; Implementation
@@ -125,16 +124,15 @@
 
 (defn ->random-directed-graph
   [n-neurons density]
-  (->
-   (mathjs/map
-    (mathjs/ones (* n-neurons n-neurons))
-    (fn [_] (if (< (mathjs/random 0 1) density) 1.0 0.0)))
-   (mathjs/reshape #js [n-neurons n-neurons])))
+  (-> (mathjs/map
+        (mathjs/ones (* n-neurons n-neurons))
+        (fn [_]
+          (if (< (mathjs/random 0 1) density) 1.0 0.0)))
+      (mathjs/reshape #js [n-neurons n-neurons])))
 
 (defn synaptic-input
   [weights activations]
-  (let [n (.get (mathjs/size (mathjs/matrix weights))
-                #js [0])]
+  (let [n (.get (mathjs/size weights) #js [0])]
     (-> (mathjs/subset weights
                        (mathjs/index activations
                                      (mathjs/range 0 n)))
@@ -158,10 +156,13 @@
 ;; since weights is i->j
 ;; this basically says, 'everything that is my inputs is normalized between 0 and 1'
 ;; for each neuron
+
 (defn normalize
   [weights]
+  ;; weights
   (let [sums (mathjs/sum weights 0)]
-    (mathjs/dotDivide weights sums)))
+    (mathjs/dotDivide weights sums))
+  )
 
 (comment
   (do
@@ -177,12 +178,26 @@
     (let [a (mathjs/matrix #js [1 2])
           b (mathjs/matrix #js [#js [3] #js [4]])]
       (mathjs/add a 3)
-      (mathjs/add a b))))
+      (mathjs/add a b)))
+
+  (do
+    (defn normalize1
+      [weights]
+      (let [sums (mathjs/sum weights 0)]
+        (-> (mathjs/dotDivide weights sums)
+            (mathjs/add 0.5)
+            (mathjs/round))))
+    (normalize1 #js [#js [0 1 0]
+                     #js [0 1 1]
+                     #js [1 1 1]]))
 
 
+
+  )
+
+;; the active activations are a set of indices
 (defn ->neurons [n-neurons]
-  (mathjs/ones n-neurons))
-
+  (mathjs/range 0 n-neurons))
 
 ;; ---------------------
 ;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
@@ -194,31 +209,31 @@
 ;; In effect, everytime I am active, I can look who activated me. For those connections we increase the weight
 
 (defn hebbian-plasticity
-  [plasticity-rate synaptic-weights current-activations next-activations]
-  (-> (mathjs/ones (mathjs/size synaptic-weights))
+  [{:keys [plasticity weights current-activations next-activations]}]
+  (-> (mathjs/ones (mathjs/size weights))
       (mathjs/subset (mathjs/index current-activations
                                    next-activations)
-                     (+ plasticity-rate 1.0))
-      (mathjs/dotMultiply synaptic-weights)))
+                     (+ plasticity 1.0))
+      (mathjs/dotMultiply weights)))
 
 (comment
   (do
     (defn ->hebbian-plasticity
-      [plasticity-rate]
-      (fn [synaptic-weights
-           current-activations
-           next-activations]
-        (-> (mathjs/ones (mathjs/size synaptic-weights))
+      [plasticity]
+      (fn [weights current-activations next-activations]
+        (-> (mathjs/ones (mathjs/size weights))
             (mathjs/subset (mathjs/index current-activations
                                          next-activations)
-                           (+ plasticity-rate 1.0))
-            (mathjs/dotMultiply synaptic-weights))))
+                           (+ plasticity 1.0))
+            (mathjs/dotMultiply weights))))
     ((->hebbian-plasticity 0.1)
-     (mathjs/matrix #js [#js [0 0 0]
-                         #js [1 1 1]
+     (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
                          #js [1 1 1]])
      (mathjs/matrix #js [0 1])
      (mathjs/matrix #js [0])))
+
+  ;; (for [i (mathjs/matrix #js [0 1])]
+  ;;   i)
 
   ;; #object[DenseMatrix [[0, 0, 0],
   ;;                      [1.1, 1, 1],
@@ -230,74 +245,128 @@
   ;;  [1.  1.  1. ]]
   )
 
-;; just needs to work
-(defn ->cap-k [k]
-  (fn [synaptic-input]
-    (into-array :int (take k (argops/argsort > (.valueOf synaptic-input))))))
+(defn cap-k [k synaptic-input]
+  (into-array :int (take k (argops/argsort > (.valueOf synaptic-input)))))
 
-(defn update-neurons
-  [{:as state :keys [neurons weights inhibition-model]}]
-  (let [current-activations neurons
-        synaptic-input (synaptic-input weights
-                                       current-activations)
+(defn update-neuronal-area
+  [{:as state
+    :keys [activations weights inhibition-model
+           plasticity-model]}]
+  (let [synaptic-input (synaptic-input weights activations)
         next-active (inhibition-model state synaptic-input)
-        next-weights (plasticity-model current-activations
-                                       nex-active
-                                       weights)]
+        next-weights (plasticity-model
+                      (assoc state
+                             :current-activations activations
+                             :next-activations next-active))]
     (assoc state
-      :neurons next-active
-      :weights next-weights)))
+           :activations next-active
+           :weights next-weights)))
 
+;; inputs are just a set of neuron indices
+;; you might decide to call the inhibition model here, but whatever.
+;; there will be another time step soon
+(defn set-input
+  [state input]
+  (assoc state :activations input))
 
-
-(comment
-  (normalize (mathjs/ones 10))
-  (normalize )
-  (mathjs/norm v)
-  (normalize-matrix  )
-
-
-  (mathjs/sum (mathjs/ones 10))
-  (mathjs/sum (mathjs/reshape (mathjs/ones 20) #js [10 2]) 0)
-
-  (mathjs/divide
-   (mathjs/reshape (mathjs/ones 20) #js [2 10])
-   (mathjs/sum (mathjs/reshape (mathjs/ones 20) #js [2 10]) 1))
-
-  (mathjs/multiply
-   (mathjs/reshape (mathjs/ones 20) #js [2 10])
-   #js [1 2])
-
-  (defn normalize-matrix1 [input-weights]
-    (mathjs/map
-     input-weights
-     (fn [w]
-       (let [column-sum (mathjs/sum w)]
-         (mathjs/divide w column-sum)))))
-
-  (mathjs/sum #js [1 2 3])
-
-  (mathjs/map w2 (fn [w] 0
-                   ;; (mathjs/sum w)
-                   ))
-
-  (def w2 (->random-directed-graph 10 0.6))
-  (count w2)
-
-  (time (def w2 (->random-directed-graph 1e3 0.6)))
-
-  (.-value (first (mathjs/size w2)))
-
-
-  (normalize (normalize))
-
-  (time (def weights (->random-directed-graph 10 1.0)))
-  (def inputs (mathjs/ones 10))
-  (mathjs/multiply weights inputs))
-
+(defn read-activations
+  [state]
+  (.valueOf (:activations state)))
 
 (comment
+  (do
+    (def mystate {:activations (->neurons 3)
+                  :weights (->random-directed-graph 3 0.6)
+                  :inhibition-model (fn [_ synaptic-input] (cap-k 2 synaptic-input))
+                  :plasticity 0.1
+                  :plasticity-model hebbian-plasticity})
+    [:weights
+     (:weights mystate)
+     :activations
+     (:activations mystate)
+     :input
+     (synaptic-input (:weights mystate)
+                     (:activations mystate))
+     :next-active
+     ((:inhibition-model mystate) mystate (synaptic-input (:weights mystate)
+                                                          (:activations mystate)))
+     ;; (update-neuronal-area mystate)
+     :next-weights
+     (:weights (update-neuronal-area mystate))]))
 
+
+;; ------------------------
+;; A sensory apparatus
+
+;; from sensory units -> neuron indices
+;; With 2 versions, one off and another on
+;; This models inhibitory interneurons, and represents the absence of a signal
+;; This is similar to the canonical receptive fields of neuro science
+
+(defn sensory-apparatus-projection [n-neurons k-sensory-units projection-density]
+  (into
+   []
+   (for [_ (range k-sensory-units)]
+     ;; off / on projections (i.e the absence of a sensory unit being active is projected to some neurons)
+     {false
+      (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))
+      true
+      (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))})))
+
+(defn sensory-apparatus
+  [{:keys [n-neurons k-sensory-units projection-density] :as state}]
+  (print n-neurons k-sensory-units projection-density)
+  (assoc
+   state
+   :sensory-projection
+   (sensory-apparatus-projection n-neurons k-sensory-units projection-density)))
+
+(defn ->sensory-inputs [input-states sensory-projection]
+  (mathjs/matrix
+   (into-array :int
+               (into #{}
+                     (mapcat
+                      (fn [[idx input-active?]]
+                        (get-in sensory-projection [idx input-active?]))
+                      (map-indexed vector input-states))))))
+
+(comment
+  (->sensory-inputs
+   [true false true]
+   (sensory-apparatus-projection 100 3 0.1))
+  (mathjs/matrix
+   (into-array :int (->sensory-inputs
+                     [true false true]
+                     (sensory-apparatus-projection 100 3 0.1))))
+  (time
+   (do (sensory-apparatus-projection 10000 10 0.1) nil)))
+
+;; ==================
+;; 1 bit version
+;; - use geometry
+;; - synapses are 1 bit,
+;; - no plasticity
+;;
+
+(defn ->directed-graph-with-geometry [])
+
+(comment
+
+
+  (.map
+   (mathjs/matrix
+    #js [#js [1 0 1] #js [1 1 1] #js [1 0 1]]
+    "sparse")
+   (fn [v i m] (def i i) v)
+   true)
+
+
+  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0)
+  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0)
+
+  )
+
+(comment
   (def n-neurons 4)
   (mathjs/reshape #js [1 1 1 1] #js [2 2])
   (mathjs/random 0 1)
@@ -309,8 +378,7 @@
      (mathjs/range n-neurons)
      (fn [_] (mathjs/random 0 1))))
 
-  (def row-length 2)
-  )
+  (def row-length 2))
 
 (comment
   (def w (mathjs/ones #js [2 2]))
@@ -331,7 +399,6 @@
   (mathjs/subset w (mathjs/index 0 0) 1)
   (.subset w (mathjs/index 0 0) 1)
 
-  (normalilize (mathjs/matrixFromRows #js[0 1 0] #js[0 2 2]))
 
   (def current-activations (mathjs/matrix #js [1 0]))
   (def next-activations (mathjs/matrix #js [1 0]))
@@ -340,170 +407,8 @@
     (mathjs/matrixFromRows
      #js[1 0]
      #js[0 1]))
-
-  ((->hebbian-plasticity 0.1) current-activations next-activations weights)
-
   (mathjs/transpose current-activations)
 
-  (.. (mathjs/chain 3) (add 4) (subtract 2) done)
-
-  (.. (mathjs/chain #js [1 2 3 ])
-      (subset (mathjs/index 0) 8)
-      (subtract 2)
-      done)
-
-  (.subset
-   (mathjs/matrix #js [1 2 3])
-   (mathjs/index 0))
-
-  (mathjs/sum
-   (.subset
-    (mathjs/matrix #js [1 2 3])
-    (mathjs/index #js [0 1])))
-
-  (->synaptic-input (mathjs/matrix #js[1 2 3]) #js[0 1])
-
-  (->synaptic-input
-   (mathjs/matrix (mathjs/ones #js[2 2]))
-   #js[0 1])
-
-  (.subset
-   (mathjs/matrix (mathjs/ones #js[2 2]))
-   ;; #object[DenseMatrix [[1, 1], [1, 1]]]
-   (mathjs/index 0 0))
-
-  (let [weights (mathjs/matrix (mathjs/ones #js[3 3]))
-        activations (mathjs/matrix #js[0 1 0])]
-    ;; this is a dimension error:
-    ;; (.subset weights (mathjs/index activations))
-    ;; correct:
-    (.subset weights (mathjs/index #js[0 1])))
-
-
-
-  (.subset
-   (mathjs/matrix (mathjs/ones #js[2 2]))
-   (mathjs/index #js [0]))
-
-  (mathjs/matrix
-   (mathjs/ones #js [2 2]))
-
-  (mathjs/ones #js [2 2])
-
-
-
-  (mathjs/bitAnd #js[0 1 1] #js[0 1 0])
-  (-> (mathjs/bitAnd #js[0 1 1] #js[0 1 0]) (mathjs/add))
-  (-> (mathjs/bitAnd current-activations next-activations))
-
-  (..
-   (mathjs/chain weights)
-   (subset (mathjs/index 0 0) 1)
-   done)
-
-  (..
-   (mathjs/chain weights)
-   (subset (mathjs/index 0 0) 1)
-   done)
-
-
-  (mathjs/index 0 (mathjs/range 0 ))
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index 1 0)))
-
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index 1 0) 1))
-
-  ;; selects the cols
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[false true] 0)))
-
-  ;; both cols and then the first
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[0 1] 0)))
-
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[0 1] #js [0 1])))
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[0 1] #js [0 1])))
-
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[false true] true)))
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (mathjs/subset d (mathjs/index #js[false true] #js [true true])))
-
-
-
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (->
-     (mathjs/subset
-      d
-      (mathjs/index #js[0 1] (mathjs/range 0 2)))
-     (mathjs/sum 0)))
-
-  (let [d #js [#js [1 2]
-               #js [3 4]]]
-    (->
-     (mathjs/subset
-      d
-      (mathjs/index #js[0 1] (mathjs/range 0 2)))
-     (mathjs/sum 1)))
-
-
-
-  (let [d #js [#js [0 1]
-               #js [0 1]]]
-    (first (mathjs/size d)))
-
-
-
-  (let [d #js [#js [0 1 0]
-               #js [0 1 1]]]
-    (->
-     (mathjs/subset
-      d
-      (mathjs/index #js[0 1] (mathjs/range 0 (nth (mathjs/size d) 1))))
-     (mathjs/sum 0)))
-
-
-  (let [d #js [#js [0 1 0]
-               #js [0 1 1]]
-        activations #js [0 1]]
-    (->
-     (mathjs/subset
-      d
-      (mathjs/index activations (mathjs/range 0 (nth (mathjs/size d) 1))))
-     (mathjs/sum 0)))
-
-  (let [d #js [#js [0 1 0]
-               #js [0 1 1]]]
-    (mathjs/matrix d))
-
-
-  (let [d #js [#js [0 1 0]
-               #js [0 1 1]
-               #js [1 1 1]]
-        activations #js [0 2]]
-    ;; (->synaptic-input d activations)
-    ;; (.get 0)
-    (.-value (first (mathjs/size (mathjs/matrix d))))
-    (.get (mathjs/size (mathjs/matrix d)) #js [0]))
 
 
   (do
@@ -522,20 +427,6 @@
                  #js [1 1 1]]
           activations #js [0 2]]
       (->synaptic-input (mathjs/matrix d) activations)))
-
-
-  (mathjs/matrix #js [1 2 3 4])
-
-
-
-  ;; #object[DenseMatrix [1, 3, 2]]
-
-
-  ;; (normalize weights)
-
-  ;; (mathjs/resize #js[3 3])
-
-
 
   (let
       [d #js[#js[0 1 0]
