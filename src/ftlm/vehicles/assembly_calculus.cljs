@@ -224,13 +224,17 @@
   [{:keys [plasticity weights current-activations
            next-activations]}]
   ;; bit convoluted to make a inplace operation
-  (.forEach (mathjs/subset weights
-                           (mathjs/index current-activations
-                                         next-activations))
-            (fn [v idx m]
-              (.set weights idx (+ v plasticity)))
-            true)
-  weights)
+  ;; (.forEach
+  ;;  (mathjs/subset weights (mathjs/index current-activations next-activations))
+  ;;  (fn [v idx m]
+  ;;    (.set weights idx (+ v plasticity)))
+  ;;  true)
+  (.subset
+   weights
+   (mathjs/index next-activations current-activations)
+   (mathjs/add
+    (.subset weights (mathjs/index next-activations current-activations))
+    plasticity)))
 
 (comment
   (do
@@ -269,6 +273,7 @@
   [{:as state
     :keys [activations weights inhibition-model
            plasticity-model]}]
+  ;; (println weights activations (synaptic-input weights activations))
   (let [synaptic-input (synaptic-input weights activations)
         next-active (inhibition-model state synaptic-input)
         next-weights (if plasticity-model
@@ -288,6 +293,13 @@
   [state input]
   (assoc state :activations input))
 
+(defn append-input
+  [state input]
+  (update state
+          :activations
+          (fn [activations]
+            (mathjs/concat activations input))))
+
 (defn read-activations
   [state]
   (.valueOf (:activations state)))
@@ -300,7 +312,8 @@
                   :plasticity 0.1
                   :plasticity-model hebbian-plasticity})
     [:weights
-     (:weights mystate)
+     (.clone
+      (:weights mystate))
      :activations
      (:activations mystate)
      :input
@@ -311,7 +324,9 @@
                                                           (:activations mystate)))
      ;; (update-neuronal-area mystate)
      :next-weights
-     (:weights (update-neuronal-area mystate))]))
+     (:weights (update-neuronal-area mystate))])
+
+  )
 
 
 ;; ------------------------

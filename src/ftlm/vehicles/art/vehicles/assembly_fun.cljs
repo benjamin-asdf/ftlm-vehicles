@@ -327,18 +327,21 @@
         e (assoc e :components (map :id neurons))]
     (concat [e] neurons edges)))
 
+
+;; My neuronal dream
+;; ---------------------------
+;; this version was just to develop the look a bit
+;; --------------------------
 (defmethod setup-version :grid-1
   [state]
   (let [state (-> state
-                  (lib/append-ents (->neuronal-area-1
-                                     ;; 6 10
-                                     200
-                                     ;; 6
-                                     0.01
-                                     {:n-width 20
-                                      ;; 20 3
-                                      :pos [100 100]
-                                      :spacing 30})))
+                  (lib/append-ents
+                   (->neuronal-area-1
+                    200
+                    0.01
+                    {:n-width 20
+                     :pos [100 100]
+                     :spacing 30})))
         edges-set (into #{}
                         (comp (filter :edge?) (map :id))
                         (lib/entities state))
@@ -348,98 +351,42 @@
                                              :id)))
                             (lib/entities state))]
     (->
-      state
-      (assoc-in
-        [:on-update-map :time-tick]
-        (lib/every-n-seconds
-          1
-          (fn [s _]
-            (let [color ((rand-nth
-                           [:magenta :orange :heliotrope
-                            :green-yellow :mint :fruit-salad
-                            :yello :sweet-pink])
-                          controls/color-map)
-                  edges (take 20 (shuffle edges-set))
-                  s (reduce (fn [s id]
-                              (update-in s
-                                         [:eid->entity id]
-                                         (fn [e]
-                                           (assoc e
-                                             :hidden?
+     state
+     (assoc-in
+      [:on-update-map :time-tick]
+      (lib/every-n-seconds
+       1
+       (fn [s _]
+         (let [color ((rand-nth
+                       [:magenta :orange :heliotrope
+                        :green-yellow :mint :fruit-salad
+                        :yello :sweet-pink])
+                      controls/color-map)
+               edges (take 20 (shuffle edges-set))
+               s (reduce (fn [s id]
+                           (update-in s
+                                      [:eid->entity id]
+                                      (fn [e]
+                                        (assoc e
+                                               :hidden?
                                                false))))
-                      s
-                      edges)
-                  neurons-active
-                    (take 25 (shuffle neuron-lookup))
-                  s (reduce (fn [s [_ id]]
-                              (update-in s
-                                         [:eid->entity id]
-                                         (fn [e]
-                                           (assoc e
-                                             :active? true
-                                             :hidden? false
-                                             :color
+                         s
+                         edges)
+               neurons-active
+               (take 25 (shuffle neuron-lookup))
+               s (reduce (fn [s [_ id]]
+                           (update-in s
+                                      [:eid->entity id]
+                                      (fn [e]
+                                        (assoc e
+                                               :active? true
+                                               :hidden? false
+                                               :color
                                                color))))
-                      s
-                      neurons-active)]
-              (-> s
-                  (update :tick (fnil inc 0))))))))))
-
-
-
-(defn ->synaptic-input
-  [state]
-  (->synaptic-input-1 (:weights state) (:elements state)))
-
-(defn cap-k [activations k]
-  (take k (argops/argsort > activations)))
-
-;; --- I am allowing the neurons to
-;; connect to themselves ---
-(defn ->random-directed-graph
-  [n-neurons density]
-  (into []
-        (for [_ (range n-neurons)]
-          (dtype/clone
-            (dtype/emap
-              (fn [] (if (< (rand) density) 1.0 0.0))
-              :float
-              (dtype/make-container :float n-neurons))))))
-
-;; (defn ->random-directed-graph-with-geometry
-;;   [n-neurons density spread]
-;;   (into []
-;;         (for [i (range n-neurons)]
-;;           (dtype/clone
-;;            (dtype/make-container
-;;             :float
-;;             (for [j (range n-neurons)]
-;;               (lib/normal-distr )
-;;               )
-;;             n-neurons))
-;;           (dtype/clone
-;;            (dtype/emap
-;;             (fn [] (if (< (rand) density) 1.0 0.0))
-;;             :float
-;;             (dtype/make-container :float n-neurons))))))
-
-(defn ->random-directed-graph-with-geometry-per-row
-  [n-neurons density row-length]
-  (let [row (fn [i] (quot i row-length))
-        high-probablity density
-        ;; (* density 10)
-        low-probablity (/ density 10)]
-    (into []
-          (for [i (range n-neurons)]
-            (dtype/clone (dtype/make-container
-                           :float
-                           (for [j (range n-neurons)]
-                             (if (< (rand)
-                                    (if (= (row i) (row j))
-                                      high-probablity
-                                      low-probablity))
-                               1.0
-                               0.0))))))))
+                         s
+                         neurons-active)]
+           (-> s
+               (update :tick (fnil inc 0))))))))))
 
 
 (defn ->input-space-elements
@@ -454,46 +401,6 @@
 ;;    simulating an inhibitory neuron in between
 ;; This allows the area to represent the absence of something.
 
-(defn ->input-space
-  [n]
-  (lib/->entity
-   :grid
-   {:color (:red controls/color-map)
-    :input-space? true
-    :draw-element
-    (fn [active?]
-      (q/with-stroke
-        (lib/->hsb (:navajo-white controls/color-map))
-        (lib/draw-color
-         (if active?
-           (:navajo-white controls/color-map)
-           (:woodsmoke controls/color-map)))
-        (q/rect 0 0 20 20)))
-    :elements (->input-space-elements n)
-    :grid-width 5
-    :on-update-map
-    {:sensitive-to-mouse
-     (lib/every-n-seconds
-      0.1
-      (fn [e s _]
-        (let [y (q/mouse-y)
-              x (q/mouse-x)
-              ;; project mouse position to input
-              ;; space
-              inputs-identity
-              (int (* (/ (- (* (q/width) 0.9) x)
-                         (* (q/width) 0.9))
-                      n))]
-          (assoc e
-                 :elements
-                 (dtype/clone
-                  (dtype/make-container
-                   :boolean
-                   (for [i (range n)]
-                     (boolean (= inputs-identity i)))))))))}
-    :spacing 20
-    :transform (lib/->transform [(elib/from-right 300) (elib/from-bottom 400)] 1 1 1)}))
-
 (defn ->input-space-ac
   [n n-neurons]
   (lib/->entity
@@ -504,7 +411,7 @@
     (ac/sensory-apparatus
      {:k-sensory-units n
       :n-neurons n-neurons
-      :projection-density 0.001})
+      :projection-density 0.01})
     :draw-element
     (fn [active?]
       (q/with-stroke
@@ -524,8 +431,6 @@
       (fn [e s _]
         (let [y (q/mouse-y)
               x (q/mouse-x)
-              ;; project mouse position to input
-              ;; space
               inputs-identity
               (int (* (/ (- (* (q/width) 0.9) x)
                          (* (q/width) 0.9))
@@ -539,189 +444,6 @@
                      (boolean (= inputs-identity i)))))))))}
     :spacing 20
     :transform (lib/->transform [(elib/from-right 300) (elib/from-bottom 400)] 1 1 1)}))
-
-(defn ->neuronal-area
-  [{:as opts
-    :keys [n-neurons density spacing inhibition-model
-           plasticity-model grid-width]}]
-  (lib/->entity
-   :grid
-   (merge
-    {:color (:cyan controls/color-map)
-     :draw-element (fn [active?]
-                     (when active? (q/rect 0 0 25 25 2)))
-     ;; :->elements (fn [e] (:neuron-activations e))
-     :elements (dtype/make-container :boolean n-neurons)
-     :i->pos (fn [{:keys [transform]} i]
-               (let [[x y] (:pos transform)
-                     coll (mod i grid-width)
-                     row (quot i grid-width)
-                     x (+ x (* coll spacing))
-                     y (+ y (* row spacing))]
-                 [x y]))
-     :next-color (constantly (:cyan controls/color-map))
-     :weights
-     (->random-directed-graph-with-geometry-per-row
-      n-neurons
-      density
-      grid-width)
-     ;; (->random-directed-graph n-neurons density)
-     :on-update-map
-     {:normalize-weights
-      (lib/every-n-seconds
-       5
-       (fn [e s _k] (update e :weights normalize-weigths)))
-      :sensory-input
-      (lib/every-n-seconds
-       3
-       (fn [e s _k]
-         (let [{:keys [elements input-projection]}
-               ((lib/entities-by-id s)
-                (s :input-space))
-               sensory-inputs elements
-               synaptic-input (->synaptic-input-1
-                               input-projection
-                               sensory-inputs)
-               next-active
-               (inhibition-model e synaptic-input)]
-           (->
-            e
-            (set-inputs next-active)
-            (assoc
-             :next-color
-             (let [remaining
-                   ;; (atom 10)
-                   (atom 2)]
-               (fn []
-                 (swap! remaining dec)
-                 (if (<= @remaining 0)
-                   (:cyan controls/color-map)
-                   (:red
-                    controls/color-map)))))))))
-      :update-neurons
-      (lib/every-n-seconds
-       0.5
-       (fn [e _s _]
-         (let [current-activations (:elements e)
-               synaptic-input (->synaptic-input e)
-               next-active
-               (inhibition-model e synaptic-input)
-               e (set-inputs e next-active)
-               next-weights (plasticity-model
-                             current-activations
-                             (:elements e)
-                             (:weights e))]
-           (-> e
-               (assoc :weights next-weights)
-               (assoc :color ((:next-color e)))))))}
-     :spacing spacing}
-    opts)))
-
-(comment
-  (def example-weights (into []
-                             (for [_ (range 10)]
-                               (dtype/make-container
-                                :float
-                                (for [j (range 10)]
-                                  (rand-int 10))))))
-
-  (let [weights example-weights]
-    (into
-     []
-     (for
-         [i (range (count weights))
-          :let
-          [weight (nth weights i) sum (dtype-fn/sum weight)]]
-         (dtype/clone
-          (dtype/emap (fn [w] (/ w sum)) :float (nth weights i)))))))
-
-;; sensory input
-;; -------------------------
-
-(defn input-projection
-  [input-space-size neuronal-area connection-probability]
-  (let [neuron-n (count (:elements neuronal-area))]
-    (into
-     []
-     (for [_ (range neuron-n)]
-       (dtype/clone
-        (dtype/emap
-         (fn []
-           (if (< (rand) connection-probability) 1 0))
-         :int32
-         (dtype/make-container :int32
-                               input-space-size)))))))
-
-(defmethod setup-version :grid
-  [state]
-  (let [input-space-size 10
-        n-neurons 200
-        n-area (->neuronal-area
-                {:density 0.1
-                 :grid-width 20
-                 :n-neurons n-neurons
-                 :spacing 25
-                 :plasticity 0.1
-                 :plasticity-model (->hebbian-plasticity 0.8)
-                 :inhibition-model
-                 ;; (fn [state activations]
-                 ;;   (let [k
-                 ;;         (int
-                 ;;          (+ 10
-                 ;;             (gaussian
-                 ;;              100
-                 ;;              20
-                 ;;              10
-                 ;;              (count
-                 ;;              (argops/argfilter
-                 ;;              true? (:elements
-                 ;;              state))))))]
-                 ;;     (println k)
-                 ;;     (cap-k activations k)))
-                 (fn [_state activations]
-                   (cap-k activations 10))
-                 :transform
-                 (lib/->transform [100 100] 20 20 1)})
-        id-area (:id n-area)
-        input-space (->input-space input-space-size)
-        input-space
-        (assoc input-space  :input-projection (input-projection input-space-size n-area 0.1))
-        state (-> state
-                  (assoc :input-space (:id input-space))
-                  (assoc :neuronal-area (:id n-area))
-                  (lib/append-ents [n-area input-space]))]
-    (->
-     state
-     (assoc-in
-      [:on-update-map :time-tick]
-      (lib/every-n-seconds
-       0.1
-       (fn [s _]
-         (let
-             [show-one-line
-              (fn [s]
-                (let [e ((lib/entities-by-id s) id-area)
-                      rand-coll (rand-int (count (:weights e)))
-                      i->pos (fn [i] ((e :i->pos) e i))
-                      rand-edge-j
-                      (first
-                       (take 1 (argops/argfilter #(not (zero? %)) (get (:weights e) rand-coll))))]
-                  (when rand-edge-j
-                    (let [i rand-coll j rand-edge-j]
-                      [(lib/->entity
-                        :multi-line
-                        {:vertices (elib/rect-line-vertices-1 (i->pos i) (i->pos j))
-                         :color (:cyan controls/color-map)
-                         :stroke-weight 1
-                         :on-update-map
-                         {:fade (elib/->fade 1)}
-                         :lifetime 3
-                         :transform (lib/->transform (i->pos i) 1 1 1)})]))))]
-             (-> s
-                 (lib/append-ents
-                  (apply concat (repeatedly 3 #(show-one-line s))))))))))))
-
-
 
 (defn wire-input-space [neuronal-area input-space frequency]
   (assoc-in
@@ -738,6 +460,7 @@
             (ac/->sensory-inputs sensory-inputs sensory-projection)]
         (->
          e
+         ;; (update :ac-area ac/append-input inputs)
          (update :ac-area ac/set-input inputs)
          (assoc
           :color (:red controls/color-map)
@@ -789,18 +512,91 @@
        :spacing spacing}
       opts)))
 
-(defmethod setup-version :dots
+(defmethod setup-version :grid
   [state]
   (let [input-space-size 10
-        n-neurons 400
+        n-neurons 300
         n-area
         (->neuronal-area-ac
-         {:density 0.1
+         {:color (:cyan controls/color-map)
+          :draw-i (fn [_]
+                    (q/with-stroke nil
+                      (q/rect 0 0 25 25 2)))
           :frequency 10
           :grid-width 20
           :n-neurons n-neurons
-          :plasticity 0.1
-          :plasticity-model (->hebbian-plasticity 0.8)
+          :spacing 25
+          :transform
+          (lib/->transform [100 100] 20 20 1)})
+        n-area
+        (-> n-area
+            (assoc :ac-area
+                   {:activations (into-array :int (take 20 (shuffle (range n-neurons))))
+                    :inhibition-model
+                    (fn [_ synaptic-input]
+                      (ac/cap-k 25 synaptic-input))
+                    :normalize-weights? true
+                    :plasticity 0.01
+                    :plasticity-model ac/hebbian-plasticity
+                    :weights (ac/->random-directed-graph n-neurons 0.1)})
+            (assoc-in
+             [:on-update-map :normalize-weights]
+             (lib/every-n-seconds
+              5
+              (fn [e _s _]
+                (update-in e [:ac-area :weights] ac/normalize)))))
+        id-area (:id n-area)
+        input-space (->input-space-ac input-space-size
+                                      n-neurons)
+        n-area (wire-input-space n-area input-space (/ 1 3))
+        state (-> state (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area input-space]))]
+
+    (->
+     state
+     (assoc-in
+      [:on-update-map :time-tick]
+      (lib/every-n-seconds
+       0.1
+       (fn [s _]
+         (let [show-lines
+               (fn [s]
+                 (let [activations
+                       (ac/read-activations
+                        (:ac-area
+                         ((lib/entities-by-id s)
+                          id-area)))
+                       e ((lib/entities-by-id s)
+                          id-area)
+                       i->pos (fn [i]
+                                ((e :i->pos) e i))]
+                   (for [[i j] (partition-all 2 (take (* 3 2) (shuffle activations)))]
+                     (lib/->entity
+                      :multi-line
+                      {:color (:cyan
+                               controls/color-map)
+                       :lifetime 3
+                       :on-update-map
+                       {:fade (elib/->fade 1)}
+                       :stroke-weight 1
+                       :transform (lib/->transform (i->pos i) 1 1 1)
+                       :vertices
+                       (elib/rect-line-vertices-1
+                        (i->pos i)
+                        (i->pos j))}))))]
+           (-> s
+               (lib/append-ents (show-lines s))))))))))
+
+(defmethod setup-version :dots
+  [state]
+  (let [input-space-size 3
+        n-neurons 500
+        n-area
+        (->neuronal-area-ac
+         {:density 0.1
+          :frequency 5
+          :grid-width 20
+          :n-neurons n-neurons
           :spacing 20
           :transform
           (lib/->transform [100 100] 20 20 1)})
@@ -811,21 +607,20 @@
                                   n-neurons)
                     :inhibition-model
                     (fn [_ synaptic-input]
-                      (ac/cap-k 100 synaptic-input))
+                      (ac/cap-k 30 synaptic-input))
                     :normalize-weights? true
-                    :plasticity 0.1
+                    :plasticity 0.01
                     :plasticity-model
                     ac/hebbian-plasticity
-                    :weights (ac/->random-directed-graph n-neurons 0.01)})
+                    :weights (ac/->random-directed-graph n-neurons 0.2)})
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
-                       5
+                       20
                        (fn [e _s _]
                          (update-in e [:ac-area :weights] ac/normalize)))))
         id-area (:id n-area)
-        input-space (->input-space-ac input-space-size
-                                      n-neurons)
-        n-area (wire-input-space n-area input-space 1)
+        input-space (->input-space-ac input-space-size n-neurons)
+        n-area (wire-input-space n-area input-space (/ 1 3))
         state (-> state
                   (assoc :neuronal-area (:id n-area))
                   (lib/append-ents [n-area input-space]))]
@@ -872,12 +667,11 @@
 
 (defmethod setup-version :geometry
   [state]
-  (let [input-space-size 10
-        n-neurons 400
+  (let [input-space-size 5
+        n-neurons 600
         n-area
         (->neuronal-area-ac
-         {:density 0.1
-          :frequency 10
+         {:frequency 10
           :grid-width 20
           :n-neurons n-neurons
           :spacing 20
