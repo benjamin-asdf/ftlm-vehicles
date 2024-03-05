@@ -55,7 +55,7 @@
 ;;
 
 ;;
-;; the ignition of this stuff is from Hebb.
+;; The ignition of this stuff is from Hebb.
 ;;
 
 ;;
@@ -190,7 +190,6 @@
           true)))
 
 (comment
-
   (do
     (defn normalize
       [weights]
@@ -206,12 +205,7 @@
       #js
       [#js [0 1 0]
        #js [0 1 1]
-       #js [1 1 1]] "sparse")))
-
-
-
-
-  )
+       #js [1 1 1]] "sparse"))))
 
 ;; the active activations are a set of indices
 (defn ->neurons [n-neurons]
@@ -227,52 +221,40 @@
 ;; In effect, everytime I am active, I can look who activated me. For those connections we increase the weight
 
 (defn hebbian-plasticity
-  [{:keys [plasticity weights current-activations next-activations]}]
-  (-> (mathjs/ones (mathjs/squeeze (mathjs/size weights)))
-      (mathjs/subset (mathjs/index current-activations
-                                   next-activations)
-                     (+ plasticity 1.0))
-      (mathjs/dotMultiply weights)))
+  [{:keys [plasticity weights current-activations
+           next-activations]}]
+  ;; bit convoluted to make a inplace operation
+  (.forEach (mathjs/subset weights
+                           (mathjs/index current-activations
+                                         next-activations))
+            (fn [v idx m]
+              (.set weights idx (+ v plasticity)))
+            true)
+  weights)
 
 (comment
   (do
     (defn hebbian-plasticity
       [{:keys [plasticity weights current-activations next-activations]}]
-      (-> (mathjs/ones (mathjs/squeeze (mathjs/size weights)))
-          (mathjs/subset (mathjs/index current-activations
-                                       next-activations)
-                         (+ plasticity 1.0))
-          (mathjs/dotMultiply weights)))
+      (.forEach
+       (mathjs/subset weights (mathjs/index current-activations next-activations))
+       (fn [v idx m]
+         (.set weights idx (+ v plasticity)))
+       true)
+      weights)
     (hebbian-plasticity
      {:plasticity
       0.1
       :weights
-      (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
-                          #js [1 1 1]])
-      :current-activations
-      (mathjs/matrix #js [0 1])
-      :next-activations
-      (mathjs/matrix #js [0])})
-    (hebbian-plasticity
-     {:plasticity
-      0.1
-      :weights
-      (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
-                          #js [1 1 1]] "sparse")
+      (mathjs/matrix #js
+                     [#js [0 0 0]
+                      #js [1 1 1]
+                      #js [1 1 1]]
+                     "sparse")
       :current-activations
       (mathjs/matrix #js [0 1])
       :next-activations
       (mathjs/matrix #js [0])}))
-
-
-
-
-  ;; (for [i (mathjs/matrix #js [0 1])]
-  ;;   i)
-
-  ;; #object[DenseMatrix [[0, 0, 0],
-  ;;                      [1.1, 1, 1],
-  ;;                      [1, 1, 1]]]
 
   ;; reference:
   ;; [[0.  0.  0. ]
@@ -289,10 +271,12 @@
            plasticity-model]}]
   (let [synaptic-input (synaptic-input weights activations)
         next-active (inhibition-model state synaptic-input)
-        next-weights (plasticity-model
-                      (assoc state
-                             :current-activations activations
-                             :next-activations next-active))]
+        next-weights (if plasticity-model
+                       (plasticity-model
+                        (assoc state
+                               :current-activations activations
+                               :next-activations next-active))
+                       weights)]
     (assoc state
            :activations next-active
            :weights next-weights)))
@@ -336,7 +320,7 @@
 ;; from sensory units -> neuron indices
 ;; With 2 versions, one off and another on
 ;; This models inhibitory interneurons, and represents the absence of a signal
-;; This is similar to the canonical receptive fields of neuro science
+;; This is similar to the canonical receptive fields of neuro-science
 
 (defn sensory-apparatus-projection [n-neurons k-sensory-units projection-density]
   (into
@@ -350,7 +334,6 @@
 
 (defn sensory-apparatus
   [{:keys [n-neurons k-sensory-units projection-density] :as state}]
-  (print n-neurons k-sensory-units projection-density)
   (assoc
    state
    :sensory-projection
@@ -420,8 +403,6 @@
      std-deviation
      (- j i))))
 
-
-
 (def identity-plasticity :weights)
 
 (comment
@@ -447,21 +428,10 @@
      :next-weights
      (:weights (update-neuronal-area mystate))]))
 
-
-
 (comment
-
   (->directed-graph-with-geometry 100 (lin-gaussian-geometry {:amplitude 0.7 :std-deviation 20}))
-
-
-
-
   (map (fn [i] (gaussian 1.0 0 1 i)) (range -10 10))
-
   (map (fn [i] (gaussian 1.0 0 10 i)) (range -10 10))
-
-
-
 
   (.map
    (mathjs/matrix
@@ -549,7 +519,7 @@
     ;;  sums
     ;;  (fn [s idx _]
     ;;    (mathjs/subset weights (mathjs/index idx) s)))
-      (mathjs/dotDivide weights sums))
+    (mathjs/dotDivide weights sums))
 
   ;; #object
   ;; [DenseMatrix [[0, 0.3333333333333333, 0],
