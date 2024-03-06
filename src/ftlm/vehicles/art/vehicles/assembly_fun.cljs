@@ -14,7 +14,7 @@
    [ftlm.vehicles.hdv]
    [tech.v3.datatype.argops :as argops]
    [tech.v3.datatype.functional :as dtype-fn]
-   [tech.v3.dataset :as ds]
+   ;; [tech.v3.dataset :as ds]
    [tech.v3.datatype :as dtype]
    ["mathjs" :as mathjs]
    [ftlm.vehicles.assembly-calculus :as ac]))
@@ -163,8 +163,7 @@
                     (for [i (range (count weights))]
                       (boolean (next-active? i))))))))
 
-
-(defn env [state] {})
+(defn env [_state] {})
 
 (defn draw-state
   [state]
@@ -276,7 +275,7 @@
                  :on-update-map
                  {:hide (lib/every-n-seconds
                          3
-                         (fn [e s _]
+                         (fn [e _s _]
                            (assoc e :hidden? true)))}
                  :transform
                  (lib/->transform pos 25 25 1)}))))
@@ -299,7 +298,7 @@
                                   1)
                      :stroke-weight 3
                      :on-update-map
-                       {:fade (fn [e s _]
+                       {:fade (fn [e _s _]
                                 (update
                                   e
                                   :color
@@ -312,7 +311,7 @@
                         :hide
                           (lib/every-n-seconds
                             3
-                            (fn [e s _]
+                            (fn [e _s _]
                               (assoc e
                                 :hidden? true
                                 :color
@@ -438,8 +437,8 @@
           {:sensitive-to-mouse
            (lib/every-n-seconds
             0.1
-            (fn [e s _]
-              (let [y (q/mouse-y)
+            (fn [e _s _]
+              (let [_y (q/mouse-y)
                     x (q/mouse-x)
                     inputs-identity
                     (int (* (/ (- (* (q/width) 0.9) x) (* (q/width) 0.9)) n))]
@@ -608,64 +607,97 @@
                                 #(+ (* i thickness) (rand-int thickness))))))))
 
 (defn ->wavemaker
-  [{:keys [n n-neurons frequency wave-speed]}]
-  (let [height-of-1-element 50
-        spacing 10
+  [{:keys [n n-neurons wave-speed _height]}]
+  (let [height 300
+        pos [400 80]
+        height-of-1-element (int (/ height n))
         thickness (int (/ n-neurons n))
-        projection
-        (into []
-              (for [i (range n)]
-                (into #{}
-                      (repeatedly 10
-                                  #(+
-                                    (* i thickness)
-                                    (rand-int thickness))))))]
+        projection (into []
+                         (for [i (range n)]
+                           (into #{}
+                                 (repeatedly
+                                   10
+                                   #(+ (* i thickness)
+                                       (rand-int
+                                         thickness))))))
+        element-position
+          (fn [elm] [(first pos)
+                     (+ (second pos)
+                        (* elm height-of-1-element))])]
     (lib/->entity
-     :wavemakers
-     {:arousal-element? true
-      :color (:sweet-pink controls/color-map)
-      :draw-functions
-      {:draw (fn [{:keys [elements transform]}]
-               (let [{:keys [pos]} transform]
-                 (doall
-                  (map-indexed
-                   (fn [idx element]
-                     (when element
-                       (q/with-translation
-                         pos
-                         (q/rect
-                          0
-                          (+
-                           (* idx height-of-1-element)
-                           spacing)
-                          15
-                          height-of-1-element
-                          10)))
-                     )
-                   elements))))}
-      :elements (->input-space-elements n)
-      :grid-width 5
-      :input-state (fn [e] (:elements e))
-      :active-elm 0
-      :on-update-map
-      {:u
-       (lib/every-n-seconds
-        (/ 1 wave-speed)
-        (fn [e s _]
-          (let [next-active (mod (inc (:active-elm e)) n)]
-            (-> e
-                (assoc :active-elm next-active)
-                (update
-                 :elements
-                 (fn [els]
-                   (dtype/make-container
-                    :boolean
-                    (doall
-                     (for [i (range n)]
-                       (if (= i next-active) true false))))))))))}
-      :projection projection
-      :spacing 20
-      :transform (lib/->transform [400 80] 1 1 1)})))
+      :wavemakers
+      {:active-element-position
+         (fn [e] (element-position (:active-elm e)))
+       :active-elm 0
+       :arousal-element? true
+       :color (:sweet-pink controls/color-map)
+       :components
+         [(lib/->entity
+            :line
+            {:color (:orange controls/color-map)
+             :end-pos (update (element-position (dec n)) 1 + 30)
+             :transform
+               (lib/->transform [(first pos) 30] 1 1 1)})]
+       :draw-functions
+         {:draw
+            (fn [{:keys [elements]}]
+              (doall
+               (map-indexed
+                (fn [idx element]
+                  (let [pos (element-position idx)]
+                    (q/stroke-weight 2)
+                    (q/with-stroke
+                      (lib/->hsb (:orange
+                                  controls/color-map))
+                      (q/with-fill
+                        (lib/->hsb
+                         (if element
+                           (:orange controls/color-map)
+                           (:woodsmoke
+                            controls/color-map)))
+                        (q/with-translation
+                          pos
+                          (q/ellipse 0 0 15 15))))))
+                elements)))}
+       :elements (->input-space-elements n)
+       :grid-width 5
+       :input-state (fn [e] (:elements e))
+       :on-update-map
+         {:u (lib/every-n-seconds
+               (/ 1 wave-speed)
+               (fn [e _s _]
+                 (let [next-active
+                         (mod (inc (:active-elm e)) n)]
+                   (-> e
+                       (assoc :active-elm next-active)
+                       (update
+                        :elements
+                        (fn [_]
+                          (dtype/make-container
+                           :boolean
+                           (doall
+                            (for [i (range n)]
+                              (if (= i next-active)
+                                true
+                                false))))))))))}
+       :projection projection
+       :spacing 20
+       :transform (lib/->transform pos 1 1 1)})))
+
+(defn wavemaker-lines [wavemaker-id nn-area-id]
+  (fn [s _]
+    (let [e ((lib/entities-by-id s) wavemaker-id)
+          e-nn ((lib/entities-by-id s) nn-area-id)
+          active-elm (:active-elm e)
+          wavemaker-active-pos ((:active-element-position e) e)]
+      (lib/append-ents
+       s
+       (for [i (take 1 (shuffle (nth (:projection e) active-elm)))]
+         (assoc
+          (elib/->flash-of-line
+           wavemaker-active-pos
+           ((:i->pos e-nn) e-nn i))
+          :color (:orange controls/color-map)))))))
 
 
 ;; Idea:
@@ -1071,8 +1103,7 @@
 
 (defmethod setup-version :triangle-world
   [state]
-  (let [input-space-size 3
-        n-neurons 400
+  (let [n-neurons 400
         n-area (->neuronal-area-ac
                  {:density 0.1
                   :frequency 10
@@ -1171,131 +1202,117 @@
 (defmethod setup-version
   :triangle-world-and-geometry-timer-wave
   [state]
-  (let
-    [input-space-size 3
-     n-neurons 400
-     n-area (->neuronal-area-ac
-             {:density 0.1
-              :frequency 20
-              :grid-width 20
-              :n-neurons n-neurons
-              :spacing 15
-              :transform
-              (lib/->transform [50 50] 20 20 1)})
-     n-area
-     (-> n-area
-         (assoc :ac-area
-                {:activations (ac/->neurons n-neurons)
-                 :inhibition-model
-                 (fn [{:keys [activations]}
-                      synaptic-input]
-                   (ac/cap-k
-                    (max (gaussian
-                          60 30
-                          10 (count (.valueOf
-                                     activations)))
-                         1)
-                    synaptic-input))
-                 :plasticity 0.1
-                 :plasticity-model ac/hebbian-plasticity
-                 :weights
-                 (ac/->directed-graph-with-geometry
-                  n-neurons
-                  (ac/lin-gaussian-geometry
-                   {:amplitude 0.6
-                    :std-deviation 30}))})
-         (assoc-in [:on-update-map :normalize-weights]
-                   (lib/every-n-seconds
-                    5
-                    (fn [e _s _]
-                      (update-in e
-                                 [:ac-area :weights]
-                                 ac/normalize)))))
-     wavemaker (->wavemaker {:n 5 :n-neurons n-neurons :wave-speed 5})
-     id-area (:id n-area)
-     input-space (->triangle-world {:frequency (/ 1 5)
-                                    :n-neurons n-neurons})
-     n-area
-     (wire-input-space-1 {:frequency (/ 1 3) :input-space input-space :neuronal-area n-area :set-input-op ac/append-input}
-                         )
-
-
-     n-area
-     (let [frequency 5]
-       (assoc-in n-area
-                 [:on-update-map :wavemaker-input]
-                 (lib/every-n-seconds
-                  (/ 1 frequency)
-                  (fn [e s _k]
-                    (let [wavemaker ((lib/entities-by-id s)
-                                     (:id wavemaker))
-                          active-elm (:active-elm wavemaker)
-                          inputs (nth (:projection wavemaker) active-elm)
-                          ]
-                      (->
-                       e
-                       ;; (update :ac-area ac/set-input (into-array :int inputs))
-                       (update :ac-area ac/append-input (into-array :int inputs))
-
-                       ;; (assoc
-                       ;;   :next-color
-                       ;;     (let [next-colors
-                       ;;             (atom (concat [:hit-pink]
-                       ;;                           (cycle
-                       ;;                             [:cyan])))]
-                       ;;       (fn []
-                       ;;         (let [[v] @next-colors]
-                       ;;           (swap! next-colors next)
-                       ;;           (v
-                       ;;             controls/color-map)))))
-                       ))))))
-     state (-> state
-               (assoc :neuronal-area (:id n-area))
-               (lib/append-ents [n-area input-space
-                                 wavemaker]))]
-    (->
-      state
-      (assoc-in
-        [:on-update-map :time-tick]
-        (lib/every-n-seconds
-          0.1
-          (fn [s _]
-            (let [show-lines
-                    (fn [s]
-                      (let [activations
-                              (ac/read-activations
-                                (:ac-area
-                                  ((lib/entities-by-id s)
-                                    id-area)))
-                            e ((lib/entities-by-id s)
-                                id-area)
-                            i->pos (fn [i]
-                                     ((e :i->pos) e i))]
-                        (for [[i j] (partition-all
-                                      2
-                                      (take (* 3 2)
-                                            (shuffle
-                                              activations)))
-                              :when (and i j)]
-                          (lib/->entity
-                            :multi-line
-                            {:color (:cyan
-                                      controls/color-map)
-                             :lifetime 3
-                             :on-update-map
-                               {:fade (elib/->fade 1)}
-                             :stroke-weight 1
-                             :transform (lib/->transform
-                                          (i->pos i)
-                                          1
-                                          1
-                                          1)
-                             :vertices
-                               (elib/rect-line-vertices-1
-                                 (i->pos i)
-                                 (i->pos j))}))))]
-              (-> s
-                  (lib/append-ents (show-lines s))))))))))
+  (let [n-neurons 400
+        n-area (->neuronal-area-ac
+                 {:density 0.1
+                  :frequency 20
+                  :grid-width 20
+                  :n-neurons n-neurons
+                  :spacing 15
+                  :transform
+                    (lib/->transform [50 50] 20 20 1)})
+        n-area
+          (-> n-area
+              (assoc
+                :ac-area
+                  {:activations (ac/->neurons n-neurons)
+                   :inhibition-model
+                     (fn [{:keys [activations]}
+                          synaptic-input]
+                       (ac/cap-k
+                         (max (gaussian
+                                60 30
+                                10 (count (.valueOf
+                                            activations)))
+                              1)
+                         synaptic-input))
+                   :plasticity 0.1
+                   :plasticity-model ac/hebbian-plasticity
+                   :weights
+                     (ac/->directed-graph-with-geometry
+                       n-neurons
+                       (ac/lin-gaussian-geometry
+                         {:amplitude 0.6
+                          :std-deviation 30}))})
+              (assoc-in [:on-update-map :normalize-weights]
+                        (lib/every-n-seconds
+                          5
+                          (fn [e _s _]
+                            (update-in e
+                                       [:ac-area :weights]
+                                       ac/normalize)))))
+        wavemaker (->wavemaker {:n 5
+                                :n-neurons n-neurons
+                                :wave-speed 5})
+        id-area (:id n-area)
+        input-space (->triangle-world {:frequency (/ 1 5)
+                                       :n-neurons
+                                         n-neurons})
+        n-area (wire-input-space-1 {:frequency (/ 1 3)
+                                    :input-space input-space
+                                    :neuronal-area n-area
+                                    :set-input-op
+                                      ac/append-input})
+        n-area
+          (let [frequency 5]
+            (assoc-in n-area
+              [:on-update-map :wavemaker-input]
+              (lib/every-n-seconds
+                (/ 1 frequency)
+                (fn [e s _k]
+                  (let [wavemaker ((lib/entities-by-id s)
+                                    (:id wavemaker))
+                        active-elm (:active-elm wavemaker)
+                        inputs (nth (:projection wavemaker)
+                                    active-elm)]
+                    (-> e
+                        ;; (update :ac-area
+                        ;; ac/set-input (into-array
+                        ;; :int inputs))
+                        (update :ac-area
+                                ac/append-input
+                                (into-array :int
+                                            inputs))))))))
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area input-space
+                                    wavemaker]))]
+    (-> state
+        (assoc-in
+          [:on-update-map :time-tick]
+          (lib/every-n-seconds
+            0.1
+            (fn [s _]
+              (let [show-lines
+                      (fn [s]
+                        (let [activations
+                                (ac/read-activations
+                                  (:ac-area
+                                    ((lib/entities-by-id s)
+                                      id-area)))
+                              e ((lib/entities-by-id s)
+                                  id-area)
+                              i->pos (fn [i]
+                                       ((e :i->pos) e i))]
+                          (for [[i j] (partition-all
+                                        2
+                                        (take
+                                          (* 3 2)
+                                          (shuffle
+                                            activations)))
+                                :when (and i j)]
+                            (elib/->flash-of-line (i->pos i)
+                                                  (i->pos
+                                                   j)))))]
+                (-> s
+                    (lib/append-ents (show-lines s)))))))
+        (assoc-in
+          [:on-update-map :wavemaker-lines]
+          (lib/every-n-seconds
+           (/ 1 5)
+           (wavemaker-lines
+            (:id wavemaker)
+            (:id n-area)))))))
 
 (defn setup
   [controls]
@@ -1362,8 +1379,8 @@
 (defn sketch
   [host {:keys [width height]} controls]
   (let [[screen-width screen-height] (lib/window-dimensions)
-        width (cond (= width "max") screen-width width width :else screen-width)
-        height (cond (= height "max") screen-height height height :else screen-height)
+        _width (cond (= width "max") screen-width width width :else screen-width)
+        _height (cond (= height "max") screen-height height height :else screen-height)
         width 1000
         height 800]
     (q/sketch :host host
@@ -1417,5 +1434,4 @@
      :float
      (dtype/indexed-buffer
       (dtype/set-and (dtype/->set a1) (dtype/->set a2))
-      (dtype/make-container :float (range 10)))))
-  )
+      (dtype/make-container :float (range 10))))))

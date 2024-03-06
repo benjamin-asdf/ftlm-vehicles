@@ -360,10 +360,6 @@
 
 
 
-
-
-
-
 (comment
   (->sensory-inputs
    [true false true]

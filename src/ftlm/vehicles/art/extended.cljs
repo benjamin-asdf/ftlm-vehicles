@@ -3,6 +3,7 @@
 (ns ftlm.vehicles.art.extended
   (:require [quil.core :as q :include-macros true]
             [ftlm.vehicles.art.lib :as lib]
+            [ftlm.vehicles.art.controls :as controls]
             [ftlm.vehicles.art.controls]))
 
 (defn ->brownian-lump
@@ -290,3 +291,14 @@
 
 (defn from-bottom [amount]
   (- (q/height) amount))
+
+(defn ->flash-of-line
+  [pos-1 pos-2]
+  (lib/->entity
+    :multi-line
+    {:color (:cyan controls/color-map)
+     :lifetime 3
+     :on-update-map {:fade (->fade 1)}
+     :stroke-weight 1
+     :transform (lib/->transform pos-1 1 1 1)
+     :vertices (rect-line-vertices-1 pos-1 pos-2)}))
