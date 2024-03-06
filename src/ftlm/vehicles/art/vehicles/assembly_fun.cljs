@@ -74,10 +74,6 @@
                  (/ (Math/pow (- x mean) 2)
                     (* 2 (Math/pow std-deviation 2)))))))
 
-(defn fires? [activations i]
-  (nth activations i))
-
-
 ;; neuron elements is an array of neurons
 ;; each neuron is active or not active
 (defn dot-product [v1 v2]
@@ -87,56 +83,6 @@
   [weights inputs]
   (for [i (range (count weights))]
     (dot-product (weights i) inputs)))
-
-
-;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
-;; if j fires at time t and i fires at time t + 1,
-;; --------------------------------------------------------------------------------------
-
-;; (defn ->hebbian-plasticity
-;;   [plasticity]
-;;   (fn [current-activations next-activations weights]
-;;     (time
-;;      (into
-;;       []
-;;       (let [weight (fn [i j] (nth (nth weights i) j))]
-;;         (for [i (range (count weights))]
-;;           (dtype/make-container
-;;            :float
-;;            (for [j (range (count weights))]
-;;              (if (and (fires? current-activations j)
-;;                       (fires? next-activations i))
-;;                (* (weight i j) (+ 1 plasticity))
-;;                (weight i j))))))))))
-;; (made it a bit more performant)
-
-(defn ->hebbian-plasticity
-  [plasticity]
-  (fn [current-activations next-activations weights]
-    (into []
-          (map (fn [w i-fires?]
-                 (if-not i-fires?
-                   w
-                   (dtype/clone
-                    (dtype/emap
-                     (fn [w j-fires?]
-                       (if j-fires?
-                         (* w (+ 1 plasticity))
-                         w))
-                     :float
-                     w
-                     current-activations))))
-               weights
-               next-activations))))
-
-(comment
-  ((->hebbian-plasticity 10)
-    [true false true]
-    [true true false]
-    [[1 1 1] [1 1 1] [1 1 1]])
-  ;; [#typed-buffer [[:float 3] [11 1 11]]
-  ;;  #typed-buffer [[:float 3] [11 1 11]] [1 1 1]]
-  )
 
 (defn normalize-weigths
   [weights]
@@ -607,23 +553,24 @@
                                 #(+ (* i thickness) (rand-int thickness))))))))
 
 (defn ->wavemaker
-  [{:keys [n n-neurons wave-speed _height]}]
+  [{:keys [n n-neurons wave-speed _height density]}]
   (let [height 300
         pos [400 80]
         height-of-1-element (int (/ height n))
         thickness (int (/ n-neurons n))
         projection (into []
                          (for [i (range n)]
-                           (into #{}
-                                 (repeatedly
-                                   10
-                                   #(+ (* i thickness)
-                                       (rand-int
-                                         thickness))))))
+                           (into
+                            #{}
+                            (repeatedly
+                             (* n-neurons density)
+                             #(+ (* i thickness)
+                                 (rand-int
+                                  thickness))))))
         element-position
-          (fn [elm] [(first pos)
-                     (+ (second pos)
-                        (* elm height-of-1-element))])]
+        (fn [elm] [(first pos)
+                   (+ (second pos)
+                      (* elm height-of-1-element))])]
     (lib/->entity
       :wavemakers
       {:active-element-position
@@ -1313,6 +1260,111 @@
            (wavemaker-lines
             (:id wavemaker)
             (:id n-area)))))))
+
+
+(defmethod setup-version
+  :wavemaker-without-world
+  [state]
+  (let [n-neurons 400
+        n-area (->neuronal-area-ac
+                {:density 0.1
+                 :frequency 20
+                 :grid-width 20
+                 :n-neurons n-neurons
+                 :spacing 15
+                 :transform
+                 (lib/->transform [50 50] 20 20 1)})
+        n-area
+        (-> n-area
+            (assoc
+             :ac-area
+             {:activations (ac/->neurons n-neurons)
+              :inhibition-model
+              (fn [{:keys [activations]}
+                   synaptic-input]
+                (ac/cap-k
+                 (max (gaussian
+                       60 30
+                       10 (count (.valueOf
+                                  activations)))
+                      1)
+                 synaptic-input))
+              :plasticity 0.1
+              :plasticity-model ac/hebbian-plasticity
+              :weights
+              (ac/->directed-graph-with-geometry
+               n-neurons
+               (ac/lin-gaussian-geometry
+                {:amplitude 0.6
+                 :std-deviation 30}))})
+            (assoc-in
+             [:on-update-map :normalize-weights]
+             (lib/every-n-seconds
+              5
+              (fn [e _s _]
+                (update-in e
+                           [:ac-area :weights]
+                           ac/normalize)))))
+        wavemaker (->wavemaker
+                   {:n 5
+                    :density 0.02
+                    :n-neurons n-neurons
+                    :wave-speed 5})
+        id-area (:id n-area)
+        n-area
+        (let [frequency 5]
+          (assoc-in n-area
+                    [:on-update-map :wavemaker-input]
+                    (lib/every-n-seconds
+                     (/ 1 frequency)
+                     (fn [e s _k]
+                       (let [wavemaker ((lib/entities-by-id s)
+                                        (:id wavemaker))
+                             active-elm (:active-elm wavemaker)
+                             inputs (nth (:projection wavemaker) active-elm)]
+                         (-> e
+                             (update :ac-area ac/append-input (into-array :int inputs))))))))
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area wavemaker]))]
+    (-> state
+        (assoc-in
+         [:on-update-map :time-tick]
+         (lib/every-n-seconds
+          0.1
+          (fn [s _]
+            (let [show-lines
+                  (fn [s]
+                    (let [activations
+                          (ac/read-activations
+                           (:ac-area
+                            ((lib/entities-by-id s)
+                             id-area)))
+                          e ((lib/entities-by-id s)
+                             id-area)
+                          i->pos (fn [i]
+                                   ((e :i->pos) e i))]
+                      (for [[i j] (partition-all
+                                   2
+                                   (take
+                                    (* 3 2)
+                                    (shuffle
+                                     activations)))
+                            :when (and i j)]
+                        (elib/->flash-of-line (i->pos i)
+                                              (i->pos
+                                               j)))))]
+              (-> s
+                  (lib/append-ents (show-lines s)))))))
+        (assoc-in
+         [:on-update-map :wavemaker-lines]
+         (lib/every-n-seconds
+          (/ 1 5)
+          (wavemaker-lines
+           (:id wavemaker)
+           (:id n-area)))))))
+
+
 
 (defn setup
   [controls]
