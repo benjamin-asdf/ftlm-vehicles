@@ -141,7 +141,8 @@
     "2" {:v :dots :background-color {:h 0 :s 0 :v 89}}
     "3" {:v :geometry :background-color (:woodsmoke color-map)}
     "4" {:v :geometry-p :background-color (:woodsmoke color-map)}
-
+    "5" {:v :triangle-world :background-color (:woodsmoke color-map)}
+    "6" {:v :triangle-world-and-geometry-timer-wave :background-color (:woodsmoke color-map)}
     }
    "brownians" {"0" {}
                 "1" {:background 230

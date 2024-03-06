@@ -223,12 +223,6 @@
 (defn hebbian-plasticity
   [{:keys [plasticity weights current-activations
            next-activations]}]
-  ;; bit convoluted to make a inplace operation
-  ;; (.forEach
-  ;;  (mathjs/subset weights (mathjs/index current-activations next-activations))
-  ;;  (fn [v idx m]
-  ;;    (.set weights idx (+ v plasticity)))
-  ;;  true)
   (.subset
    weights
    (mathjs/index next-activations current-activations)
@@ -298,7 +292,7 @@
   (update state
           :activations
           (fn [activations]
-            (mathjs/concat activations input))))
+            (mathjs/setUnion activations input))))
 
 (defn read-activations
   [state]
@@ -362,6 +356,13 @@
                       (fn [[idx input-active?]]
                         (get-in sensory-projection [idx input-active?]))
                       (map-indexed vector input-states))))))
+
+
+
+
+
+
+
 
 (comment
   (->sensory-inputs
@@ -447,6 +448,9 @@
   (->directed-graph-with-geometry 100 (lin-gaussian-geometry {:amplitude 0.7 :std-deviation 20}))
   (map (fn [i] (gaussian 1.0 0 1 i)) (range -10 10))
   (map (fn [i] (gaussian 1.0 0 10 i)) (range -10 10))
+
+
+  (mathjs/setUnion #js[1 0] #js[1 2])
 
   (.map
    (mathjs/matrix

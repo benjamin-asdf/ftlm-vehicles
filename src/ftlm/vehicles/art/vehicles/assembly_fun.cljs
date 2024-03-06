@@ -401,7 +401,7 @@
 ;;    simulating an inhibitory neuron in between
 ;; This allows the area to represent the absence of something.
 
-(defn ->input-space-ac
+(defn ->input-space-1
   [n n-neurons]
   (lib/->entity
    :grid
@@ -424,54 +424,304 @@
     :elements (->input-space-elements n)
     :input-state (fn [e] (:elements e))
     :grid-width 5
-    :on-update-map
-    {:sensitive-to-mouse
-     (lib/every-n-seconds
-      0.1
-      (fn [e s _]
-        (let [y (q/mouse-y)
-              x (q/mouse-x)
-              inputs-identity
-              (int (* (/ (- (* (q/width) 0.9) x)
-                         (* (q/width) 0.9))
-                      n))]
-          (assoc e
-                 :elements
-                 (dtype/clone
-                  (dtype/make-container
-                   :boolean
-                   (for [i (range n)]
-                     (boolean (= inputs-identity i)))))))))}
     :spacing 20
-    :transform (lib/->transform [(elib/from-right 300) (elib/from-bottom 400)] 1 1 1)}))
+    :transform (lib/->transform
+                [(elib/from-right 500)
+                 (elib/from-bottom 500)]
+                1 1 1)}))
 
-(defn wire-input-space [neuronal-area input-space frequency]
+(defn ->input-space-ac
+  [n n-neurons]
+  (->
+   (->input-space-1 n n-neurons)
+   (assoc :on-update-map
+          {:sensitive-to-mouse
+           (lib/every-n-seconds
+            0.1
+            (fn [e s _]
+              (let [y (q/mouse-y)
+                    x (q/mouse-x)
+                    inputs-identity
+                    (int (* (/ (- (* (q/width) 0.9) x) (* (q/width) 0.9)) n))]
+                (assoc e
+                       :elements
+                       (dtype/clone
+                        (dtype/make-container
+                         :boolean
+                         (for [i (range n)]
+                           (boolean (= inputs-identity i)))))))))})))
+
+;; In the triangle world, there are 3 states.
+;; and these transitions
+;; 1->2, 2->3, 3->1, 2->1, 3->2, 1->3
+;; The triangly world goes either left or right
+;; The next state is determined by the current state and the direction
+
+(defn triangle-world-1 [x direction]
+  (get-in
+   {0 {:left 1 :right 2}
+    1 {:left 2 :right 0}
+    2 {:left 0 :right 1}}
+   [x direction]))
+
+
+(def triangle-world-space
+  {0 [true false false]
+   1 [false true false]
+   2 [false false true]})
+
+(defn ->triangle-world
+  [{:keys [n-neurons frequency]}]
+  (-> (->input-space-ac 3 n-neurons)
+      (assoc :world-state 0
+             :on-update-map
+             {:time-tick
+              (lib/every-n-seconds
+               (/ 1 frequency)
+               (fn [e _ _]
+                 (let [dir :left
+                       ;; (rand-nth [:left :right])
+                       world-state (:world-state e)
+                       world-state (triangle-world-1
+                                    world-state
+                                    dir)]
+                   (-> e
+                       (assoc :world-state world-state)
+                       (assoc :elements (triangle-world-space world-state))))))})))
+
+;; ==============
+;; Wavemaker (just an experiment)
+;; ==============
+;;
+;; Idea:
+;;
+;; If you have a geometry in your neurons:
+;; (geometry means that the graph of connections is not all over the place, but that there are
+;; rules that make you more likely to be connected to somewhere,
+;; presumably usually to your neighbours, other geometries are thinkable and potentially interesting).
+;;
+
+;; +---------------+          -+
+;; |               |           | Here I roughly from 'columnar' cell assembles
+;; |     A       A |          -+  (they are horizontal, saying column because it invokes cortical colums)
+;; |        A      |   ^
+;; |               |   |
+;; |   B       B   |   v   ^
+;; |        B      |       |
+;; |   C  C    C   |       v
+;; |     C         |
+;; |     .         |
+;; |     .         |
+;; |               |
+;; +---------------+
+
+;; What could you do with a wave of activation going through the geometry?
+;;
+;;
+;;
+;;                     [ 'wave maker nucleus' ]     (see also sync-fire-chain)
+;;                              |
+;;                              |  imagine a slow fiber here
+;;                              |
+;; +-----------+      <---------+   t1
+;; | |         | A              |
+;; +-+---------+      <---------+   t2
+;; | v |       | B              |
+;; +---+-------+      <---------+   t3
+;; |   v       | C              |
+;; +-----------+                |
+
+;; Here, A, B, C roughly correspond to cell assemblies forming from input
+;; (remember cell assemblies are something like a datastructure that represent some information)
+;;
+;; wave maker:
+;; A hypothetical element in the circuit that has the relatively stupid
+;; wiring of making (timed) waves of activation through the geometry.
+;; Limiting myself right now to imagining it goes top to bottom through.
+
+;; The frequency of wave maker is sort of the time resolution for this event flow anchor mechanism.
+;; This could also be implemented with a sync-fire-chain, listening to events in the system, instead of
+;; static time.
+;; --
+;; I have called a very similar idea an n-clock somewhere, for neuron-clock or neuronal-clock.
+;; Basically, you can count how often something happens (going around a clock of states) and something
+;; else in your assemblies can base itself on that.
+;; For instance, you can say 'event b happened 3 neuronal-events after event a'. Where neuronal-event is
+;; already allowed to be arbitrarily abstract - i.e. events comming from somewhere in else in the cognition machine.
+;; --
+;; Basically we might be allowed to imagine wave-maker made from many neurons himself, so he could be
+;; swapping from t1 to t2 only under certain circumstances.
+;;
+;; -> Still, it is joyful to try to come up with extremely simple elements, at least initially.
+;;
+;;
+;;
+;;
+;; Consider this case,
+;; 1. Inputs already ignited cell assembly A,
+;;    In other words, A is in short term memory (the information representing the signal a)
+;;    (signal-a, lower case; cell-assembly-A, upper case)
+;; 2. The wave maker goes through the neuronal area. In front of A, the additional activation from wavemaker
+;;    doesn't do anything (for sake of consideration).
+;;    On top of A, it doesn't realy do anything because it is active already
+;; 3. Now, just behind A, there is an interesting overlap in the circuit.
+;;    It is that A is activating the area behind A a little bit and now wavemaker (time sayer) is activating it too!
+;;    This area now represents a question: Is there any part of the system that would mean B
+;;    Is there anything in our existing signal processing machinery that this potential B is already listening to,
+;;    that would now allow it to fire?
+;;    If it fires, hebbian plasticity already automatically strenghtes its inputs, calling them lower case b.
+;;    Lower case b is the answer to the question what follows A in time.
+;;    Keep in mind that A was active from short term memory to begin with.
+;;    The relationship A->B is a 'follows in time' relationship
+;;    Braitenberg called this an Ergotrix wire. (Vehicle 11 - Rules And Regularites).
+;;    Other names: Causality wire, e-line (borrowed from ergotrix), trans-line, directed-association,
+;;    Association through time
+;;    very similar to Minsky Transframes
+;;
+;;    It is expecially satisfying that Hebb plasticity is resulting in both association lines (m-lines for Mnemotrix)
+;;    and e-lines - simply because of the fact that cell assemblies represent information across time.
+;;    Allowing the association wires to form between something in short term memory and something new comming in.
+;;
+;;
+;;
+;;                     [ 'wave maker nucleus' ]
+;;                              |
+;;                              |
+;;                              |
+;; +-----------+      <---------+   t1
+;; | |         | A              |
+;; +-+---------+      <---------+   t2
+;; | v         | ???                                   !         -> B
+;; +-----------+  <--------------------------------------- b
+;; |           |
+;; +-----------+
+
+;; If this works the way I think then such a mechanism would find and represent those b-signals.
+
+(comment (let [thickness 20
+               n 3]
+           (into []
+                 (for [i (range n)]
+                   (into
+                    #{}
+                    (repeatedly 10
+                                #(+ (* i thickness) (rand-int thickness))))))))
+
+(defn ->wavemaker
+  [{:keys [n n-neurons frequency wave-speed]}]
+  (let [height-of-1-element 50
+        spacing 10
+        thickness (int (/ n-neurons n))
+        projection
+        (into []
+              (for [i (range n)]
+                (into #{}
+                      (repeatedly 10
+                                  #(+
+                                    (* i thickness)
+                                    (rand-int thickness))))))]
+    (lib/->entity
+     :wavemakers
+     {:arousal-element? true
+      :color (:sweet-pink controls/color-map)
+      :draw-functions
+      {:draw (fn [{:keys [elements transform]}]
+               (let [{:keys [pos]} transform]
+                 (doall
+                  (map-indexed
+                   (fn [idx element]
+                     (when element
+                       (q/with-translation
+                         pos
+                         (q/rect
+                          0
+                          (+
+                           (* idx height-of-1-element)
+                           spacing)
+                          15
+                          height-of-1-element
+                          10)))
+                     )
+                   elements))))}
+      :elements (->input-space-elements n)
+      :grid-width 5
+      :input-state (fn [e] (:elements e))
+      :active-elm 0
+      :on-update-map
+      {:u
+       (lib/every-n-seconds
+        (/ 1 wave-speed)
+        (fn [e s _]
+          (let [next-active (mod (inc (:active-elm e)) n)]
+            (-> e
+                (assoc :active-elm next-active)
+                (update
+                 :elements
+                 (fn [els]
+                   (dtype/make-container
+                    :boolean
+                    (doall
+                     (for [i (range n)]
+                       (if (= i next-active) true false))))))))))}
+      :projection projection
+      :spacing 20
+      :transform (lib/->transform [400 80] 1 1 1)})))
+
+
+;; Idea:
+;;
+;; Triangle world with a bump,
+;; the bump is a 4th state with a imaginary darwinian value
+;; The challenge is to build a neuronal area that will learn to go to the bump
+;; Available
+;; I. An oracle darwinian value giver, which gives a value
+;; depending on the world state
+;;
+;; II. 2 magic output neurons that move the triangle world left or right
+;;     If both are active, you move up, but only on the element that leads to the bump
+;;
+;;
+
+(defn wire-input-space-1
+  [{:keys [neuronal-area input-space frequency
+           set-input-op]}]
   (assoc-in
    neuronal-area
    [:on-update-map :sensory-input]
    (lib/every-n-seconds
     (/ 1 frequency)
     (fn [e s _k]
-      (let [{:keys [sensory-projection]} (:apparatus input-space)
-            e-space ((lib/entities-by-id s) (:id input-space))
-            sensory-inputs ((:input-state e-space) e-space)
+      (let [{:keys [sensory-projection]} (:apparatus
+                                          input-space)
+            e-space ((lib/entities-by-id s)
+                     (:id input-space))
+            sensory-inputs ((:input-state e-space)
+                            e-space)
             ;; new-activations
-            inputs
-            (ac/->sensory-inputs sensory-inputs sensory-projection)]
-        (->
-         e
-         ;; (update :ac-area ac/append-input inputs)
-         (update :ac-area ac/set-input inputs)
-         (assoc
-          :color (:red controls/color-map)
-          :next-color
-          (let [remaining (atom 2)]
-            (fn []
-              (swap! remaining dec)
-              (if (<= @remaining 0)
-                (:cyan controls/color-map)
-                (:red
-                 controls/color-map)))))))))))
+            inputs (ac/->sensory-inputs
+                    sensory-inputs
+                    sensory-projection)]
+        (-> e
+            (update :ac-area
+                    (or set-input-op ac/set-input)
+                    inputs)
+            (assoc :color (:red controls/color-map)
+                   :next-color
+                   (let [next-colors
+                         (atom (concat [:red :red]
+                                       (cycle
+                                        [:cyan])))]
+                     (fn []
+                       (let [[v] @next-colors]
+                         (swap! next-colors next)
+                         (v
+                          controls/color-map)))))))))))
+
+(defn wire-input-space [neuronal-area input-space frequency]
+  (wire-input-space-1
+   {:neuronal-area neuronal-area
+    :input-space input-space
+    :frequency frequency}))
 
 (defn ->neuronal-area-ac
   [{:as opts :keys [spacing grid-width frequency draw-i]}]
@@ -700,8 +950,6 @@
         state (-> state
                   (assoc :neuronal-area (:id n-area))
                   (lib/append-ents [n-area input-space]))]
-
-
     (->
      state
      (assoc-in
@@ -820,6 +1068,234 @@
                         (i->pos j))}))))]
            (-> s
                (lib/append-ents (show-lines s))))))))))
+
+(defmethod setup-version :triangle-world
+  [state]
+  (let [input-space-size 3
+        n-neurons 400
+        n-area (->neuronal-area-ac
+                 {:density 0.1
+                  :frequency 10
+                  :grid-width 20
+                  :n-neurons n-neurons
+                  :spacing 15
+                  :transform
+                    (lib/->transform [50 50] 20 20 1)})
+        n-area
+          (-> n-area
+              (assoc
+                :ac-area
+                  {:activations (ac/->neurons n-neurons)
+                   :inhibition-model
+                     (fn [{:keys [activations]}
+                          synaptic-input]
+                       (ac/cap-k
+                         (max (gaussian
+                                60 30
+                                10 (count (.valueOf
+                                            activations)))
+                              1)
+                         synaptic-input))
+                   :plasticity 0.1
+                   :plasticity-model ac/hebbian-plasticity
+                   :weights
+                     (ac/->directed-graph-with-geometry
+                       n-neurons
+                       (ac/lin-gaussian-geometry
+                         {:amplitude 0.6
+                          :std-deviation 30}))})
+              (assoc-in [:on-update-map :normalize-weights]
+                        (lib/every-n-seconds
+                          5
+                          (fn [e _s _]
+                            (update-in e
+                                       [:ac-area :weights]
+                                       ac/normalize)))))
+        id-area (:id n-area)
+        input-space (->triangle-world {:frequency (/ 1 5)
+                                       :n-neurons
+                                         n-neurons})
+        n-area (wire-input-space-1
+                {:frequency (/ 1 3)
+                 :neuronal-area n-area
+                 :input-space input-space
+                 :set-input-op
+                 ac/append-input})
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area input-space]))]
+    (->
+      state
+      (assoc-in
+        [:on-update-map :time-tick]
+        (lib/every-n-seconds
+          0.1
+          (fn [s _]
+            (let [show-lines
+                    (fn [s]
+                      (let [activations
+                              (ac/read-activations
+                                (:ac-area
+                                  ((lib/entities-by-id s)
+                                    id-area)))
+                            e ((lib/entities-by-id s)
+                                id-area)
+                            i->pos (fn [i]
+                                     ((e :i->pos) e i))]
+                        (for [[i j] (partition-all
+                                      2
+                                      (take (* 3 2)
+                                            (shuffle
+                                              activations)))
+                              :when (and i j)]
+                          (lib/->entity
+                            :multi-line
+                            {:color (:cyan
+                                      controls/color-map)
+                             :lifetime 3
+                             :on-update-map
+                               {:fade (elib/->fade 1)}
+                             :stroke-weight 1
+                             :transform (lib/->transform
+                                          (i->pos i)
+                                          1
+                                          1
+                                          1)
+                             :vertices
+                               (elib/rect-line-vertices-1
+                                 (i->pos i)
+                                 (i->pos j))}))))]
+              (-> s
+                  (lib/append-ents (show-lines s))))))))))
+
+(defmethod setup-version
+  :triangle-world-and-geometry-timer-wave
+  [state]
+  (let
+    [input-space-size 3
+     n-neurons 400
+     n-area (->neuronal-area-ac
+             {:density 0.1
+              :frequency 20
+              :grid-width 20
+              :n-neurons n-neurons
+              :spacing 15
+              :transform
+              (lib/->transform [50 50] 20 20 1)})
+     n-area
+     (-> n-area
+         (assoc :ac-area
+                {:activations (ac/->neurons n-neurons)
+                 :inhibition-model
+                 (fn [{:keys [activations]}
+                      synaptic-input]
+                   (ac/cap-k
+                    (max (gaussian
+                          60 30
+                          10 (count (.valueOf
+                                     activations)))
+                         1)
+                    synaptic-input))
+                 :plasticity 0.1
+                 :plasticity-model ac/hebbian-plasticity
+                 :weights
+                 (ac/->directed-graph-with-geometry
+                  n-neurons
+                  (ac/lin-gaussian-geometry
+                   {:amplitude 0.6
+                    :std-deviation 30}))})
+         (assoc-in [:on-update-map :normalize-weights]
+                   (lib/every-n-seconds
+                    5
+                    (fn [e _s _]
+                      (update-in e
+                                 [:ac-area :weights]
+                                 ac/normalize)))))
+     wavemaker (->wavemaker {:n 5 :n-neurons n-neurons :wave-speed 5})
+     id-area (:id n-area)
+     input-space (->triangle-world {:frequency (/ 1 5)
+                                    :n-neurons n-neurons})
+     n-area
+     (wire-input-space-1 {:frequency (/ 1 3) :input-space input-space :neuronal-area n-area :set-input-op ac/append-input}
+                         )
+
+
+     n-area
+     (let [frequency 5]
+       (assoc-in n-area
+                 [:on-update-map :wavemaker-input]
+                 (lib/every-n-seconds
+                  (/ 1 frequency)
+                  (fn [e s _k]
+                    (let [wavemaker ((lib/entities-by-id s)
+                                     (:id wavemaker))
+                          active-elm (:active-elm wavemaker)
+                          inputs (nth (:projection wavemaker) active-elm)
+                          ]
+                      (->
+                       e
+                       ;; (update :ac-area ac/set-input (into-array :int inputs))
+                       (update :ac-area ac/append-input (into-array :int inputs))
+
+                       ;; (assoc
+                       ;;   :next-color
+                       ;;     (let [next-colors
+                       ;;             (atom (concat [:hit-pink]
+                       ;;                           (cycle
+                       ;;                             [:cyan])))]
+                       ;;       (fn []
+                       ;;         (let [[v] @next-colors]
+                       ;;           (swap! next-colors next)
+                       ;;           (v
+                       ;;             controls/color-map)))))
+                       ))))))
+     state (-> state
+               (assoc :neuronal-area (:id n-area))
+               (lib/append-ents [n-area input-space
+                                 wavemaker]))]
+    (->
+      state
+      (assoc-in
+        [:on-update-map :time-tick]
+        (lib/every-n-seconds
+          0.1
+          (fn [s _]
+            (let [show-lines
+                    (fn [s]
+                      (let [activations
+                              (ac/read-activations
+                                (:ac-area
+                                  ((lib/entities-by-id s)
+                                    id-area)))
+                            e ((lib/entities-by-id s)
+                                id-area)
+                            i->pos (fn [i]
+                                     ((e :i->pos) e i))]
+                        (for [[i j] (partition-all
+                                      2
+                                      (take (* 3 2)
+                                            (shuffle
+                                              activations)))
+                              :when (and i j)]
+                          (lib/->entity
+                            :multi-line
+                            {:color (:cyan
+                                      controls/color-map)
+                             :lifetime 3
+                             :on-update-map
+                               {:fade (elib/->fade 1)}
+                             :stroke-weight 1
+                             :transform (lib/->transform
+                                          (i->pos i)
+                                          1
+                                          1
+                                          1)
+                             :vertices
+                               (elib/rect-line-vertices-1
+                                 (i->pos i)
+                                 (i->pos j))}))))]
+              (-> s
+                  (lib/append-ents (show-lines s))))))))))
 
 (defn setup
   [controls]
