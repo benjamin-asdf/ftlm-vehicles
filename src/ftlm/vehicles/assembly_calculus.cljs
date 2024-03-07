@@ -91,32 +91,6 @@
 
 ;; then everbody inside a row (or coll, whatever) is connected more and then spreads out to the neighbours
 
-;; (defn ->random-directed-graph-with-geometry-per-row
-;;   [n-neurons density row-length]
-;;   (let [row (fn [i] (quot i row-length))
-;;         high-probablity density
-;;         low-probablity (/ density 10)]
-;;     (let [neuron-row (fn [i] (quot i row-length))
-;;           w (mathjs/range 0 (* n-neurons n-neurons))
-;;           ;; p
-
-
-
-;;           ]
-;;       (-> (mathjs/map
-;;            (mathjs/range 0 (* n-neurons n-neurons))
-;;            (fn [idx]
-;;              (let [i (quot idx n-neurons)
-;;                    j (mod idx n-neurons)]
-;;                (if (<
-;;                     (mathjs/random 0 1)
-;;                     (if (= (neuron-row i) (neuron-row j))
-;;                       high-probablity
-;;                       low-probablity))
-;;                  1.0
-;;                  0.0))))
-;;           (mathjs/reshape #js [n-neurons n-neurons])))))
-
 
 ;;
 ;; Allowing self-connections
@@ -143,6 +117,10 @@
    n-neurons
    (fn [_ _]
      (< (mathjs/random 0 1) density))))
+
+
+;; Synaptic input is the sum of the weights of the active activations
+;; Everybody that is active is contributing to my chance of being active
 
 (defn synaptic-input
   [weights activations]
@@ -259,6 +237,12 @@
   ;;  [1.1 1.  1. ]
   ;;  [1.  1.  1. ]]
   )
+
+;; ---------------------------
+;; Inhbition model
+;; --------------------------
+;; Who is active in the next time step?
+;; cap-k answers this question by sayng the top k neurons with the highest synaptic input
 
 (defn cap-k [k synaptic-input]
   (into-array :int (take k (argops/argsort > (.valueOf synaptic-input)))))

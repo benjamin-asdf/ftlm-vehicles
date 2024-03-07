@@ -637,14 +637,17 @@
           e-nn ((lib/entities-by-id s) nn-area-id)
           active-elm (:active-elm e)
           wavemaker-active-pos ((:active-element-position e) e)]
+      (println (nth (:projection e) active-elm))
       (lib/append-ents
        s
        (for [i (take 1 (shuffle (nth (:projection e) active-elm)))]
-         (assoc
-          (elib/->flash-of-line
-           wavemaker-active-pos
-           ((:i->pos e-nn) e-nn i))
-          :color (:orange controls/color-map)))))))
+         (do
+           (println [i ((:i->pos e-nn) e-nn i) ])
+           (assoc
+            (elib/->flash-of-line
+             wavemaker-active-pos
+             ((:i->pos e-nn) e-nn i))
+            :color (:orange controls/color-map))))))))
 
 
 ;; Idea:
@@ -1188,9 +1191,11 @@
                             (update-in e
                                        [:ac-area :weights]
                                        ac/normalize)))))
-        wavemaker (->wavemaker {:n 5
-                                :n-neurons n-neurons
-                                :wave-speed 5})
+        wavemaker (->wavemaker
+                   {:n 5
+                    :n-neurons n-neurons
+                    :density 0.01
+                    :wave-speed 5})
         id-area (:id n-area)
         input-space (->triangle-world {:frequency (/ 1 5)
                                        :n-neurons
@@ -1363,7 +1368,6 @@
           (wavemaker-lines
            (:id wavemaker)
            (:id n-area)))))))
-
 
 
 (defn setup
