@@ -637,12 +637,10 @@
           e-nn ((lib/entities-by-id s) nn-area-id)
           active-elm (:active-elm e)
           wavemaker-active-pos ((:active-element-position e) e)]
-      (println (nth (:projection e) active-elm))
       (lib/append-ents
        s
        (for [i (take 1 (shuffle (nth (:projection e) active-elm)))]
          (do
-           (println [i ((:i->pos e-nn) e-nn i) ])
            (assoc
             (elib/->flash-of-line
              wavemaker-active-pos
@@ -996,7 +994,7 @@
                     :inhibition-model
                     (fn [_ synaptic-input]
                       (ac/cap-k (rand-nth [2 10 25]) synaptic-input))
-                    :plasticity 0.1
+                    :plasticity 0.05
                     :plasticity-model ac/hebbian-plasticity})
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
@@ -1176,7 +1174,7 @@
                                             activations)))
                               1)
                          synaptic-input))
-                   :plasticity 0.1
+                   :plasticity 0.05
                    :plasticity-model ac/hebbian-plasticity
                    :weights
                      (ac/->directed-graph-with-geometry
@@ -1294,7 +1292,7 @@
                                   activations)))
                       1)
                  synaptic-input))
-              :plasticity 0.1
+              :plasticity 0.05
               :plasticity-model ac/hebbian-plasticity
               :weights
               (ac/->directed-graph-with-geometry

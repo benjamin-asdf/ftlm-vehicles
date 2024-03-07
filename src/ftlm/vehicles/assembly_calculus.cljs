@@ -202,35 +202,50 @@
   [{:keys [plasticity weights current-activations
            next-activations]}]
   (.subset
-   weights
-   (mathjs/index next-activations current-activations)
-   (mathjs/add
-    (.subset weights (mathjs/index next-activations current-activations))
-    plasticity)))
+    weights
+    (mathjs/index current-activations next-activations)
+    (mathjs/multiply (mathjs/subset weights
+                                    (mathjs/index
+                                      current-activations
+                                      next-activations))
+                     (+ 1 plasticity))))
 
 (comment
+
   (do
     (defn hebbian-plasticity
       [{:keys [plasticity weights current-activations next-activations]}]
-      (.forEach
-       (mathjs/subset weights (mathjs/index current-activations next-activations))
-       (fn [v idx m]
-         (.set weights idx (+ v plasticity)))
-       true)
-      weights)
-    (hebbian-plasticity
-     {:plasticity
-      0.1
-      :weights
-      (mathjs/matrix #js
-                     [#js [0 0 0]
-                      #js [1 1 1]
-                      #js [1 1 1]]
-                     "sparse")
-      :current-activations
-      (mathjs/matrix #js [0 1])
-      :next-activations
-      (mathjs/matrix #js [0])}))
+
+      ;; reference:
+      ;; def plasticity(w,act,new_act,plasticity):
+      ;;     w[np.ix_(act,new_act)] *= 1 + plasticity
+      ;;     return w
+
+      (.subset
+       weights
+       (mathjs/index current-activations next-activations)
+       (mathjs/multiply
+        (mathjs/subset weights (mathjs/index current-activations next-activations))
+        (+ 1 plasticity))))
+    [
+     (hebbian-plasticity
+      {:plasticity
+       0.1
+       :weights
+       (mathjs/matrix #js
+                      [#js [0 0 0]
+                       #js [1 1 1]
+                       #js [1 1 1]]
+                      "sparse")
+       :current-activations
+       (mathjs/matrix #js [0 1])
+       :next-activations
+       (mathjs/matrix #js [0])})])
+
+  ;; [#object[SparseMatrix
+  ;;          [[0, 0, 0]
+  ;;           [1.1, 1, 1]
+  ;;           [1, 1, 1]]]]
 
   ;; reference:
   ;; [[0.  0.  0. ]
@@ -387,7 +402,7 @@
 ;;  the connectivity goes across the width boundary)
 ;;
 ;;
-;; This creates something like 'collumns' of std-deviation length neurons,
+;; This creates something like 'columns' of std-deviation length neurons,
 ;; they overlap
 ;;
 (defn lin-gaussian-geometry
