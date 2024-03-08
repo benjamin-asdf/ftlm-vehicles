@@ -298,6 +298,7 @@
     :multi-line
     {:color (:cyan controls/color-map)
      :lifetime 3
+     :z-index -2
      :on-update-map {:fade (->fade 1)}
      :stroke-weight 1
      :transform (lib/->transform pos-1 1 1 1)

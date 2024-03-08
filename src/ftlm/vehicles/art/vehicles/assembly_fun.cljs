@@ -68,11 +68,11 @@
 ;; - fire neurons in the assembly (inputs)
 ;;
 
-(defn gaussian [amplitude mean std-deviation x]
-  (* amplitude (Math/exp
-                (-
-                 (/ (Math/pow (- x mean) 2)
-                    (* 2 (Math/pow std-deviation 2)))))))
+(defn gaussian
+  [amplitude mean std-deviation x]
+  (* amplitude
+     (Math/exp (- (/ (Math/pow (- x mean) 2)
+                     (* 2 (Math/pow std-deviation 2)))))))
 
 ;; neuron elements is an array of neurons
 ;; each neuron is active or not active
@@ -346,8 +346,7 @@
 ;;    simulating an inhibitory neuron in between
 ;; This allows the area to represent the absence of something.
 
-(defn ->input-space-1
-  [n n-neurons]
+(defn ->input-space-2 [{:keys [n n-neurons projection-density]}]
   (lib/->entity
    :grid
    {:color (:red controls/color-map)
@@ -356,7 +355,7 @@
     (ac/sensory-apparatus
      {:k-sensory-units n
       :n-neurons n-neurons
-      :projection-density 0.01})
+      :projection-density projection-density})
     :draw-element
     (fn [active?]
       (q/with-stroke
@@ -376,25 +375,27 @@
                 1 1 1)}))
 
 (defn ->input-space-ac
-  [n n-neurons]
-  (->
-   (->input-space-1 n n-neurons)
-   (assoc :on-update-map
-          {:sensitive-to-mouse
-           (lib/every-n-seconds
-            0.1
-            (fn [e _s _]
-              (let [_y (q/mouse-y)
-                    x (q/mouse-x)
-                    inputs-identity
-                    (int (* (/ (- (* (q/width) 0.9) x) (* (q/width) 0.9)) n))]
-                (assoc e
-                       :elements
-                       (dtype/clone
-                        (dtype/make-container
-                         :boolean
-                         (for [i (range n)]
-                           (boolean (= inputs-identity i)))))))))})))
+  ([n n-neurons]
+   (->input-space-ac {:n n :n-neurons n-neurons :projection-density 0.01}))
+  ([{:keys [n n-neurons projection-density] :as opts}]
+   (->
+    (->input-space-2 opts)
+    (assoc :on-update-map
+           {:sensitive-to-mouse
+            (lib/every-n-seconds
+             0.1
+             (fn [e _s _]
+               (let [_y (q/mouse-y)
+                     x (q/mouse-x)
+                     inputs-identity
+                     (int (* (/ (- (* (q/width) 0.9) x) (* (q/width) 0.9)) n))]
+                 (assoc e
+                        :elements
+                        (dtype/clone
+                         (dtype/make-container
+                          :boolean
+                          (for [i (range n)]
+                            (boolean (= inputs-identity i)))))))))}))))
 
 ;; In the triangle world, there are 3 states.
 ;; and these transitions
@@ -671,8 +672,7 @@
    (lib/every-n-seconds
     (/ 1 frequency)
     (fn [e s _k]
-      (let [{:keys [sensory-projection]} (:apparatus
-                                          input-space)
+      (let [{:keys [sensory-projection]} (:apparatus input-space)
             e-space ((lib/entities-by-id s)
                      (:id input-space))
             sensory-inputs ((:input-state e-space)
@@ -697,6 +697,61 @@
                          (v
                           controls/color-map)))))))))))
 
+(defn wire-input-space-bursts
+  [{:keys [neuronal-area input-space frequency set-input-op
+           burst-count burst-frequency]}]
+  (let [bursting-count (atom 0)]
+    (->
+      neuronal-area
+      (assoc-in [:on-update-map :burst]
+                (lib/every-n-seconds (/ 1 frequency)
+                                     (fn [_]
+                                       (swap! bursting-count
+                                         (constantly
+                                           burst-count))
+                                       nil)))
+      (assoc-in
+        [:on-update-map :sensory-input]
+        (lib/every-n-seconds
+          (/ 1 burst-frequency)
+          (fn [e s _k]
+            (when (< 0 @bursting-count)
+              (do
+                (swap! bursting-count dec)
+                (let [{:keys [sensory-projection]}
+                        (:apparatus input-space)
+                      e-space ((lib/entities-by-id s)
+                                (:id input-space))
+                      sensory-inputs ((:input-state e-space)
+                                       e-space)
+                      ;; new-activations
+                      inputs (ac/->sensory-inputs
+                               sensory-inputs
+                               sensory-projection)
+                      e (-> e
+                            (update :ac-area
+                                    (or set-input-op
+                                        ac/append-input)
+                                    inputs)
+                            (assoc
+                              :color
+                                (:navajo-white
+                                  controls/color-map)))]
+                  {:updated-state
+                     (-> s
+                         (assoc-in [:eid->entity (:id e)] e)
+                         (lib/append-ents
+                           (for [i (take 10
+                                         (shuffle (.valueOf inputs)))]
+                             (assoc
+                              (elib/->flash-of-line
+                               (lib/position e-space)
+                               ((:i->pos neuronal-area)
+                                ((lib/entities-by-id s) (:id neuronal-area))
+                                i))
+                              :color (:navajo-white
+                                      controls/color-map)))))})))))))))
+
 (defn wire-input-space [neuronal-area input-space frequency]
   (wire-input-space-1
    {:neuronal-area neuronal-area
@@ -712,8 +767,7 @@
        :draw-functions
          {:1
           (fn [e]
-            (let [neurons (ac/read-activations (:ac-area
-                                                e))
+            (let [neurons (ac/read-activations (:ac-area e))
                   i->pos (fn [i] ((e :i->pos) e i))]
               (q/with-stroke
                 nil
@@ -993,8 +1047,8 @@
                       {:amplitude 0.6 :std-deviation 30}))
                     :inhibition-model
                     (fn [_ synaptic-input]
-                      (ac/cap-k (rand-nth [2 10 25]) synaptic-input))
-                    :plasticity 0.05
+                      (ac/cap-k 25 synaptic-input))
+                    :plasticity 0.1
                     :plasticity-model ac/hebbian-plasticity})
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
@@ -1049,6 +1103,87 @@
            (-> s
                (lib/append-ents (show-lines s))))))))))
 
+
+(defmethod setup-version :burst-inputs
+  [state]
+  (let [input-space-size 3
+        n-neurons 800
+        n-area (->neuronal-area-ac
+                 {:density 0.1
+                  :frequency 10
+                  :grid-width 20
+                  :n-neurons n-neurons
+                  :spacing 15
+                  :transform
+                    (lib/->transform [50 50] 20 20 1)})
+        n-area
+          (-> n-area
+              (assoc :ac-area
+                       {:activations (ac/->neurons
+                                       n-neurons)
+                        :inhibition-model
+                          (fn [{:keys [activations]}
+                               synaptic-input]
+                            (ac/cap-k (rand-nth [50 100]) synaptic-input))
+                        :plasticity 0.0
+                        :plasticity-model
+                          ac/hebbian-plasticity
+                        :weights
+                          (ac/->directed-graph-with-geometry
+                            n-neurons
+                            (ac/lin-gaussian-geometry {:amplitude 0.3 :std-deviation 100}))})
+              (assoc-in [:on-update-map :normalize-weights]
+                        (lib/every-n-seconds
+                          5
+                          (fn [e _s _]
+                            (update-in e
+                                       [:ac-area :weights]
+                                       ac/normalize)))))
+        id-area (:id n-area)
+        input-space (->input-space-ac {:n input-space-size
+                                       :n-neurons n-neurons
+                                       :projection-density
+                                         0.05})
+        n-area (wire-input-space-bursts
+                 {:burst-count 10
+                  :burst-frequency 10
+                  :frequency (/ 1 3)
+                  :input-space input-space
+                  :neuronal-area n-area
+                  :set-input-op ac/append-input})
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area input-space]))]
+    (-> state
+        (assoc-in
+          [:on-update-map :time-tick]
+          (lib/every-n-seconds
+            0.1
+            (fn [s _]
+              (let [show-lines
+                      (fn [s]
+                        (let [activations
+                                (ac/read-activations
+                                  (:ac-area
+                                    ((lib/entities-by-id s)
+                                      id-area)))
+                              e ((lib/entities-by-id s)
+                                  id-area)
+                              i->pos (fn [i]
+                                       ((e :i->pos) e i))]
+                          (for [[i j] (partition-all
+                                        2
+                                        (take
+                                          (* 3 2)
+                                          (shuffle
+                                            activations)))
+                                :when (and i j)]
+                            (elib/->flash-of-line (i->pos i)
+                                                  (i->pos
+                                                    j)))))]
+                (-> s
+                    (lib/append-ents (show-lines s))))))))))
+
 (defmethod setup-version :triangle-world
   [state]
   (let [n-neurons 400
@@ -1072,7 +1207,7 @@
                          (max (gaussian
                                 60 30
                                 10 (count (.valueOf
-                                            activations)))
+                                           activations)))
                               1)
                          synaptic-input))
                    :plasticity 0.1
@@ -1098,8 +1233,7 @@
                 {:frequency (/ 1 3)
                  :neuronal-area n-area
                  :input-space input-space
-                 :set-input-op
-                 ac/append-input})
+                 :set-input-op ac/append-input})
         state (-> state
                   (assoc :neuronal-area (:id n-area))
                   (lib/append-ents [n-area input-space]))]
@@ -1169,9 +1303,11 @@
                           synaptic-input]
                        (ac/cap-k
                          (max (gaussian
-                                60 30
-                                10 (count (.valueOf
-                                            activations)))
+                               60
+                               15
+                               20
+                               (count (.valueOf
+                                       activations)))
                               1)
                          synaptic-input))
                    :plasticity 0.05
@@ -1195,14 +1331,16 @@
                     :density 0.01
                     :wave-speed 5})
         id-area (:id n-area)
-        input-space (->triangle-world {:frequency (/ 1 5)
-                                       :n-neurons
-                                         n-neurons})
-        n-area (wire-input-space-1 {:frequency (/ 1 3)
-                                    :input-space input-space
-                                    :neuronal-area n-area
-                                    :set-input-op
-                                      ac/append-input})
+        input-space (->triangle-world
+                     {:frequency (/ 1 5)
+                      :n-neurons
+                      n-neurons})
+        n-area (wire-input-space-1
+                {:frequency (/ 1 3)
+                 :input-space input-space
+                 :neuronal-area n-area
+                 :set-input-op
+                 ac/append-input})
         n-area
           (let [frequency 5]
             (assoc-in n-area
