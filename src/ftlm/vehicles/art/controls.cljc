@@ -149,7 +149,10 @@
            :v :triangle-world-and-geometry-timer-wave}
       "7" {:background-color (:woodsmoke color-map)
            :v :wavemaker-without-world}
-      "8" {:background-color (:woodsmoke color-map) :v :burst-inputs}}
+      "8" {:background-color (:woodsmoke color-map) :v :burst-inputs}
+      "9" {:background-color (:woodsmoke color-map) :v :burst-inputs-triangle-world}
+
+      }
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614

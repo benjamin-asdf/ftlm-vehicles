@@ -1107,82 +1107,240 @@
 (defmethod setup-version :burst-inputs
   [state]
   (let [input-space-size 3
-        n-neurons 800
+        n-neurons 1000
+
         n-area (->neuronal-area-ac
-                 {:density 0.1
-                  :frequency 10
-                  :grid-width 20
-                  :n-neurons n-neurons
-                  :spacing 15
-                  :transform
-                    (lib/->transform [50 50] 20 20 1)})
+                {:density 0.1
+                 :frequency 10
+                 :grid-width 20
+                 :n-neurons n-neurons
+                 :spacing 15
+                 :transform
+                 (lib/->transform [50 50] 20 20 1)})
         n-area
-          (-> n-area
-              (assoc :ac-area
-                       {:activations (ac/->neurons
-                                       n-neurons)
-                        :inhibition-model
-                          (fn [{:keys [activations]}
-                               synaptic-input]
-                            (ac/cap-k (rand-nth [50 100]) synaptic-input))
-                        :plasticity 0.0
-                        :plasticity-model
-                          ac/hebbian-plasticity
-                        :weights
-                          (ac/->directed-graph-with-geometry
-                            n-neurons
-                            (ac/lin-gaussian-geometry {:amplitude 0.3 :std-deviation 100}))})
-              (assoc-in [:on-update-map :normalize-weights]
-                        (lib/every-n-seconds
-                          5
-                          (fn [e _s _]
-                            (update-in e
-                                       [:ac-area :weights]
-                                       ac/normalize)))))
+        (-> n-area
+            (assoc :ac-area
+                   {:activations (ac/->neurons
+                                  n-neurons)
+                    :inhibition-model
+                    (fn [{:keys [activations]}
+                         synaptic-input]
+                      ;; (ac/cap-k
+                      ;;  (rand-nth [50 100])
+                      ;;  synaptic-input)
+                      (ac/cap-k (rand-nth [50 100]) synaptic-input))
+                    :plasticity 0.1
+                    :plasticity-model
+                    ac/hebbian-plasticity
+                    :weights
+                    (ac/->directed-graph-with-geometry
+                     n-neurons
+                     (ac/lin-gaussian-geometry {:amplitude 0.3 :std-deviation 10}))})
+            (assoc-in [:on-update-map :normalize-weights]
+                      (lib/every-n-seconds
+                       5
+                       (fn [e _s _]
+                         (update-in e
+                                    [:ac-area :weights]
+                                    ac/normalize)))))
         id-area (:id n-area)
-        input-space (->input-space-ac {:n input-space-size
-                                       :n-neurons n-neurons
-                                       :projection-density
-                                         0.05})
+        input-space
+        (->input-space-ac
+         {:n input-space-size
+          :n-neurons n-neurons
+          :projection-density (* 0.1 (/ 100 n-neurons input-space-size))})
         n-area (wire-input-space-bursts
-                 {:burst-count 10
-                  :burst-frequency 10
-                  :frequency (/ 1 3)
-                  :input-space input-space
-                  :neuronal-area n-area
-                  :set-input-op ac/append-input})
+                {:burst-count 10
+                 :burst-frequency 10
+                 :frequency (/ 1 3)
+                 :input-space input-space
+                 :neuronal-area n-area
+                 :set-input-op ac/append-input})
+
+        wavemaker (->wavemaker
+                   {:n 15
+                    :n-neurons n-neurons
+                    :density 0.1
+                    :wave-speed 2})
+        n-area
+        (let [frequency 5]
+          (assoc-in n-area
+                    [:on-update-map :wavemaker-input]
+                    (lib/every-n-seconds
+                     (/ 1 frequency)
+                     (fn [e s _k]
+                       (let [wavemaker ((lib/entities-by-id s)
+                                        (:id wavemaker))
+                             active-elm (:active-elm wavemaker)
+                             inputs (nth (:projection wavemaker)
+                                         active-elm)]
+                         (-> e
+                             (update :ac-area
+                                     ac/append-input
+                                     (into-array :int
+                                                 inputs))))))))
+
         state (-> state
                   (assoc :neuronal-area (:id n-area))
-                  (lib/append-ents [n-area input-space]))]
+                  (lib/append-ents [n-area input-space wavemaker]))]
     (-> state
         (assoc-in
-          [:on-update-map :time-tick]
-          (lib/every-n-seconds
-            0.1
-            (fn [s _]
-              (let [show-lines
-                      (fn [s]
-                        (let [activations
-                                (ac/read-activations
-                                  (:ac-area
-                                    ((lib/entities-by-id s)
-                                      id-area)))
-                              e ((lib/entities-by-id s)
-                                  id-area)
-                              i->pos (fn [i]
-                                       ((e :i->pos) e i))]
-                          (for [[i j] (partition-all
-                                        2
-                                        (take
-                                          (* 3 2)
-                                          (shuffle
-                                            activations)))
-                                :when (and i j)]
-                            (elib/->flash-of-line (i->pos i)
-                                                  (i->pos
-                                                    j)))))]
-                (-> s
-                    (lib/append-ents (show-lines s))))))))))
+         [:on-update-map :wavemaker-lines]
+         (lib/every-n-seconds
+          (/ 1 5)
+          (wavemaker-lines
+           (:id wavemaker)
+           (:id n-area))))
+
+        (assoc-in
+         [:on-update-map :time-tick]
+         (lib/every-n-seconds
+          0.1
+          (fn [s _]
+            (let [show-lines
+                  (fn [s]
+                    (let [activations
+                          (ac/read-activations
+                           (:ac-area
+                            ((lib/entities-by-id s)
+                             id-area)))
+                          e ((lib/entities-by-id s)
+                             id-area)
+                          i->pos (fn [i]
+                                   ((e :i->pos) e i))]
+                      (for [[i j] (partition-all
+                                   2
+                                   (take
+                                    (* 3 2)
+                                    (shuffle
+                                     activations)))
+                            :when (and i j)]
+                        (elib/->flash-of-line (i->pos i)
+                                              (i->pos
+                                               j)))))]
+              (-> s
+                  (lib/append-ents (show-lines s)))))))
+        )))
+
+
+(defmethod setup-version :burst-inputs-triangle-world
+  [state]
+  (let [input-space-size 3
+        n-neurons 1000
+
+        n-area (->neuronal-area-ac
+                {:density 0.1
+                 :frequency 10
+                 :grid-width 20
+                 :n-neurons n-neurons
+                 :spacing 15
+                 :transform
+                 (lib/->transform [50 50] 20 20 1)})
+        n-area
+        (-> n-area
+            (assoc :ac-area
+                   {:activations (ac/->neurons
+                                  n-neurons)
+                    :inhibition-model
+                    (fn [{:keys [activations]}
+                         synaptic-input]
+                      ;; (ac/cap-k
+                      ;;  (rand-nth [50 100])
+                      ;;  synaptic-input)
+                      (ac/cap-k (rand-nth [50 100]) synaptic-input))
+                    :plasticity 0.1
+                    :plasticity-model
+                    ac/hebbian-plasticity
+                    :weights
+                    (ac/->directed-graph-with-geometry
+                     n-neurons
+                     (ac/lin-gaussian-geometry {:amplitude 0.3 :std-deviation 10}))})
+            (assoc-in [:on-update-map :normalize-weights]
+                      (lib/every-n-seconds
+                       5
+                       (fn [e _s _]
+                         (update-in e
+                                    [:ac-area :weights]
+                                    ac/normalize)))))
+        id-area (:id n-area)
+
+        input-space (->triangle-world
+                     {:frequency (/ 1 5)
+                      :n-neurons
+                      n-neurons})
+
+        n-area (wire-input-space-bursts
+                {:burst-count 10
+                 :burst-frequency 10
+                 :frequency (/ 1 3)
+                 :input-space input-space
+                 :neuronal-area n-area
+                 :set-input-op ac/append-input})
+
+        wavemaker (->wavemaker
+                   {:n 10
+                    :n-neurons n-neurons
+                    :density 0.1
+                    :wave-speed 10})
+        n-area
+        (let [frequency 5]
+          (assoc-in n-area
+                    [:on-update-map :wavemaker-input]
+                    (lib/every-n-seconds
+                     (/ 1 frequency)
+                     (fn [e s _k]
+                       (let [wavemaker ((lib/entities-by-id s)
+                                        (:id wavemaker))
+                             active-elm (:active-elm wavemaker)
+                             inputs (nth (:projection wavemaker)
+                                         active-elm)]
+                         (-> e
+                             (update :ac-area
+                                     ac/append-input
+                                     (into-array :int
+                                                 inputs))))))))
+
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area input-space wavemaker]))]
+    (-> state
+        (assoc-in
+         [:on-update-map :wavemaker-lines]
+         (lib/every-n-seconds
+          (/ 1 5)
+          (wavemaker-lines
+           (:id wavemaker)
+           (:id n-area))))
+
+        (assoc-in
+         [:on-update-map :time-tick]
+         (lib/every-n-seconds
+          0.1
+          (fn [s _]
+            (let [show-lines
+                  (fn [s]
+                    (let [activations
+                          (ac/read-activations
+                           (:ac-area
+                            ((lib/entities-by-id s)
+                             id-area)))
+                          e ((lib/entities-by-id s)
+                             id-area)
+                          i->pos (fn [i]
+                                   ((e :i->pos) e i))]
+                      (for [[i j] (partition-all
+                                   2
+                                   (take
+                                    (* 3 2)
+                                    (shuffle
+                                     activations)))
+                            :when (and i j)]
+                        (elib/->flash-of-line (i->pos i)
+                                              (i->pos
+                                               j)))))]
+              (-> s
+                  (lib/append-ents (show-lines s)))))))
+        )))
 
 (defmethod setup-version :triangle-world
   [state]
@@ -1342,7 +1500,7 @@
                  :set-input-op
                  ac/append-input})
         n-area
-          (let [frequency 5]
+        (let [frequency 5]
             (assoc-in n-area
               [:on-update-map :wavemaker-input]
               (lib/every-n-seconds

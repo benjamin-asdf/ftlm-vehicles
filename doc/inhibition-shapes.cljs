@@ -130,6 +130,11 @@
 ;; Considerations:
 ;; - Since it is mono-lateral whatever circuits, nuclei, mechanism etc. are at play probably are mono-lateral, too
 ;; - What moves as slow as CSD? Nothing in the space of neuronal activity at first sight it seems like.
-;;
-;;
+;; - One idea somehow (considering the above circuit) is that there is some kind of offending, strong activation going over the TRN,
+;;   makes one wonder about the connection between serotonin and migraines, since TRN is modulated by serotonin
+;; - But I am not sure if that is just the whole story, then.
+;; - In general, it comes across like the whole thing is a biochemical problem, considering it involves brainstem and
+;;   brainstem auras.
+;;   (the reasoning is that it would be bad design if cortex is allowed to mess with brainstem via activation, you
+;;    would be able to think yourself to death accidentally).
 ;;

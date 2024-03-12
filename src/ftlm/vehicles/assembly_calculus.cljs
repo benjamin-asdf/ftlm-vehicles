@@ -317,10 +317,7 @@
                                                           (:activations mystate)))
      ;; (update-neuronal-area mystate)
      :next-weights
-     (:weights (update-neuronal-area mystate))])
-
-  )
-
+     (:weights (update-neuronal-area mystate))]))
 
 ;; ------------------------
 ;; A sensory apparatus
@@ -336,7 +333,8 @@
    (for [_ (range k-sensory-units)]
      ;; off / on projections (i.e the absence of a sensory unit being active is projected to some neurons)
      {false
-      (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))
+      ;; using only 20% of the connetions for off, this way the inputs are less similar
+      (into #{} (repeatedly (* n-neurons (* 0.2 projection-density)) #(rand-int n-neurons)))
       true
       (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))})))
 

@@ -110,6 +110,12 @@
 
   (Braitenberg Ergotrix, e-lines).
 
+  ----
+
+  You could also get e-lines by mixing with random noice, or dedicated 'time-step' hyper-data.
+
+  See also: https://faster-than-light-memes.xyz/technical-notes-on-synthetic-psychology.html
+
   "
   [v]
   (rotate-n v 1))
@@ -157,7 +163,6 @@
 
 
   (dtype/clone (dtype/emap (fn [_] (binary-rand)) :int8 (dtype/make-container :int8 size)))
-
   (dtype/clone (dtype/make-container :int8 [1 2 3]))
 
   (dotimes [_ 100] (dot-product (hdv) (hdv)))
@@ -166,18 +171,6 @@
     (dtype-fn/sum
      (dtype/emap (fn [a b] (* a b)) :int8 (hdv)
                  (hdv))))
-
-
-
-  ;; (dtype-fn/ [1 2 3] [1 2 3])
-
-  (dtype/clone (dtype/emap inc :int [1 2 3]))
-
-
-  (protect-n [1 2 3] 1)
-
-  (dotimes [_ 100]
-    (dtype/clone (protect-n (hdv) 1)))
 
   (let [x (hdv)]
     (=
@@ -195,7 +188,6 @@
    (dtype/clone
     (dtype/make-container :int8 [1 2 3]))
    1)
-
 
   (dotimes
       [_ 1000]

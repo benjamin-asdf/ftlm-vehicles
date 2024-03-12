@@ -288,7 +288,7 @@
 
 
 
-;; `input-neurons-count`: (n_in)
+;; `input-neurons-count`: (n_in)kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 ;; I think that is the neurons in the input area?
 
 ;;
