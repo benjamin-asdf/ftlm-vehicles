@@ -118,18 +118,29 @@
    (fn [_ _]
      (< (mathjs/random 0 1) density))))
 
+(defn ->uni-directional-fiber
+  [n-neurons-1 n-neurons-2 density]
+  (.map (mathjs/matrix (mathjs/zeros #js [n-neurons-1
+                                          n-neurons-2])
+                       "sparse")
+        (fn [_ _ _] (if (< (mathjs/random) density) 1 0))))
+
 
 ;; Synaptic input is the sum of the weights of the active activations
 ;; Everybody that is active is contributing to my chance of being active
 
 (defn synaptic-input
   [weights activations]
-  (let [n (.get (mathjs/squeeze (mathjs/size weights)) #js[0])]
+  (let [n (.get (mathjs/squeeze (mathjs/size weights)) #js[1])]
     (-> (mathjs/subset weights
                        (mathjs/index activations
                                      (mathjs/range 0 n)))
         (mathjs/sum 0)
         (mathjs/squeeze))))
+
+(defn ->indices
+  [m index]
+  (.subset (mathjs/range 0 (mathjs/count m)) index))
 
 (comment
   (do
@@ -141,7 +152,6 @@
                    "sparse")
           activations #js [0 2]]
       (synaptic-input weights activations)))
-
   (do
     (let [weights (mathjs/matrix
                    #js
@@ -210,48 +220,182 @@
                                       next-activations))
                      (+ 1 plasticity))))
 
+
+
+;; ==============================
+;; binary hebbian-plasticity
+;; ==============================
+;; ---
+;; For each neuron that is active right now, look at the neurons that were active at the last step,
+;; for each of those edges (i->j) there is a chance, proportional to β, that there is a new synapse formed between the 2 neurons.
+;; Doesn't matter if there is already a synapse or not.
+;;
+;; ---
+;;
+;; In order for the network to not be overrun with synapses everywhere, in a second process prune synapses.
+;; It looks to me like the simplest way to do this is to simply prune 10% or something of the existing
+;; synapses.
+;;
+;; Intuitively, this probably preserves cell assemblies and their connections.
+;;
+;;
+;; The concept of synapse turnover is very biologically harmonious. [insert links to Seth Grant research]
+;; https://youtu.be/vWuSpIAZW9s?si=lDeQLXHed9fIBGAP
+;;
+;; You could also model a lifetime for each synapse formed.
+;; The plasticity rule could then reset the lifetime.
+;;
+;; If you do pruning, you have another problem: How to not accidentally starve the network of connections?
+;; A simple counter meassure would be to not let the synapse count drop below a certain number.
+;; We could also say that we throw away a starved network and start fresh. (new random connections).
+;;
+;; It is biological intuitive, that some processes form (semi random) fresh connections. You might wonder if
+;; such a thing would happen during sleep. This would re-normalize the network, make new interpretions possible again.
+;;
+;; We could simply do this by shooting a bit of random activation into the network. The plasticity rules
+;; would then already make new synapses.
+;; As a variation of this you can construct geometry in the network, by making not completely random activation, but
+;; random activation with geometry.
+;; For instance, if you make a wave across the network, you automatically create synapses to neighbouring neurons.
+;;
+;;
+;; params: β `plasticity` is now the chance that a new synapse is formed, per time step.
+;; (per pair of active neurons)
+;;
+(defn binary-hebbian-plasticity
+  [{:keys [plasticity weights current-activations
+           next-activations]}]
+
+  ;; (def plasticity plasticity)
+  ;; (def weights weights)
+  ;; (def current-activations current-activations)
+  ;; (def next-activations next-activations)
+
+  (.subset
+   weights
+   (mathjs/index current-activations next-activations)
+   (-> (.subset weights
+                (mathjs/index current-activations
+                              next-activations))
+       (mathjs/map (fn [v _idx _m]
+                     (mathjs/bitOr v
+                                   (< (mathjs/random)
+                                      plasticity))))))
+
+
+  )
+
+;;
+;; This is the simple version, return new weights with prune-factor synapses removed.
+;; This potentially starves the network of connections.
+;;
+;; The synapse turnover rate is given by
+;; --------------------------------------
+;; 1. The plasticity (chance for new synapse forming when 2 neurons are active across 2 time steps)
+;; 2. The prune-event-rate (how often compared to neuron steps)
+;; 3. The prune-factor (how many synapses are removed at a prune-event)
+;;
+;;
+;; ---
+;; Biologically, it would be easier for me to think in terms of synapse lifespan.
+;; However, intuitively, it should all average out with large numbers.
+;;
+;;
+(defn binary-prune-synapses
+  [weights prune-factor]
+  (let [survival-chance (- 1 prune-factor)]
+    (.map weights
+          (fn [v _idx _m]
+            (< (mathjs/random) survival-chance))
+          true)))
+
+
 (comment
 
   (do
     (defn hebbian-plasticity
-      [{:keys [plasticity weights current-activations next-activations]}]
-
-      ;; reference:
-      ;; def plasticity(w,act,new_act,plasticity):
+      [{:keys [plasticity weights current-activations
+               next-activations]}]
+      ;; reference: def
+      ;; plasticity(w,act,new_act,plasticity):
       ;;     w[np.ix_(act,new_act)] *= 1 + plasticity
       ;;     return w
-
       (.subset
        weights
        (mathjs/index current-activations next-activations)
-       (mathjs/multiply
-        (mathjs/subset weights (mathjs/index current-activations next-activations))
-        (+ 1 plasticity))))
-    [
-     (hebbian-plasticity
-      {:plasticity
-       0.1
-       :weights
-       (mathjs/matrix #js
-                      [#js [0 0 0]
-                       #js [1 1 1]
-                       #js [1 1 1]]
-                      "sparse")
-       :current-activations
-       (mathjs/matrix #js [0 1])
-       :next-activations
-       (mathjs/matrix #js [0])})])
-
+       (mathjs/multiply (mathjs/subset
+                         weights
+                         (mathjs/index current-activations
+                                       next-activations))
+                        (+ 1 plasticity))))
+    [(hebbian-plasticity
+      {:current-activations (mathjs/matrix #js [0 1])
+       :next-activations (mathjs/matrix #js [0])
+       :plasticity 0.1
+       :weights (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
+                                    #js [1 1 1]]
+                               "sparse")})])
   ;; [#object[SparseMatrix
   ;;          [[0, 0, 0]
   ;;           [1.1, 1, 1]
   ;;           [1, 1, 1]]]]
-
   ;; reference:
   ;; [[0.  0.  0. ]
   ;;  [1.1 1.  1. ]
   ;;  [1.  1.  1. ]]
-  )
+  (do
+    (defn binary-hebbian-plasticity
+      [{:keys [plasticity weights current-activations
+               next-activations]}]
+      (.subset
+       weights
+       (mathjs/index current-activations next-activations)
+       (-> (.subset weights
+                    (mathjs/index current-activations
+                                  next-activations))
+           (mathjs/map (fn [v _idx _m]
+                         (mathjs/bitOr v
+                                       (< (mathjs/random)
+                                          plasticity)))))))
+    [(synaptic-input
+      (binary-hebbian-plasticity
+       {:current-activations (mathjs/matrix #js [0 1])
+        :next-activations (mathjs/matrix #js [0])
+        :plasticity 1.0
+        :weights (mathjs/matrix #js [#js [0 0 0]
+                                     #js [1 1 1]
+                                     #js [1 1 1]]
+                                "sparse")})
+      #js [0 1 2])
+     (binary-hebbian-plasticity
+      {:current-activations (mathjs/matrix #js [0 1])
+       :next-activations (mathjs/matrix #js [0])
+       :plasticity 1.0
+       :weights (mathjs/matrix #js [#js [0 0 0] #js [1 1 1]
+                                    #js [1 1 1]]
+                               "sparse")})])
+
+
+
+
+  (mathjs/bitOr (< (mathjs/random) 0.9))
+
+  (do
+    (defn prune-synapses
+      [weights prune-factor]
+      (let [survival-chance (- 1 prune-factor)]
+        (.map
+         weights
+         (fn [v _idx _m]
+           (< (mathjs/random) survival-chance))
+         true)))
+
+    (prune-synapses
+     (mathjs/matrix
+      #js[#js[0 0 0]
+          #js[1 1 1]
+          #js[1 1 1]] "sparse")
+     0.5)))
 
 ;; ---------------------------
 ;; Inhbition model
@@ -261,6 +405,12 @@
 
 (defn cap-k [k synaptic-input]
   (into-array :int (take k (argops/argsort > (.valueOf synaptic-input)))))
+
+(defn indices-above-input-cutoff [synaptic-input threshold]
+  (.subset (mathjs/range 0 (mathjs/count synaptic-input))
+           (mathjs/index (mathjs/larger synaptic-input threshold))))
+
+(def threshold-inhibiton indices-above-input-cutoff)
 
 (defn update-neuronal-area
   [{:as state
@@ -294,8 +444,137 @@
             (mathjs/setUnion activations input))))
 
 (defn read-activations
-  [state]
-  (.valueOf (:activations state)))
+  [{:keys [activations]}]
+  (when activations
+    (.valueOf activations)))
+
+;; (defn ->fiber [area-1 area-2 density]
+;;   {:weights
+;;    }
+;;   )
+
+;; 2 weights, off and on
+;; simulating inhibitory interneurons, signaling the absence of something
+(defn ->input-fiber
+  [input-space n-area density]
+  {:input-count (:n-neurons input-space)
+   :off-fibers (->uni-directional-fiber (:n-neurons
+                                          input-space)
+                                        (:n-neurons n-area)
+                                        (/ density 10))
+   :on-fibers (->uni-directional-fiber (:n-neurons
+                                         input-space)
+                                       (:n-neurons n-area)
+                                       density)
+   :output-count (:n-neurons n-area)})
+
+(defn ->mask
+      [max-index activations]
+      (if (zero? (mathjs/count activations))
+        (mathjs/and (mathjs/zeros max-index) 1.0)
+        (mathjs/and (.subset (mathjs/zeros max-index)
+                             (mathjs/index activations)
+                             1.0)
+                    1.0)))
+
+(defn input-fiber-activations
+  [input-space
+   {:keys [input-count output-count off-fibers on-fibers]}]
+  (let [activations (read-activations input-space)
+        input->indices (fn [input]
+                         (->indices
+                          input
+                          (mathjs/index
+                           (mathjs/larger input 0))))]
+    (mathjs/setUnion
+     (input->indices
+      (synaptic-input
+       off-fibers
+       (mathjs/not (->mask input-count activations))))
+     (input->indices (synaptic-input on-fibers
+                                     activations)))))
+
+
+
+(comment
+
+  (synaptic-input
+   (->uni-directional-fiber 3 10 1.0)
+   #js [0])
+
+
+  (synaptic-input
+   (->uni-directional-fiber 3 10 0.5)
+   #js [0 1])
+
+
+  input-fiber-activations
+
+
+
+  (do
+    ;; (defn invert-indices [count indices]
+    ;;   (zero?
+    ;;    (mathjs/count indices)
+    ;;    (mathjs/range 0 count)
+    ;;    (let [mask (.subset (mathjs/ones input-count)
+    ;;    (mathjs/index activations) 0.0)]
+    ;;      (->indices mask (mathjs/index (mathjs/larger
+    ;;      mask 0))))
+    ;;    (.subset
+    ;;     (mathjs/range 0 count))))
+    (defn ->mask
+      [max-index activations]
+      (if (zero? (mathjs/count activations))
+        (mathjs/and (mathjs/zeros max-index) 1.0)
+        (mathjs/and (.subset (mathjs/zeros max-index)
+                             (mathjs/index activations)
+                             1.0)
+                    1.0)))
+    (defn input-fiber-activations
+      [input-space
+       {:keys [input-count output-count off-fibers
+               on-fibers]}]
+      (let [activations (read-activations input-space)
+            input->indices (fn [input]
+                             (->indices
+                              input
+                              (mathjs/index
+                               (mathjs/larger input 0))))]
+        (mathjs/setUnion
+         (input->indices
+          (synaptic-input
+           off-fibers
+           (mathjs/not (->mask input-count activations))))
+         (input->indices (synaptic-input on-fibers
+                                         activations)))))
+    (input-fiber-activations
+     {:activations #js [0]}
+     (->input-fiber {:n-neurons 3} {:n-neurons 10} 0.1)))
+
+
+
+
+
+  )
+
+
+;;
+;; static-fiber:
+;;
+;; a function with area-1 as input and area-2 activations as output
+;;
+
+
+
+
+
+
+
+
+
+
+
 
 (comment
   (do
@@ -353,8 +632,6 @@
                       (fn [[idx input-active?]]
                         (get-in sensory-projection [idx input-active?]))
                       (map-indexed vector input-states))))))
-
-
 
 
 (comment
@@ -436,106 +713,3 @@
      ;; (update-neuronal-area mystate)
      :next-weights
      (:weights (update-neuronal-area mystate))]))
-
-(comment
-  (->directed-graph-with-geometry 100 (lin-gaussian-geometry {:amplitude 0.7 :std-deviation 20}))
-  (map (fn [i] (gaussian 1.0 0 1 i)) (range -10 10))
-  (map (fn [i] (gaussian 1.0 0 10 i)) (range -10 10))
-
-
-  (mathjs/setUnion #js[1 0] #js[1 2])
-
-  (.map
-   (mathjs/matrix
-    #js [#js [1 0 1] #js [1 1 1] #js [1 0 1]]
-    "sparse")
-   (fn [v i m] (def i i) v)
-   true)
-
-  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0)
-  (mathjs/SparseMatrix.diagonal #js[3 3] 1 0))
-
-(comment
-  (def n-neurons 4)
-  (mathjs/reshape #js [1 1 1 1] #js [2 2])
-  (mathjs/random 0 1)
-
-  ;; (def weights (mathjs/map (mathjs/zeros #js[n-neurons n-neurons]) (fn [_] (mathjs/random 0 1))))
-
-  (def weights
-    (mathjs/map
-     (mathjs/range n-neurons)
-     (fn [_] (mathjs/random 0 1))))
-
-  (def row-length 2))
-
-(comment
-  (def w (mathjs/ones #js [2 2]))
-
-  (.subset w )
-  (.. w (subset (mathjs/index 0 1) 0))
-
-  ;; numpy reference:
-  ;; def normalize(self):
-  ;;   for w, inp in zip(self.input_weights, self.inputs):
-  ;;       w /= w.sum(axis=0, keepdims=True)
-
-
-  ;; mathjs:
-
-  (mathjs/subset w (mathjs/index 0 1) 0)
-  (mathjs/subset w (mathjs/index 0 0) 0)
-  (mathjs/subset w (mathjs/index 0 0) 1)
-  (.subset w (mathjs/index 0 0) 1)
-
-
-  (def current-activations (mathjs/matrix #js [1 0]))
-  (def next-activations (mathjs/matrix #js [1 0]))
-
-  (def weights
-    (mathjs/matrixFromRows
-     #js[1 0]
-     #js[0 1]))
-  (mathjs/transpose current-activations)
-
-
-
-  (do
-    (defn ->synaptic-input
-      [weights activations]
-      (let [n (.get (mathjs/size (mathjs/matrix weights)) #js [0])]
-        (-> (mathjs/subset
-             ;; (mathjs/matrix weights)
-             weights
-             (mathjs/index
-              activations
-              (mathjs/range 0 n)))
-            (mathjs/sum 0))))
-    (let [d #js [#js [0 1 0]
-                 #js [0 1 1]
-                 #js [1 1 1]]
-          activations #js [0 2]]
-      (->synaptic-input (mathjs/matrix d) activations)))
-
-  (let
-      [d #js[#js[0 1 0]
-             #js[0 1 1]
-             #js[1 1 1]]
-       weights (mathjs/matrix d)
-       sums (mathjs/sum weights 0)]
-
-    ;; (mathjs/divide weights sums)
-    ;; (mathjs/apply weights 0 (fn [w] 1))
-    ;; (mathjs/subset weights (mathjs/index (mathjs/range 0 3) 0))
-    ;; (mathjs/forEach
-    ;;  sums
-    ;;  (fn [s idx _]
-    ;;    (mathjs/subset weights (mathjs/index idx) s)))
-    (mathjs/dotDivide weights sums))
-
-  ;; #object
-  ;; [DenseMatrix [[0, 0.3333333333333333, 0],
-  ;;               [0, 0.3333333333333333, 0.5]
-  ;;               [1, 0.3333333333333333, 0.5]]]
-
-  (mathjs/resize (mathjs/matrix) #js [3] 3))

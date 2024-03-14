@@ -303,3 +303,42 @@
      :stroke-weight 1
      :transform (lib/->transform pos-1 1 1 1)
      :vertices (rect-line-vertices-1 pos-1 pos-2)}))
+
+;; (defn grid [draw-i]
+;;   (lib/->entity
+;;    :nn-area
+;;    (merge
+;;     {:color (:cyan controls/color-map)
+;;      :draw-functions
+;;      {:1 (fn [e]
+;;            (let [neurons (ac/read-activations (:ac-area
+;;                                                e))
+;;                  i->pos (fn [i] ((e :i->pos) e i))]
+;;              (q/with-stroke
+;;                nil
+;;                (doall
+;;                 (for [i neurons :let [pos (i->pos i)]]
+;;                   (q/with-translation pos (draw-i i)))))))}
+;;      :i->pos (fn [{:keys [transform]} i]
+;;                (let [[x y] (:pos transform)
+;;                      coll (mod i grid-width)
+;;                      row (quot i grid-width)
+;;                      x (+ x (* coll spacing))
+;;                      y (+ y (* row spacing))]
+;;                  [x y]))
+;;      :next-color (constantly (:cyan controls/color-map))
+;;      :spacing spacing}
+;;     opts)))
+
+
+(defn grid-pos-1
+  [spacing grid-width [x y] i]
+  (let [coll (mod i grid-width)
+        row (quot i grid-width)
+        x (+ x (* coll spacing))
+        y (+ y (* row spacing))]
+    [x y]))
+
+(defn grid-pos [{:keys [transform grid-width spacing]} i]
+  (let [[x y] (:pos transform)]
+    (grid-pos-1 spacing grid-width [x y] i)))

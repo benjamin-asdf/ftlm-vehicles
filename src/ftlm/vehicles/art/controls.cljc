@@ -138,6 +138,15 @@
    "assembly-fun"
      {"0" {:v :grid-1}
       "1" {:v :grid}
+      "10" {:background-color (:woodsmoke color-map)
+            :v :inhibition-pump-mouse}
+      "11" {:background-color (:woodsmoke color-map)
+            :v :thought-pump-rhythm-1}
+      "12" {:background-color (:woodsmoke color-map)
+            :v :prediction-area}
+      "14" {:background-color (:woodsmoke color-map) :v :binary-synapses}
+      "13" {:background-color (:woodsmoke color-map)
+            :v :thought-pump-rhythm}
       "2" {:background-color {:h 0 :s 0 :v 89} :v :dots}
       "3" {:background-color (:woodsmoke color-map)
            :v :geometry}
@@ -149,10 +158,10 @@
            :v :triangle-world-and-geometry-timer-wave}
       "7" {:background-color (:woodsmoke color-map)
            :v :wavemaker-without-world}
-      "8" {:background-color (:woodsmoke color-map) :v :burst-inputs}
-      "9" {:background-color (:woodsmoke color-map) :v :burst-inputs-triangle-world}
-
-      }
+      "8" {:background-color (:woodsmoke color-map)
+           :v :burst-inputs}
+      "9" {:background-color (:woodsmoke color-map)
+           :v :burst-inputs-triangle-world}}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614

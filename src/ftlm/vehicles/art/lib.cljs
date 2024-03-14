@@ -496,7 +496,7 @@
                          (vals draw-functions))))]
       (cond (:stroke entity)
               (q/with-stroke (->hsb (:stroke entity)) (drw))
-            :else (drw)))))
+              :else (drw)))))
 
 (defn draw-entities
   [state]
