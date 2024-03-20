@@ -262,28 +262,26 @@
 ;; params: β `plasticity` is now the chance that a new synapse is formed, per time step.
 ;; (per pair of active neurons)
 ;;
+(defn scalar? [m]
+  (zero? (mathjs/count (mathjs/size m))))
+
 (defn binary-hebbian-plasticity
   [{:keys [plasticity weights current-activations
            next-activations]}]
-
-  ;; (def plasticity plasticity)
-  ;; (def weights weights)
-  ;; (def current-activations current-activations)
-  ;; (def next-activations next-activations)
-
-  (.subset
-   weights
-   (mathjs/index current-activations next-activations)
-   (-> (.subset weights
-                (mathjs/index current-activations
-                              next-activations))
-       (mathjs/map (fn [v _idx _m]
-                     (mathjs/bitOr v
-                                   (< (mathjs/random)
-                                      plasticity))))))
-
-
-  )
+  (let [subset (.subset weights
+                        (mathjs/index current-activations
+                                      next-activations))
+        new-subset (if (scalar? subset)
+                     (mathjs/bitOr subset (< (mathjs/random) plasticity))
+                     (mathjs/map subset
+                                 (fn [v _idx _m]
+                                   (mathjs/bitOr v
+                                                 (< (mathjs/random)
+                                                    plasticity)))))]
+    (.subset weights
+             (mathjs/index current-activations
+                           next-activations)
+             new-subset)))
 
 ;;
 ;; This is the simple version, return new weights with prune-factor synapses removed.
@@ -308,7 +306,6 @@
           (fn [v _idx _m]
             (< (mathjs/random) survival-chance))
           true)))
-
 
 (comment
 
@@ -416,7 +413,6 @@
   [{:as state
     :keys [activations weights inhibition-model
            plasticity-model]}]
-  ;; (println weights activations (synaptic-input weights activations))
   (let [synaptic-input (synaptic-input weights activations)
         next-active (inhibition-model state synaptic-input)
         next-weights (if plasticity-model

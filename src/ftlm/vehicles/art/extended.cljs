@@ -342,3 +342,14 @@
 (defn grid-pos [{:keys [transform grid-width spacing]} i]
   (let [[x y] (:pos transform)]
     (grid-pos-1 spacing grid-width [x y] i)))
+
+(defn ->tiny-breath
+  [{:keys [start stop speed]}]
+  (let [t (atom (rand q/TWO-PI))]
+    (fn [e _ _]
+      (swap! t + lib/*dt*)
+      (update-in
+        e
+        [:transform :scale]
+        (fn [_]
+          (q/lerp start stop (q/sin (* speed @t))))))))

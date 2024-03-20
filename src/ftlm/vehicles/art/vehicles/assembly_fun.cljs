@@ -333,7 +333,6 @@
            (-> s
                (update :tick (fnil inc 0))))))))))
 
-
 (defn ->input-space-elements
   [n]
   (dtype/make-container :boolean n))
@@ -429,7 +428,7 @@
 (defn ->input-space-ac
   ([n n-neurons]
    (->input-space-ac
-     {:n n :n-neurons n-neurons :projection-density 0.01}))
+     {:n n :n-neurons n-neurons :projection-density 0.1}))
   ([{:as opts :keys [n n-neurons projection-density]}]
    (-> (->input-space-2 opts)
        (assoc
@@ -481,21 +480,12 @@
                (/ 1 frequency)
                (fn [e _ _]
                  (let [dir :left
-                       ;; (rand-nth [:left
-                       ;; :right])
                        world-state (:world-state e)
-                       world-state (triangle-world-1
-                                    world-state
-                                    dir)]
+                       world-state (triangle-world-1 world-state dir)]
                    (-> e
                        (assoc :world-state world-state)
                        (assoc :elements
                               (triangle-world-space world-state))))))})))
-
-
-
-
-
 
 
 ;; ==============
@@ -946,20 +936,20 @@
                         :inhibition-model]
                        (fn [{:keys [activations]}
                             synaptic-input]
-
-                         (let [r (ac/threshold-inhibiton
-                                  synaptic-input
-                                  (* current-threshold
-                                     10
-                                     (mathjs/divide
-                                      (mathjs/sum
-                                       synaptic-input)
-                                      (:n-neurons
-                                       n-area)))
-                                  )]
-                           (if (< (mathjs/count r) 1)
-                             (ac/cap-k 2 synaptic-input)
-                             r))))
+                         (ac/cap-k 50 synaptic-input)
+                         ;; (let [r (ac/threshold-inhibiton
+                         ;;          synaptic-input
+                         ;;          (* current-threshold
+                         ;;             10
+                         ;;             (mathjs/divide
+                         ;;              (mathjs/sum
+                         ;;               synaptic-input)
+                         ;;              (:n-neurons
+                         ;;               n-area))))]
+                         ;;   (if (< (mathjs/count r) 1)
+                         ;;     (ac/cap-k 2 synaptic-input)
+                         ;;     r))
+                         ))
                      (assoc-in [:eid->entity id
                                 :stroke-weight]
                                (+ 1
@@ -1044,7 +1034,7 @@
                      (assoc (elib/->flash-of-line
                               (lib/position e)
                               ((:i->pos n-area) n-area i))
-                       :color color))))
+                            :color color))))
 
 (defn wire-input-space-bursts
   [{:keys [neuronal-area input-space frequency set-input-op
@@ -1407,7 +1397,7 @@
                     :inhibition-model
                     (fn [_ synaptic-input]
                       (ac/cap-k 25 synaptic-input))
-                    :plasticity 0.1
+                    :plasticity 0.01
                     :plasticity-model ac/hebbian-plasticity})
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
@@ -1585,7 +1575,6 @@
   [state]
   (let [input-space-size 3
         n-neurons 1000
-
         n-area (->neuronal-area-ac
                 {:density 0.1
                  :frequency 10
@@ -1701,7 +1690,6 @@
 
 (defmethod setup-version :inhibition-pump-mouse
   [state]
-
   (let [input-space-size 10
         n-neurons 500
         n-area (->neuronal-area-ac
@@ -1712,7 +1700,6 @@
                  :spacing 15
                  :transform
                  (lib/->transform [50 50] 20 20 1)})
-
         n-area
         (-> n-area
             (assoc :ac-area
@@ -1726,7 +1713,6 @@
                      (ac/lin-gaussian-geometry
                       {:amplitude 0.3
                        :std-deviation 10}))})
-
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
                        5
@@ -1735,30 +1721,12 @@
                                     [:ac-area :weights]
                                     ac/normalize)))))
         id-area (:id n-area)
-
-        ;; n-area
-        ;; (wire-input-space-bursts
-        ;;  {:burst-count 10
-        ;;   :burst-frequency 10
-        ;;   :frequency (/ 1 3)
-        ;;   :input-space input-space
-        ;;   :neuronal-area n-area
-        ;;   :set-input-op ac/append-input})
-
-
         big-theta (->dynamic-threshold-thought-pump n-area)
-
-
-        state
-
-        (-> state
-            (assoc :neuronal-area (:id n-area))
-            (lib/append-ents [n-area
-                              ;; input-space
-                              big-theta]))
-
-
-        ]
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area
+                                    ;; input-space
+                                    big-theta]))]
     (-> state
         (assoc-in
          [:on-update-map :time-tick]
@@ -2103,6 +2071,133 @@
   [state]
   (let [n-neurons 500
         n-area (->neuronal-area-ac-1
+                 {:density 0.1
+                  :frequency 10
+                  :grid-width 20
+                  :n-neurons n-neurons
+                  :spacing 15
+                  :transform (lib/->transform [50 50] 20 20 1)})
+        n-area
+          (-> n-area
+              (assoc :ac-area
+                       {:activations #js []
+                        :inhibition-model
+                        (fn [{:keys [activations]}
+                             synaptic-input]
+                          (ac/cap-k 20 synaptic-input))
+                        :n-neurons n-neurons
+                        :plasticity 0.1
+                        :plasticity-model
+                        ac/binary-hebbian-plasticity
+                        :weights
+                        (ac/->random-directed-graph
+                         n-neurons
+                         0.01)})
+              (assoc-in
+                [:on-update-map :normalize-weights]
+                (lib/every-n-seconds
+                  5
+                  (fn [e _s _]
+                    (update-in
+                      e
+                      [:ac-area :weights]
+                      (fn [w]
+                        (println "pruning " (mathjs/sum w))
+                        (let [r (ac/binary-prune-synapses
+                                  w
+                                  0.1)]
+                          (println "synapses left: "
+                                   (mathjs/sum w))
+                          r)))))))
+        id-area (:id n-area)
+        state (-> state
+                  (assoc :neuronal-area (:id n-area))
+                  (lib/append-ents [n-area])
+                  (assoc :tick 0))
+        time-tick
+          (lib/every-n-seconds
+            0.1
+            (fn [{:as s :keys [_input-bursting? tick]} _]
+              (let [lst (partition-all 20 (concat
+                                           (range n-neurons)
+                                           (range n-neurons)))
+                    pretend-input
+                    (when (< tick (count lst)) (nth lst tick))
+                    append-inputs
+                    (fn [s]
+                      (-> s
+                          (update-in
+                           [:eid->entity (:id n-area)
+                            :ac-area]
+                           ac/append-input
+                           (into-array
+                            :int
+                            pretend-input))))
+                    s (->
+                       s
+                       (update :tick (fnil inc 0))
+                       (update-in [:eid->entity
+                                   (:id n-area) :ac-area]
+                                  ac/update-neuronal-area)
+                       (assoc-in
+                        [:eid->entity (:id n-area) :color]
+                        (if pretend-input
+                          (:red controls/color-map)
+                          (:cyan controls/color-map)))
+                       (assoc-in
+                        [:eid->entity (:id n-area)
+                         :ac-area :inhibition-model]
+                        (fn [{:keys [_activations]}
+                             synaptic-input]
+                          (ac/cap-k (if (odd? tick) 20 10)
+                                    synaptic-input))))]
+                ;;
+                ;; later: comparator
+                ;; input space -> n-area
+                ;; step n area
+                ;;
+                ;;
+                ;;
+                ;;
+                (if pretend-input (append-inputs s) s))))]
+    (-> state
+        (assoc-in [:on-update-map :time-tick] time-tick)
+        (assoc-in
+          [:on-update-map :show-lines]
+          (lib/every-n-seconds
+            0.1
+            (fn [s _]
+              (let [show-lines
+                      (fn [s]
+                        (let [activations
+                                (ac/read-activations
+                                  (:ac-area
+                                    ((lib/entities-by-id s)
+                                      id-area)))
+                              e ((lib/entities-by-id s)
+                                  id-area)
+                              i->pos (fn [i]
+                                       ((e :i->pos) e i))]
+                          (for [[i j] (partition-all
+                                        2
+                                        (take
+                                          (* 3 2)
+                                          (shuffle
+                                            activations)))
+                                :when (and i j)]
+                            (elib/->flash-of-line (i->pos i)
+                                                  (i->pos
+                                                    j)))))]
+                (-> s
+                    (lib/append-ents (show-lines s))))))))))
+
+
+
+
+(defmethod setup-version :binary-synapses-2
+  [state]
+  (let [n-neurons 500
+        n-area (->neuronal-area-ac-1
                 {:density 0.1
                  :frequency 10
                  :grid-width 20
@@ -2163,10 +2258,12 @@
                      [:ac-area :activations]
                      #js[(:world-state e)])))))}
           :world-state 0})
-        input-fiber (ac/->input-fiber
-                     (:ac-area input-space)
-                     (:ac-area n-area)
-                     0.04)
+        input-fiber
+        (ac/->input-fiber
+         (:ac-area input-space)
+         (:ac-area n-area)
+         0.01)
+
         ;; n-area
         ;; (wire-input-space-1
         ;;  {:frequency (/ 1 3)
@@ -2223,7 +2320,7 @@
 
         time-tick
         (lib/every-n-seconds
-         0.1
+         0.01
          (fn [{:as s :keys [input-bursting? tick]} _]
            (let [input-space
                  ((lib/entities-by-id s)
@@ -2231,6 +2328,8 @@
                  input-space-area
                  (:ac-area input-space)
                  input-bursting? (< 10 (mod tick 20))
+
+
 
                  flash-input-lines
                  (fn [s indices]
@@ -2245,7 +2344,8 @@
                    (let [inputs
                          (ac/input-fiber-activations input-space-area input-fiber)]
                      (-> s
-                         (update-in [:eid->entity (:id n-area) :ac-area] ac/append-input inputs)
+                         ;; (update-in [:eid->entity (:id n-area) :ac-area] ac/append-input inputs)
+                         (update-in [:eid->entity (:id n-area) :ac-area] ac/set-input inputs)
                          (flash-input-lines inputs))))
 
                  s (-> s
@@ -2304,13 +2404,9 @@
         ;;    (:id n-area))))
         )))
 
-
-
-
-
 (defmethod setup-version :triangle-world
   [state]
-  (let [n-neurons 400
+  (let [n-neurons 600
         n-area (->neuronal-area-ac
                 {:density 0.1
                  :frequency 10
@@ -2325,23 +2421,16 @@
              :ac-area
              {:activations (ac/->neurons n-neurons)
               :inhibition-model
-              (fn [{:keys [activations]}
-                   synaptic-input]
-                (ac/cap-k
-                 (max (gaussian
-                       60 30
-                       10 (count (.valueOf
-                                  activations)))
-                      1)
-                 synaptic-input))
+              (fn [{:keys [activations]} synaptic-input]
+                (ac/cap-k 50 synaptic-input))
               :plasticity 0.1
               :plasticity-model ac/hebbian-plasticity
               :weights
               (ac/->directed-graph-with-geometry
                n-neurons
                (ac/lin-gaussian-geometry
-                {:amplitude 0.6
-                 :std-deviation 30}))})
+                {:amplitude 0.1
+                 :std-deviation 100}))})
             (assoc-in [:on-update-map :normalize-weights]
                       (lib/every-n-seconds
                        5
@@ -2350,9 +2439,10 @@
                                     [:ac-area :weights]
                                     ac/normalize)))))
         id-area (:id n-area)
-        input-space (->triangle-world {:frequency (/ 1 5)
-                                       :n-neurons
-                                       n-neurons})
+        input-space (->triangle-world
+                     {:frequency (/ 1 5)
+                      :n-neurons
+                      n-neurons})
         n-area (wire-input-space-1
                 {:frequency (/ 1 3)
                  :neuronal-area n-area
@@ -2629,6 +2719,24 @@
            (:id wavemaker)
            (:id n-area)))))))
 
+(defmethod setup-version :bouncy-ball
+  [state]
+  (let [set-point (lib/mid-point)]
+    (-> state
+        (lib/append-ents
+          [(lib/->entity
+             :circle
+             {:color controls/white
+              :draggable? true
+              :on-update-map
+              {:f
+               (fn [e s _]
+                 (if-not (:dragged? e)
+                   (-> (lib/orient-towards e set-point)
+                       (assoc :acceleration 100))
+                   e))}
+              :transform
+              (lib/->transform set-point 30 30 1)})]))))
 
 (defn setup
   [controls]
@@ -2664,7 +2772,7 @@
       (cond-> state
         (double-clicked? old-selection new-selection)
         (on-double-click (:id draggable))))
-      state))
+    state))
 
 (defn mouse-released
   [{:as state :keys [selection]}]

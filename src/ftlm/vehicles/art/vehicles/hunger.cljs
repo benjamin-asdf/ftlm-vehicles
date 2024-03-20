@@ -1,27 +1,15 @@
-(ns ftlm.vehicles.art.vehicles.taste
-  (:require [clojure.walk :as walk]
-            [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
-            [ftlm.vehicles.art.extended :as elib]
-            [ftlm.vehicles.art :as art]
-            [quil.core :as q :include-macros true]
-            [quil.middleware :as m]
-            [ftlm.vehicles.art.controls :as controls :refer [versions]]
-            [ftlm.vehicles.art.user-controls :as user-controls]
-            [goog.style]))
+(ns ftlm.vehicles.art.vehicles.hunger
+(:require
+ [clojure.walk :as walk]
+ [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
+ [ftlm.vehicles.art.extended :as elib]
+ [ftlm.vehicles.art :as art]
+ [quil.core :as q :include-macros true]
+ [quil.middleware :as m]
+ [ftlm.vehicles.art.controls :as controls :refer [versions]]
+ [ftlm.vehicles.art.user-controls :as user-controls]
+ [goog.style]))
 
-
-
-;; === Vehicle 3c.  ===
-;; multi sensory
-;; 1. make a simple olfaction impl
-;; 2. make areas of higher whatever things that smell
-;; 3. temperature bubbles
-;; 4. random vehicle 3.
-;; so that it can love temp or be aggressive towards light etc.
-;; that is done, called :multi-sensory
-
-;; === Interlude 1: === (maybe) (skipping)
-;; assemble connections
 
 ;; === Interlude 2: ===
 ;; - interneurons -> visible in inspection window ((done))
@@ -35,6 +23,7 @@
 ;; and the vehicle might now love light and be red
 ;; and then fear light and be green etc.
 ;;
+
 ;; -> we have created dynamism where before there were static versions
 ;; -> it is like taking a stack of paper of possible vehicle configs.
 ;; Then stacking this paper on top of each other in a thick block.
@@ -866,18 +855,19 @@
             :frame-rate 30))
 
 (defonce restart-fn (atom nil))
-(defmethod art/view "taste"
+
+(defmethod art/view "hunger"
   [{:as opts :keys [place version]}]
   (let [f (fn []
-            (let [controls (merge (controls/default-versions "taste")
-                                  (get-in versions ["taste" version])
+            (let [controls (merge (controls/default-versions "hunger")
+                                  (get-in versions ["hunger" version])
                                   @user-controls/!app)]
               (sketch place opts controls)
               (sketch-inspect
-                (let [e (js/document.getElementById "art-place-2")]
-                  (goog.style/setStyle e (clj->js {:margin-top "16px"}))
-                  e)
-                controls)))]
+               (let [e (js/document.getElementById "art-place-2")]
+                 (goog.style/setStyle e (clj->js {:margin-top "16px"}))
+                 e)
+               controls)))]
     (reset! restart-fn f)
     (f)))
 

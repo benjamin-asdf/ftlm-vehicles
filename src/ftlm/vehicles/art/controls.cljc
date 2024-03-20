@@ -47,9 +47,9 @@
 (def default-versions
   {"assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
-   "assembly-fun"
-   {:background-color (:woodsmoke color-map)
-    :time-speed 3}
+   "assembly-friends" {:background-color (:woodsmoke color-map) :time-speed 3}
+   "assembly-fun" {:background-color (:woodsmoke color-map)
+                   :time-speed 3}
    "brownians" {:background 230
                 :base-color 7.790258368269614
                 :brownian-factor 0.1
@@ -69,37 +69,51 @@
                 :spread 1
                 :spread-speed 0}
    "cell-assemblies" {:background-color (:midnight-purple
-                                         color-map)
+                                          color-map)
                       :time-speed 3}
    "fear_and_aggression"
-   {:aggression {:amount 2 :scale 1}
-    :background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :explore {:amount 3 :scale 1}
-    :fear {:amount 2 :scale 1}
-    :love {:amount 3 :scale 1}
-    :ray-source-count 0
-    :ray-source-scale 0.8
-    :ray-source-spread 0.4
-    :ray-sources-die? true
-    :ray-sources-spawn-rate 0.8
-    :sub-controls #{:aggression :fear :love :explore}
-    :time-speed 3}
+     {:aggression {:amount 2 :scale 1}
+      :background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :explore {:amount 3 :scale 1}
+      :fear {:amount 2 :scale 1}
+      :love {:amount 3 :scale 1}
+      :ray-source-count 0
+      :ray-source-scale 0.8
+      :ray-source-spread 0.4
+      :ray-sources-die? true
+      :ray-sources-spawn-rate 0.8
+      :sub-controls #{:aggression :fear :love :explore}
+      :time-speed 3}
    "getting-around"
-   {:background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :cart-scale 1
-    :color-palatte [50 40 60]
-    :make-trails? true
-    :max-temp 1
-    :spawn-amount 30
-    :spawn-spread 0.4
-    :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-    :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
-    :temp-zone-count 10
-    :time-speed 2
-    :trail-color {:h 0 :s 0 :v 89}
-    :trail-size 20}
+     {:background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :cart-scale 1
+      :color-palatte [50 40 60]
+      :make-trails? true
+      :max-temp 1
+      :spawn-amount 30
+      :spawn-spread 0.4
+      :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+      :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+      :temp-zone-count 10
+      :time-speed 2
+      :trail-color {:h 0 :s 0 :v 89}
+      :trail-size 20}
+   "hunger" {:background-color (:misty-rose color-map)
+             :brownian-factor 0.8
+             :cold {:high-color {:h 212 :s 100 :v 71}
+                    :low-color {:h 205 :s 33 :v 100}}
+             :hot {:high-color {:a 1 :h 0 :s 68 :v 89}
+                   :low-color {:a 0.1 :h 0 :s 68 :v 89}}
+             :multi-sensory {:amount 1 :scale 1}
+             :ray-source-count 0
+             :ray-source-scale 0.8
+             :ray-source-spread 0.4
+             :ray-sources-die? true
+             :ray-sources-spawn-rate 0.8
+             :sub-controls #{:hot :cold}
+             :time-speed 3}
    "illusions" {:background-color white :time-speed 3}
    "logic" {:background-color {:h 0 :s 0 :v 89}
             :brownian-factor 0.8
@@ -144,10 +158,15 @@
             :v :thought-pump-rhythm-1}
       "12" {:background-color (:woodsmoke color-map)
             :v :prediction-area}
-      "14" {:background-color (:woodsmoke color-map) :v :binary-synapses}
       "13" {:background-color (:woodsmoke color-map)
             :v :thought-pump-rhythm}
+      "14" {:background-color (:woodsmoke color-map)
+            :v :binary-synapses}
       "2" {:background-color {:h 0 :s 0 :v 89} :v :dots}
+      "20" {:background-color (:woodsmoke color-map)
+            :v :bouncy-ball}
+      "21" {:background-color (:woodsmoke color-map)
+            :v :color-assemblies}
       "3" {:background-color (:woodsmoke color-map)
            :v :geometry}
       "4" {:background-color (:woodsmoke color-map)
@@ -162,6 +181,9 @@
            :v :burst-inputs}
       "9" {:background-color (:woodsmoke color-map)
            :v :burst-inputs-triangle-world}}
+   "assembly-friends"
+
+   {"1" {:v :color-assemblies}}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614
@@ -626,6 +648,13 @@
            :temp-zone-count 10}
       "8" {:spawn-amount 1 :temp-zones-always-dart true}
       "9" {:spawn-amount 20 :temp-zones-always-dart true}}
+   "hunger" {"0" {:auto-select? true
+                  :multi-sensory {:amount 1 :scale 1}
+                  :spawn-people [:multi-sensory]
+                  :v :multi-sensory}
+             "1" {:spawn-people [:multi-sensory
+                                 :multi-sensory
+                                 :multi-sensory]}}
    "illusions" {"0" {:v :chaser}
                 "1" {:v :chaser-triangles}
                 "2" {:v :chaser-2}
@@ -644,6 +673,8 @@
             "1" {:spawn-people [:multi-sensory
                                 :multi-sensory
                                 :multi-sensory]}}})
+
+
 
 (comment
   (:background-color @ftlm.vehicles.art.user-controls/!app)

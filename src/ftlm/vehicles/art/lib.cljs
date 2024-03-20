@@ -532,6 +532,7 @@
 
 (defn move-dragged
   [entity]
+
   (if (:dragged? entity)
     (assoc-in entity [:transform :pos] [(q/mouse-x) (q/mouse-y)])
     entity))
@@ -592,6 +593,31 @@
     (<= (+ (Math/pow (- x ox) 2)
            (Math/pow (- y oy) 2))
         (Math/pow radius 2))))
+
+(defn point-inside-rect?
+  [[x y] [x1 y1] [x2 y2]]
+  (and (<= x1 x x2) (<= y1 y y2)))
+
+(defmulti point-inside? (fn [e point] (:kind e)))
+
+(defmethod point-inside? :circle
+  [circle point]
+  (let [[x y] point
+        [ox oy] (position circle)
+        d (-> circle :transform :width)]
+    (point-inside-circle? [x y] [ox oy] d)))
+
+(defmethod point-inside? :rect
+  [rect point]
+  (let [[x y] point
+        [ox oy] (position rect)
+        {:keys [width height scale rotation]} (:transform rect)
+        [x1 y1] [(- ox (/ width 2)) (- oy (/ height 2))]
+        [x2 y2] [(+ ox (/ width 2)) (+ oy (/ height 2))]]
+    (point-inside-rect?
+     [x y]
+     [x1 y1]
+     [x2 y2])))
 
 (defn update-sensors
   [entity env]
@@ -1262,3 +1288,9 @@
                    (op e s event-data))
                  s))
           :id id}))
+
+(defn put [e pos]
+  (assoc-in e [:transform :pos] pos))
+
+(defn live [e op]
+  (update e :on-update-map (fnil conj {}) op))

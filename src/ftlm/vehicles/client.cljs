@@ -14,6 +14,8 @@
    ftlm.vehicles.art.vehicles.taste
    ftlm.vehicles.art.vehicles.assembly
    ftlm.vehicles.art.vehicles.illusions
+   ftlm.vehicles.art.vehicles.hunger
+   ftlm.vehicles.art.vehicles.cell-assemblies-two
    [ftlm.vehicles.art.user-controls :as user-controls]))
 
 ;; (defn req [href opts]
@@ -22,6 +24,7 @@
 
 (defmethod graft/scion "art" [opts place]
   (art/view (assoc opts :place place)))
+
 
 (defmethod graft/scion "controls-app" [opts place]
   (user-controls/view opts place))
