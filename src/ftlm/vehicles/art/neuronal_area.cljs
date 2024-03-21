@@ -25,19 +25,19 @@
     (merge
       {:color (:cyan controls/color-map)
        :draw-functions
-         {:1 (fn [e]
-               (let [neurons (ac/read-activations (:ac-area
-                                                    e))
-                     i->pos (fn [i] ((e :i->pos) e i))]
-                 (q/with-stroke
-                   nil
-                   (doall (for [i neurons
-                                :let [pos (i->pos i)]]
-                            (q/with-translation
-                              pos
-                              (if draw-i
-                                (draw-i i)
-                                (q/rect 0 0 15 15 3))))))))}
+         {:1
+          (fn [e]
+            (let [neurons (ac/read-activations (:ac-area e))
+                  i->pos (fn [i] ((e :i->pos) e i))]
+              (q/with-stroke
+                nil
+                (doall (for [i neurons
+                             :let [pos (i->pos i)]]
+                         (q/with-translation
+                           pos
+                           (if draw-i
+                             (draw-i i)
+                             (q/rect 0 0 15 15 3))))))))}
        :i->pos (fn [{:keys [transform]} i]
                  (let [[x y] (:pos transform)
                        coll (mod i grid-width)

@@ -157,8 +157,7 @@
 
 
 ;; === Plasticity ===
-;; ---------------------------------
-(defn next-weights [state])
+;; ---------------------------------(defn next-weights [state])
 
 ;; if j fires at time t and i fires at time t + 1,
 ;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
@@ -283,12 +282,9 @@
 (defn stimulus-neurons [sensory-area stimulus-class])
 
 ;; select
-
 (defn activate-stimulus-neurons [state propability-r propability-q])
 
-
-
-;; `input-neurons-count`: (n_in)kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+;; `input-neurons-count`: (n_in)
 ;; I think that is the neurons in the input area?
 
 ;;

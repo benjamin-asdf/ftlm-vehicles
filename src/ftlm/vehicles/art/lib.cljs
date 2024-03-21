@@ -1157,6 +1157,26 @@
                      (q/brightness c)
                      new-a))))))))
 
+(defn ->fade-pulse-2
+  [duration]
+  (let [s (atom {:time-since 0})]
+    (fn [e _ _]
+      (swap! s update :time-since + *dt*)
+      (let [progress (/ (:time-since @s) duration)]
+        (update
+          e
+          :color
+          (fn [c]
+            (let [c (->hsb c)
+                  new-a (q/lerp
+                          0
+                          255
+                          (+ 1 (q/sin (* q/PI progress))))]
+              (q/color (q/hue c)
+                       (q/saturation c)
+                       (q/brightness c)
+                       new-a))))))))
+
 (defn with-alpha
   [color a]
   (let [c (->hsb color)]

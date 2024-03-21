@@ -212,13 +212,13 @@
   [{:keys [plasticity weights current-activations
            next-activations]}]
   (.subset
-    weights
-    (mathjs/index current-activations next-activations)
-    (mathjs/multiply (mathjs/subset weights
-                                    (mathjs/index
-                                      current-activations
-                                      next-activations))
-                     (+ 1 plasticity))))
+   weights
+   (mathjs/index current-activations next-activations)
+   (mathjs/multiply (mathjs/subset weights
+                                   (mathjs/index
+                                    current-activations
+                                    next-activations))
+                    (+ 1 plasticity))))
 
 
 
@@ -444,10 +444,34 @@
   (when activations
     (.valueOf activations)))
 
-;; (defn ->fiber [area-1 area-2 density]
-;;   {:weights
-;;    }
-;;   )
+(defn ->rand-projection
+  [n-neurons p-probability]
+  (mathjs/subset
+    (mathjs/range 0 n-neurons)
+    (mathjs/index
+      (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
+            (fn [v idx _]
+              (if (< (mathjs/random 0 1) p-probability)
+                true
+                false))))))
+
+(defn read-projection [proj]
+  (.valueOf proj))
+
+(comment
+  (do (def p-probability 0.5)
+    (def n-neurons 10)
+    (mathjs/subset
+      (mathjs/range 0 n-neurons)
+      ;; (mathjs/index #js [true false false false
+      ;; false false false false false true])
+      (mathjs/index
+        (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
+              (fn [v idx _]
+                (if (< (mathjs/random 0 1) p-probability)
+                  true
+                  false)))))))
+
 
 ;; 2 weights, off and on
 ;; simulating inhibitory interneurons, signaling the absence of something
@@ -455,11 +479,11 @@
   [input-space n-area density]
   {:input-count (:n-neurons input-space)
    :off-fibers (->uni-directional-fiber (:n-neurons
-                                          input-space)
+                                         input-space)
                                         (:n-neurons n-area)
                                         (/ density 10))
    :on-fibers (->uni-directional-fiber (:n-neurons
-                                         input-space)
+                                        input-space)
                                        (:n-neurons n-area)
                                        density)
    :output-count (:n-neurons n-area)})
@@ -493,20 +517,15 @@
 
 
 (comment
-
   (synaptic-input
    (->uni-directional-fiber 3 10 1.0)
-   #js [0])
-
+   #js [0 1 2])
 
   (synaptic-input
    (->uni-directional-fiber 3 10 0.5)
    #js [0 1])
 
-
   input-fiber-activations
-
-
 
   (do
     ;; (defn invert-indices [count indices]
