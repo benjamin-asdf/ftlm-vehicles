@@ -1345,3 +1345,8 @@
 
 (defn live [e op]
   (update e :on-update-map (fnil conj {}) op))
+
+(defn clone-entity
+  [e]
+  (merge (->entity (:kind e) (dissoc e :id))
+         {:clone-source (:id e) :clone? true}))

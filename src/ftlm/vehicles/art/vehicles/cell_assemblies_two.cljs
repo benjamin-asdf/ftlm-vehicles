@@ -89,8 +89,7 @@
                                               %)))
                                  (map :id))
                            (lib/entities s))
-                   new (clojure.set/difference next-stimuli
-                                               current)]
+                   new (clojure.set/difference next-stimuli current)]
                {:updated-state
                   (cond-> s
                     :next (assoc-in [:eid->entity (:id e)
@@ -106,9 +105,7 @@
                                          s)
                                         id))]
                                  (merge
-                                   (lib/->entity :rect
-                                                 (dissoc e
-                                                   :id))
+                                   (lib/clone-entity e)
                                    {:lifetime 10
                                     :on-update-map
                                       {:fade
@@ -117,7 +114,7 @@
                                            :stroke)}
                                     :stroke color
                                     :stroke-weight 2})))
-                          new)))})))]))))
+                             new)))})))]))))
 
 
 (defn env [_state] {})
