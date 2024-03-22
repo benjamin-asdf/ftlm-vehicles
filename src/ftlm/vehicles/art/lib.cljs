@@ -1157,25 +1157,56 @@
                      (q/brightness c)
                      new-a))))))))
 
+;; (defn ->fade-pulse-2
+;;   [duration]
+;;   (let [s (atom {:time-since 0})]
+;;     (fn [e _ _]
+;;       (swap! s update :time-since + *dt*)
+;;       (let [progress (/ (:time-since @s) duration)]
+;;         (update
+;;           e
+;;           :color
+;;           (fn [c]
+;;             (let [c (->hsb c)
+;;                   new-a (q/lerp
+;;                           0
+;;                           255
+;;                           (+ 1 (q/sin (* q/PI progress))))]
+;;               (q/color (q/hue c)
+;;                        (q/saturation c)
+;;                        (q/brightness c)
+;;                        new-a))))))))
+
+;; (defn ->wave-function
+;;   [duration]
+;;   (let [s (atom {:time-since 0})]
+;;     (fn []
+;;       (swap! s update :time-since + *dt*)
+;;       (let [progress (/ (:time-since @s) duration)]
+;;         (+ 1 (q/sin (* q/PI progress)))))))
+
 (defn ->fade-pulse-2
-  [duration]
-  (let [s (atom {:time-since 0})]
-    (fn [e _ _]
-      (swap! s update :time-since + *dt*)
-      (let [progress (/ (:time-since @s) duration)]
-        (update
-          e
-          :color
-          (fn [c]
-            (let [c (->hsb c)
-                  new-a (q/lerp
+  ([duration] (->fade-pulse-2 duration :color))
+  ([duration k]
+   (let [s (atom {:time-since 0})]
+     (fn [e _ _]
+       (swap! s update :time-since + *dt*)
+       (let [progress (/ (:time-since @s) duration)]
+         (update
+           e
+           k
+           (fn [c]
+             (let [c (->hsb c)
+                   new-a (q/lerp
                           0
                           255
                           (+ 1 (q/sin (* q/PI progress))))]
-              (q/color (q/hue c)
-                       (q/saturation c)
-                       (q/brightness c)
-                       new-a))))))))
+               (q/color (q/hue c)
+                        (q/saturation c)
+                        (q/brightness c)
+                        new-a)))))))))
+
+
 
 (defn with-alpha
   [color a]

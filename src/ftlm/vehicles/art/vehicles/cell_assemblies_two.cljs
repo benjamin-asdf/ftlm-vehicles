@@ -33,37 +33,47 @@
     (->
       (lib/->entity
         :rect
-        {:sensoric-field? true
-         :stimuli #{}
-         :transform (lib/->transform pos 100 200 1)
-         :z-index -10
-         :corner-r 5
-         :color (lib/with-alpha (lib/->hsb controls/white)
+        {:color (lib/with-alpha (lib/->hsb controls/white)
                                 0)
+         :corner-r 5
+         :draw-functions
+           {:stimuli (fn [e]
+                       (let [stimuli (:stimuli e)]
+                         (doall
+                           (for [[idx {:keys [color]}]
+                                   (map-indexed
+                                     vector
+                                     (map
+                                       (lib/entities-by-id
+                                         (q/state))
+                                       stimuli))]
+                             (q/with-fill
+                               (lib/->hsb color)
+                               (q/with-stroke
+                                 (lib/->hsb color)
+                                 (q/with-translation
+                                   (lib/position e)
+                                   (q/ellipse
+                                     (+ 20
+                                        (* -1
+                                           (/ (-> e
+                                                  :transform
+                                                  :width)
+                                              2))
+                                        (* idx 20))
+                                     (* 0.8
+                                        (/ (-> e
+                                               :transform
+                                               :height)
+                                           2))
+                                     10
+                                     10))))))))}
+         :sensoric-field? true
+         :stimuli #{}
          :stroke controls/white
          :stroke-weight 2
-         :draw-functions
-           {:stimuli
-              (fn [e]
-                (let [stimuli (:stimuli e)]
-                  (doall
-                    (for [[idx {:keys [color]}]
-                            (map-indexed
-                              vector
-                              (map (lib/entities-by-id (q/state)) stimuli))]
-                      (q/with-fill
-                        (lib/->hsb color)
-                        (q/with-stroke
-                          (lib/->hsb color)
-                          (q/with-translation
-                            (lib/position e)
-                            (q/ellipse
-                             (+ 20
-                              (* -1 (/ (-> e :transform :width) 2))
-                              (* idx 20))
-                             (* 0.8 (/ (-> e :transform :height) 2))
-                             10
-                             10))))))))}})
+         :transform (lib/->transform pos 100 200 1)
+         :z-index -10})
       (lib/live
         [:sensitivity
          (lib/every-n-seconds
@@ -86,45 +96,28 @@
                     :next (assoc-in [:eid->entity (:id e)
                                      :stimuli]
                             next-stimuli)
-                    (seq new) (assoc-in [:eid->entity
-                                         (:id e) :stroke]
-                                (:color
-                                  ((lib/entities-by-id s)
-                                    (first next-stimuli))))
                     (seq new)
-                      (assoc-in [:eid->entity (:id e)
-                                 :flashing-stroke]
-                        (:color ((lib/entities-by-id s)
-                                  (first
-                                    next-stimuli)))))})))])
-      (lib/live [:reset-color
-                 (lib/every-n-seconds
-                   5
-                   (fn [e _ _]
-                     (assoc e
-                       :stroke (lib/->hsb controls/white)
-                       :flashing-stroke nil)))])
-      (lib/live [:flash-stroke
-                 (lib/every-n-seconds
-                   0.2
-                   (fn [e _ _]
-                     (if (:flashing-stroke e)
-                       (assoc e
-                         :stroke (:flashing-stroke e))
-                       e)))])
-      (lib/live [:flash-stroke-2
-                 (lib/every-n-seconds
-                   0.6
-                   (fn [e _ _]
-                     (assoc e
-                       :stroke (lib/->hsb
-                                controls/white))))]))))
-
-
-
-;;
-;; inputs -> sensor neurons 'receptive fields'
-;;
+                      (lib/append-ents
+                        (map (fn [id]
+                               (let
+                                 [color
+                                    (:color
+                                      ((lib/entities-by-id
+                                         s)
+                                        id))]
+                                 (merge
+                                   (lib/->entity :rect
+                                                 (dissoc e
+                                                   :id))
+                                   {:lifetime 10
+                                    :on-update-map
+                                      {:fade
+                                         (lib/->fade-pulse-2
+                                           2.0
+                                           :stroke)}
+                                    :stroke color
+                                    :stroke-weight 2})))
+                          new)))})))]))))
 
 
 (defn env [_state] {})
@@ -184,8 +177,6 @@
                     lib/kill-entities))]
     state))
 
-
-
 (defn update-state
   [_]
   (let [state @the-state
@@ -208,12 +199,6 @@
                :spacing 15
                :transform
                  (lib/->transform [50 50] 20 20 1)})
-     ;; draw-neuron
-     ;; (fn [i]
-     ;;   (let [s (q/state)]
-     ;;     ()
-     ;;     )
-     ;;   )
      n-area
        (-> n-area
            (assoc :ac-area
@@ -233,21 +218,6 @@
                          (update-in e
                                     [:ac-area :weights]
                                     ac/normalize)))))
-     ;; n-area
-     ;; (assoc-in
-     ;;  n-area
-     ;;  [:draw-functions :blinking-neurons]
-     ;;  (fn [{:keys [blinking-neurons] :as e}]
-     ;;    (let [i->pos (fn [i] ((e :i->pos) e i))]
-     ;;      (for [[]])
-     ;;      (q/with-stroke
-     ;;        nil
-     ;;        (doall
-     ;;         (for [i neurons
-     ;;               :let [pos (i->pos i)]]
-     ;;           (q/with-translation
-     ;;             pos
-     ;;             (q/rect 0 0 15 15 3))))))))
      id-area (:id n-area)
      ;; big-theta (->dynamic-threshold-thought-pump
      ;; n-area)
@@ -282,52 +252,50 @@
                     (->
                       state
                       (lib/append-ents
-                        [
-                         (lib/->entity
-                          :blinking-neurons
-                          {:on-update-map
-                           {:fade (lib/->fade-pulse-2 3.0)}
-                           :color (:color e)
-                           :lifetime 10.5
-                           :draw-functions
-                           {:1
-                            (fn [ble]
-
-                              (let
-                                  [n-area
-                                   ((lib/entities-by-id
-                                     @the-state)
-                                    id-area)
-                                   i->pos (fn [i]
-                                            ((n-area
-                                              :i->pos)
-                                             n-area
-                                             i))]
-                                  (q/stroke-weight 2)
-                                  (q/with-fill
-                                    nil
-                                    (q/with-stroke
-                                      (lib/->hsb (:color ble))
-                                      (doall
-                                       (for
-                                           [i (:indices
-                                               ble)
-                                            :let
-                                            [pos (i->pos
-                                                  i)]]
-                                           (q/with-translation
-                                             pos
-                                             (q/rect
-                                              0
-                                              0 15
-                                              15
-                                              3))))))))}
-                           :indices
-                           (ac/read-projection
-                            (stimulus->recptive-field
-                             id))
-                           ;; :lifetime 10
-                           })]))}))))
+                        [(lib/->entity
+                           :blinking-neurons
+                           {:color (:color e)
+                            :draw-functions
+                              {:1
+                                 (fn [ble]
+                                   (let
+                                     [n-area
+                                        ((lib/entities-by-id
+                                           @the-state)
+                                          id-area)
+                                      i->pos (fn [i]
+                                               ((n-area
+                                                  :i->pos)
+                                                 n-area
+                                                 i))]
+                                     (q/stroke-weight 2)
+                                     (q/with-fill
+                                       nil
+                                       (q/with-stroke
+                                         (lib/->hsb (:color
+                                                      ble))
+                                         (doall
+                                           (for
+                                             [i (:indices
+                                                  ble)
+                                              :let
+                                                [pos (i->pos
+                                                       i)]]
+                                             (q/with-translation
+                                               pos
+                                               (q/rect
+                                                 0
+                                                 0 15
+                                                 15
+                                                   3))))))))}
+                            :indices
+                              (ac/read-projection
+                                (stimulus->recptive-field
+                                  id))
+                            :lifetime 10.5
+                            :on-update-map
+                              {:fade (lib/->fade-pulse-2
+                                      3.0)}})]))}))))
          stimuli)
      state (-> state
                (assoc :neuronal-area (:id n-area))
