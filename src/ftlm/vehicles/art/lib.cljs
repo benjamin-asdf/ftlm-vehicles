@@ -832,12 +832,13 @@
    opts))
 
 
+;; or clickable
 (defn find-closest-draggable
   [state]
   (let [mouse-position [(q/mouse-x) (q/mouse-y)]]
     (->> state
          entities
-         (filter :draggable?)
+         (filter (some-fn :draggable? :clickable?))
          (sort-by (comp (fn [b] (distance mouse-position b)) position))
          (first))))
 
@@ -1032,7 +1033,6 @@
 
 (defn update-update-functions
   [state]
-  (def state state)
   (-> state
       update-update-functions-1
       update-update-functions-map))
@@ -1060,6 +1060,18 @@
       (when (< @till 0)
         (reset! till (n))
         (apply f args)))))
+
+(defn for-n-seconds
+  [n f cb]
+  (let [n (if (number? n) (constantly n) n)
+        till (atom (n))
+        done? (atom false)]
+    (fn [& args]
+      (swap! till - *dt*)
+      (when (not @done?)
+        (if (< 0 @till)
+          (apply f args)
+          (do (reset! done? true) (apply cb args)))))))
 
 (def event-queue (atom []))
 
@@ -1242,27 +1254,35 @@
   [state]
   (if-not (inside-canvas? (q/mouse-x) (q/mouse-y))
     state
-    (let [draggable (find-closest-draggable state)]
-      (if draggable
-        (let [new-selection {:id (:id draggable)
+    (let [draggable-or-clickable (find-closest-draggable
+                                   state)]
+      (if draggable-or-clickable
+        (let [new-selection {:id (:id
+                                   draggable-or-clickable)
                              :time (q/millis)}
               old-selection (:selection state)
               state (-> state
                         (assoc :pressed true)
                         (assoc-in [:eid->entity
-                                   (:id draggable)
+                                   (:id
+                                     draggable-or-clickable)
                                    :dragged?]
-                                  true)
+                                  (:draggable?
+                                    draggable-or-clickable))
                         (assoc :selection new-selection))
               state ((->call-callbacks :on-click-map)
                       state
-                      draggable)
-              state ((->call-callbacks :on-drag-start-map)
+                      draggable-or-clickable)
+              state (if-not (:draggable?
+                              draggable-or-clickable)
                       state
-                      draggable)]
+                      ((->call-callbacks :on-drag-start-map)
+                        state
+                        draggable-or-clickable))]
           (cond-> state
             (double-clicked? old-selection new-selection)
-              (on-double-click (:id draggable))))
+              (on-double-click (:id
+                                 draggable-or-clickable))))
         state))))
 
 (defn mouse-released

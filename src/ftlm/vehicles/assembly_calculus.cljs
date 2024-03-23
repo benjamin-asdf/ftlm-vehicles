@@ -398,9 +398,10 @@
 ;; Inhbition model
 ;; --------------------------
 ;; Who is active in the next time step?
-;; cap-k answers this question by sayng the top k neurons with the highest synaptic input
+;; cap-k answers this question by saying the top k neurons with the highest synaptic input
 
-(defn cap-k [k synaptic-input]
+(defn cap-k
+  [k synaptic-input]
   (into-array :int (take k (argops/argsort > (.valueOf synaptic-input)))))
 
 (defn indices-above-input-cutoff [synaptic-input threshold]
@@ -413,17 +414,20 @@
   [{:as state
     :keys [activations weights inhibition-model
            plasticity-model]}]
-  (let [synaptic-input (synaptic-input weights activations)
-        next-active (inhibition-model state synaptic-input)
-        next-weights (if plasticity-model
-                       (plasticity-model
-                        (assoc state
-                               :current-activations activations
-                               :next-activations next-active))
-                       weights)]
-    (assoc state
-           :activations next-active
-           :weights next-weights)))
+  (if
+      (zero? (mathjs/count activations))
+      state
+      (let [synaptic-input (synaptic-input weights activations)
+            next-active (inhibition-model state synaptic-input)
+            next-weights (if plasticity-model
+                           (plasticity-model
+                            (assoc state
+                                   :current-activations activations
+                                   :next-activations next-active))
+                           weights)]
+        (assoc state
+               :activations next-active
+               :weights next-weights))))
 
 ;; inputs are just a set of neuron indices
 ;; you might decide to call the inhibition model here, but whatever.
