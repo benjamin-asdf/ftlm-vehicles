@@ -141,7 +141,7 @@
                                            :stroke)}
                                     :stroke color
                                     :stroke-weight 2})))
-                          new)))})))]))))
+                             new)))})))]))))
 
 
 
@@ -181,7 +181,7 @@
      :on-update-map
      {:flashing-stimuli
       (lib/every-n-seconds
-       3.0
+       5.0
        (fn [e s _]
          (if-let [st (first
                       (shuffle
@@ -197,7 +197,7 @@
                 [:on-update-map :flash]
                 (lib/for-n-seconds
                  2.0
-                 (lib/->fade-pulse-2 1.5)
+                 (lib/->fade-pulse-2 2.0)
                  (fn [e _ _]
                    (assoc e
                           :color
@@ -288,7 +288,7 @@
   (let
     [input-space-size 10
      n-neurons 500
-     n-area (na/->neuronal-area-ac
+     n-area (na/->neuronal-area-ac-1
              {:density 0.1
               :frequency 10
               :grid-width 20
@@ -299,12 +299,12 @@
      n-area
      (-> n-area
          (assoc :ac-area
-                {:activations #js[]
-                 :plasticity 0.1
-                 :plasticity-model ac/hebbian-plasticity
+                {:activations #js []
                  :inhibition-model
                  (fn [state synaptic-input]
                    (ac/cap-k 50 synaptic-input))
+                 :plasticity 0.1
+                 :plasticity-model ac/hebbian-plasticity
                  :weights
                  (ac/->directed-graph-with-geometry
                   n-neurons
@@ -321,23 +321,19 @@
      id-area (:id n-area)
      ;; big-theta (->dynamic-threshold-thought-pump
      ;; n-area)
-     stimuli
-     (into []
-           (map
-            (fn [color]
-              (-> (na/->stimulus
-                   (color controls/color-map))
-                  (lib/put
-                   (lib/rand-on-canvas-gauss 0.2))
-                  (lib/live [:breath
-                             (elib/->tiny-breath
-                              {:speed 1
-                               :start 1.0
-                               :stop 1.075})]))))
-           [:orange :green-yellow :heliotrope])
-
-
-
+     stimuli (into []
+                   (map
+                    (fn [color]
+                      (-> (na/->stimulus
+                           (color controls/color-map))
+                          (lib/put
+                           (lib/rand-on-canvas-gauss 0.2))
+                          (lib/live [:breath
+                                     (elib/->tiny-breath
+                                      {:speed 1
+                                       :start 1.0
+                                       :stop 1.075})]))))
+                   [:orange :green-yellow :heliotrope])
      stimulus->recptive-field
      (into {}
            (map (juxt :id
@@ -392,27 +388,46 @@
                                               0 15
                                               15
                                               3))))))))}
-                           :indices (ac/read-projection (stimulus->recptive-field id))
+                           :indices
+                           (ac/read-projection
+                            (stimulus->recptive-field
+                             id))
                            :lifetime 10.5
                            :on-update-map
                            {:fade (lib/->fade-pulse-2
                                    3.0)}})]))}))))
       stimuli)
-
-     neuron-tick
-     (fn [s]
-       (-> s
-           (update-in
-            [:eid->entity (:id n-area) :ac-area]
-            ac/update-neuronal-area)))
-
-
+     neuron-tick (fn [s]
+                   (-> s
+                       (update-in [:eid->entity (:id n-area)
+                                   :ac-area]
+                                  ac/update-neuronal-area)))
      append-inputs
      (fn [s inputs]
-       (-> s (update-in [:eid->entity (:id n-area) :ac-area] ac/append-input inputs)))
+       (-> s
+           (update-in [:eid->entity
+                       (:id n-area) :ac-area]
+                      ac/append-input-2
+                      inputs)))
+     sensoric-field (->sensoric-field [400 200])
+     stimuli-inputs
+     (fn [s]
+       (let [stimuli (:stimuli ((lib/entities-by-id s)
+                                (:id sensoric-field)))]
+
+         (map stimulus->recptive-field stimuli)))
+     append-stimuli-inputs
+     (fn [s]
+       (append-inputs s (stimuli-inputs s)))
 
 
-
+     touch-me-gate (assoc-in (->touch-me-gate [300 300])
+                             [:on-click-map :inputs]
+                             (fn [e s _]
+                               {:updated-state
+                                (-> s
+                                    append-stimuli-inputs
+                                    neuron-tick)}))
      state (-> state
                (assoc :neuronal-area (:id n-area))
                (lib/append-ents [n-area
@@ -420,9 +435,8 @@
                                  ;; big-theta
                                  ])
                (lib/append-ents stimuli)
-               (lib/append-ents
-                [(->sensoric-field [400 200])
-                 (->touch-me-gate [300 300])]))]
+               (lib/append-ents [sensoric-field
+                                 touch-me-gate]))]
     (-> state
         (assoc-in
           [:on-update-map :time-tick]
@@ -451,8 +465,7 @@
                                                   (i->pos
                                                     j)))))]
                 (-> s
-                    (lib/append-ents (show-lines s))
-                    neuron-tick))))))))
+                    (lib/append-ents (show-lines s))))))))))
 
 (defn setup
   [controls]

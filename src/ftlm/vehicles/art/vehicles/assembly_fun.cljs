@@ -1612,7 +1612,7 @@
         id-area (:id n-area)
 
         input-space (->triangle-world
-                     {:frequency (/ 1 5)
+                     {:frequency 1
                       :n-neurons
                       n-neurons})
 
@@ -2500,7 +2500,7 @@
   [state]
   (let [n-neurons 400
         n-area (->neuronal-area-ac
-                 {:density 0.1
+                 {:density 0.2
                   :frequency 20
                   :grid-width 20
                   :n-neurons n-neurons
@@ -2513,25 +2513,28 @@
                 :ac-area
                   {:activations (ac/->neurons n-neurons)
                    :inhibition-model
-                     (fn [{:keys [activations]}
-                          synaptic-input]
-                       (ac/cap-k
-                         (max (gaussian
-                               60
-                               15
-                               20
-                               (count (.valueOf
-                                       activations)))
-                              1)
-                         synaptic-input))
-                   :plasticity 0.05
-                   :plasticity-model ac/hebbian-plasticity
+                   (fn [{:keys [activations]}
+                        synaptic-input]
+                     (ac/cap-k 50 synaptic-input)
+                     ;; (ac/cap-k
+                     ;;  (max (gaussian
+                     ;;        60
+                     ;;        15
+                     ;;        20
+                     ;;        (count (.valueOf
+                     ;;                activations)))
+                     ;;       1)
+                     ;;  synaptic-input)
+                     )
+                   :plasticity 0.1
+                   :plasticity-model nil
+                   ;; ac/hebbian-plasticity
                    :weights
-                     (ac/->directed-graph-with-geometry
-                       n-neurons
-                       (ac/lin-gaussian-geometry
-                         {:amplitude 0.6
-                          :std-deviation 30}))})
+                   (ac/->directed-graph-with-geometry
+                    n-neurons
+                    (ac/lin-gaussian-geometry
+                     {:amplitude 0.2
+                      :std-deviation 30}))})
               (assoc-in [:on-update-map :normalize-weights]
                         (lib/every-n-seconds
                           5
@@ -2542,7 +2545,7 @@
         wavemaker (->wavemaker
                    {:n 5
                     :n-neurons n-neurons
-                    :density 0.01
+                    :density 0.1
                     :wave-speed 5})
         id-area (:id n-area)
         input-space (->triangle-world
@@ -2556,7 +2559,7 @@
                  :set-input-op
                  ac/append-input})
         n-area
-        (let [frequency 5]
+        (let [frequency 10]
             (assoc-in n-area
               [:on-update-map :wavemaker-input]
               (lib/every-n-seconds
@@ -2583,7 +2586,7 @@
         (assoc-in
           [:on-update-map :time-tick]
           (lib/every-n-seconds
-            0.1
+            0.2
             (fn [s _]
               (let [show-lines
                       (fn [s]

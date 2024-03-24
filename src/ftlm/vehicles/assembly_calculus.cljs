@@ -414,20 +414,22 @@
   [{:as state
     :keys [activations weights inhibition-model
            plasticity-model]}]
-  (if
-      (zero? (mathjs/count activations))
-      state
-      (let [synaptic-input (synaptic-input weights activations)
-            next-active (inhibition-model state synaptic-input)
-            next-weights (if plasticity-model
-                           (plasticity-model
-                            (assoc state
-                                   :current-activations activations
-                                   :next-activations next-active))
-                           weights)]
-        (assoc state
-               :activations next-active
-               :weights next-weights))))
+  (if (zero? (mathjs/count activations))
+    state
+    (let [synaptic-input (synaptic-input weights
+                                         activations)
+          next-active (inhibition-model state
+                                        synaptic-input)
+          next-weights (if plasticity-model
+                         (plasticity-model
+                           (assoc state
+                             :current-activations
+                               activations
+                             :next-activations next-active))
+                         weights)]
+      (assoc state
+        :activations next-active
+        :weights next-weights))))
 
 ;; inputs are just a set of neuron indices
 ;; you might decide to call the inhibition model here, but whatever.
@@ -442,6 +444,13 @@
           :activations
           (fn [activations]
             (mathjs/setUnion activations input))))
+
+(defn append-input-2
+  [state inputs]
+  (update state
+          :activations
+          (fn [activations]
+            (reduce (fn [activations input] (mathjs/setUnion activations input)) activations inputs))))
 
 (defn read-activations
   [{:keys [activations]}]
@@ -528,6 +537,10 @@
   (synaptic-input
    (->uni-directional-fiber 3 10 0.5)
    #js [0 1])
+
+  (apply
+   mathjs/setUnion
+   [(mathjs/matrix #js[0]) (mathjs/matrix #js[2]) (mathjs/matrix #js[0])])
 
   input-fiber-activations
 
