@@ -1370,3 +1370,21 @@
   [e]
   (merge (->entity (:kind e) (dissoc e :id))
          {:clone-source (:id e) :clone? true}))
+
+;; (defn cooldown
+;;   [n-seconds k op]
+;;   (let [left-in-window (atom n-seconds)
+;;         event-count-left (atom k)]
+;;     (fn [& args]
+;;       (print left-in-window *dt*)
+;;       (swap! left-in-window - *dt*)
+;;       (println @left-in-window)
+;;       (if (< 0 @left-in-window)
+;;         (when (< 0 @event-count-left)
+;;           (swap! event-count-left dec)
+;;           (apply op args))
+;;         (do
+;;           (println "reset")
+;;           (reset! left-in-window n-seconds)
+;;           (reset! event-count-left k)
+;;           nil)))))
