@@ -274,6 +274,21 @@
     [start-pos [(first end-pos) (second start-pos)]
      end-pos]))
 
+(defn rect-line-vertices-2
+  [start-pos end-pos low high]
+  (let [start-pos (update
+                   start-pos
+                   1
+                   (fn [v]
+                     (+ v (rand-nth (range low high 1)))))
+        end-pos (update end-pos
+                        0
+                        (fn [v]
+                          (+ v
+                             (rand-nth (range low high 1)))))]
+    [start-pos [(first end-pos) (second start-pos)]
+     end-pos]))
+
 
 (defn ->fade
   [speed]

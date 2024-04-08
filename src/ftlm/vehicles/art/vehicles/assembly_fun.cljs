@@ -2193,7 +2193,6 @@
 
 
 
-
 (defmethod setup-version :binary-synapses-2
   [state]
   (let [n-neurons 500

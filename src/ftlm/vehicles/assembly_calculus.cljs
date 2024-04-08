@@ -416,20 +416,41 @@
            plasticity-model]}]
   (if (zero? (mathjs/count activations))
     state
-    (let [synaptic-input (synaptic-input weights
-                                         activations)
-          next-active (inhibition-model state
-                                        synaptic-input)
+    (let [synaptic-input (synaptic-input weights activations)
+          next-active (inhibition-model state synaptic-input)
           next-weights (if plasticity-model
                          (plasticity-model
-                           (assoc state
-                             :current-activations
-                               activations
-                             :next-activations next-active))
+                          (assoc state
+                                 :current-activations
+                                 activations
+                                 :next-activations next-active))
                          weights)]
+      (assoc state
+             :activations next-active
+             :weights next-weights))))
+
+
+;; same, but inhibition model returns a state
+(defn update-neuronal-area-2
+  [{:as state
+    :keys [activations weights inhibition-model
+           plasticity-model]}]
+  (if (zero? (mathjs/count activations))
+    state
+    (let [synaptic-input (synaptic-input weights
+                                         activations)
+          state (inhibition-model state synaptic-input)
+          next-weights
+            (if plasticity-model
+              (plasticity-model
+                (assoc state
+                  :current-activations activations
+                  :next-activations (:activations state)))
+              weights)]
       (assoc state
         :activations next-active
         :weights next-weights))))
+
 
 ;; inputs are just a set of neuron indices
 ;; you might decide to call the inhibition model here, but whatever.
@@ -715,15 +736,78 @@
 (defn lin-gaussian-geometry
   [{:keys [amplitude std-deviation density-factor]}]
   (fn [i j]
-    (gaussian
-     (or amplitude (+ 0.5 density-factor))
-     0
-     std-deviation
-     (- j i))))
+    (gaussian (or amplitude (+ 0.5 density-factor))
+              0
+              std-deviation
+              (- j i))))
+;;
+;; Making it wrap like a torus would
+;;
+(defn lin-gaussian-geometry-wrap
+  [{:keys [amplitude std-deviation density-factor
+           n-neurons]}]
+  (fn [i j]
+    (gaussian (or amplitude (+ 0.5 density-factor))
+              0
+              std-deviation
+              (min (abs (- j i))
+                   (abs (+ (- n-neurons j) i))))))
+
+(comment
+
+  (->directed-graph-with-geometry
+   100
+   (lin-gaussian-geometry-wrap
+    {:amplitude 1
+     :std-deviation 10
+     :n-neurons 100}))
+
+
+
+  (let [i 0
+        j 500]
+    (min (abs (- j i)) (abs (+ (- n-neurons j) i))))
+
+
+  (let [n-neurons 10
+        i 0
+        j 10]
+    (gaussian 1.0 0
+              10 (min (abs (- j i))
+                      (abs (+ (- n-neurons j) i))))))
 
 (def identity-plasticity :weights)
 
+(defn map-weights
+  [area op]
+  (time (let [r (atom [])]
+          (.forEach (:weights area) (comp #(swap! r conj %) op) true)
+          (take 10 @r))))
+
 (comment
+
+  (let [edges (atom [])]
+    (.forEach
+     (->directed-graph-with-geometry
+      3
+      (lin-gaussian-geometry
+       {:amplitude 0.7
+        :std-deviation 1}))
+     (fn [v idx]
+       (swap! edges conj idx))
+     true)
+    @edges)
+
+
+
+  (mathjs/subset
+   (->directed-graph-with-geometry
+    3
+    (lin-gaussian-geometry
+     {:amplitude 0.7
+      :std-deviation 1})))
+
+
   (do
     (def mystate {:activations (->neurons 3)
                   :weights (->directed-graph-with-geometry
@@ -745,3 +829,49 @@
      ;; (update-neuronal-area mystate)
      :next-weights
      (:weights (update-neuronal-area mystate))]))
+
+
+
+
+
+
+;; ================
+;; attenuation
+;; ================
+;;
+;;
+;; See https://faster-than-light-memes.xyz/biological-notes-on-the-vehicles-cell-assemblies.html
+;; (attenuation)
+;;
+;;
+;; Here, I do 1 simpler that is just carry over an attenuation malus
+;;
+;;
+;; 'Rolling malus' implementation
+;;
+;; 1. Everytime you are active, your malus goes up.
+;; 2. Every time step the mulus decays.
+;; 3. The malus is applied to the synaptic input divisively
+;;
+;; kinda simplest thing, 1-3 could also be more complicated functions.
+;;
+
+(defn attenuation
+  [{:keys
+    [attenuation-malus n-neurons attenuation-epsilon]}]
+
+  (let
+      [attenuation-malus
+       (or
+        attenuation-malus
+        (mathjs/matrix (mathjs/zeros #js[n-neurons]) "sparse"))]
+
+    ;; if you are active, you attenuation malus goes up
+
+
+
+
+      )
+
+
+  )

@@ -1371,6 +1371,7 @@
   (merge (->entity (:kind e) (dissoc e :id))
          {:clone-source (:id e) :clone? true}))
 
+
 ;; (defn cooldown
 ;;   [n-seconds k op]
 ;;   (let [left-in-window (atom n-seconds)
@@ -1388,3 +1389,7 @@
 ;;           (reset! left-in-window n-seconds)
 ;;           (reset! event-count-left k)
 ;;           nil)))))
+
+(defmulti setup-version (comp :v :controls))
+
+(defonce the-state (atom {:event-q (atom [])}))
