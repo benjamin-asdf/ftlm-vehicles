@@ -189,8 +189,13 @@
          :attenuation-malus 1.0
          :threshold-device-high 0.1
          :threshold-device-low 0.05
-         }
-    }
+         :connectivity-amplitude 0.2
+         :connectivity-std-deviation 50
+         :n-neurons 1000
+         :plasticity 0.1
+         ;; :density 0.1
+         :stimulus-projection-density 0.025
+         }}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614

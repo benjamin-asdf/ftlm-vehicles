@@ -25,39 +25,46 @@
 
 (def leva-controls
   {"fear_and_aggression"
-     {:schema
-        {:restart
-           (leva/button
-             (fn []
-               (action-button
-                :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}
-      :sub-schemas
-      (let [->spawn-btn
-            (fn [k]
-              {:spawn!
-               (leva/button
-                (fn []
-                  (action-button
-                   :ftlm.vehicles.art.vehicles.fear-and-aggression/spawn
-                   k)))})]
-        {:love
-         {:schema (->spawn-btn :love)}
-         :fear
-         {:schema (->spawn-btn :fear)}
-         :aggression
-         {:schema (->spawn-btn :aggression)}
-         :explore
-         {:schema (->spawn-btn :explore)}})}
+   {:schema
+    {:restart
+     (leva/button
+      (fn []
+        (action-button
+         :ftlm.vehicles.art.vehicles.fear-and-aggression/restart)))}
+    :sub-schemas
+    (let [->spawn-btn
+          (fn [k]
+            {:spawn!
+             (leva/button
+              (fn []
+                (action-button
+                 :ftlm.vehicles.art.vehicles.fear-and-aggression/spawn
+                 k)))})]
+      {:love
+       {:schema (->spawn-btn :love)}
+       :fear
+       {:schema (->spawn-btn :fear)}
+       :aggression
+       {:schema (->spawn-btn :aggression)}
+       :explore
+       {:schema (->spawn-btn :explore)}})}
    "getting-around"
-     {:schema {:dart! (leva/button
-                        (fn []
-                          (action-button
-                            :ftlm.vehicles.art.vehicles.getting-around/dart!)))
-               :restart
-                 (leva/button
-                   (fn []
-                     (action-button
-                      :ftlm.vehicles.art.vehicles.getting-around/restart)))}}})
+   {:schema {:dart! (leva/button
+                     (fn []
+                       (action-button
+                        :ftlm.vehicles.art.vehicles.getting-around/dart!)))
+             :restart
+             (leva/button
+              (fn []
+                (action-button
+                 :ftlm.vehicles.art.vehicles.getting-around/restart)))}}
+
+   "assembly-friends"
+   {:schema {:restart
+             (leva/button
+              (fn []
+                (action-button
+                 :ftlm.vehicles.art.vehicles.cell-assemblies-two/restart)))}}})
 
 (defn ui
   [{:keys [version piece more-controls]}]

@@ -425,7 +425,6 @@
   (q/color-mode :hsb)
   (q/background (lib/->hsb (-> controls
                                :background-color)))
-  (println controls)
   (let [state {:controls controls :on-update []}
         state (-> state lib/setup-version)]
     (reset! lib/the-state state)))
@@ -501,15 +500,3 @@
 ;; Francis Crick & Christof Koch (2005): What is the function of the claustrum? Phil. Trans. R. Soc. Lond. B. Biol. Sci. 360, nr. 1458, pp. 1271–1279 (PDF)
 
 ;; M. Z. Koubeissi, F. Bartolomei, A. Beltagy, F. Picard: Electrical stimulation of a small brain area reversibly disrupts consciousness. In: Epilepsy & behavior : E&B. [elektronische Veröffentlichung vor dem Druck] Juni 2014, ISSN 1525-5069. doi:10.1016/j.yebeh.2014.05.027. PMID 24967698.
-
-
-
-
-(comment
-  (remove (comp :ac-area val) (:eid->entity @lib/the-state))
-  (filter :lol (:eid->entity @lib/the-state))
-  (:lol (get (:eid->entity @lib/the-state) 1))
-  (js/JSON.parse "{}")
-
-
-  )

@@ -1390,6 +1390,6 @@
 ;;           (reset! event-count-left k)
 ;;           nil)))))
 
-(defmulti setup-version (comp :v :controls))
+(defmulti setup-version (comp keyword :v :controls))
 
 (defonce the-state (atom {:event-q (atom [])}))

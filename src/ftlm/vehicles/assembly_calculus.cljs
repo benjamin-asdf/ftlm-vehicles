@@ -430,7 +430,8 @@
              :weights next-weights))))
 
 
-;; same, but inhibition model returns a state
+;; same but different calling conventions
+;; inhibition model takes a state, returns a state
 (defn update-neuronal-area-2
   [{:as state
     :keys [activations weights inhibition-model
@@ -439,7 +440,9 @@
     state
     (let [synaptic-input (synaptic-input weights
                                          activations)
-          state (inhibition-model state synaptic-input)
+          state (inhibition-model (assoc state
+                                    :synaptic-input
+                                      synaptic-input))
           next-weights
             (if plasticity-model
               (plasticity-model
@@ -447,9 +450,7 @@
                   :current-activations activations
                   :next-activations (:activations state)))
               weights)]
-      (assoc state
-        :activations next-active
-        :weights next-weights))))
+      (assoc state :weights next-weights))))
 
 
 ;; inputs are just a set of neuron indices
@@ -858,20 +859,18 @@
 
 (defn attenuation
   [{:keys
-    [attenuation-malus n-neurons attenuation-epsilon]}]
-
+    [attenuation-malus n-neurons activations attenuation-epsilon]}]
+  (def activations activations)
   (let
       [attenuation-malus
        (or
         attenuation-malus
         (mathjs/matrix (mathjs/zeros #js[n-neurons]) "sparse"))]
-
     ;; if you are active, you attenuation malus goes up
+    ))
 
+(comment
 
-
-
-      )
 
 
   )
