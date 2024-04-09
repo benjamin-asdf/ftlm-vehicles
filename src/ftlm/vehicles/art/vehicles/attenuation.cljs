@@ -42,12 +42,12 @@
        (-> n-area
            (assoc :ac-area
                     {:activations #js []
-                     :attenuation-decay 0.4
-                     :attenuation-malus-factor 2.0
+                     :attenuation-decay (:attenuation-decay controls)
+                     :attenuation-malus-factor (:attenuation-malus-factor controls)
                      :inhibition-model
                        (comp (rand-cap-k-threshold-device
                                [(* (:threshold-device-high
-                                     controls)
+                                    controls)
                                    n-neurons)
                                 (* (:threshold-device-low
                                      controls)
@@ -66,7 +66,7 @@
                             :n-neurons n-neurons
                             :std-deviation
                               (:connectivity-std-deviation
-                                controls)}))})
+                               controls)}))})
            (assoc-in [:on-update-map :normalize-weights]
                      (lib/every-n-seconds
                        5
