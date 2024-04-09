@@ -20,9 +20,12 @@
    [ftlm.vehicles.assembly-calculus :as ac]
    [ftlm.vehicles.art.neuronal-area :as na]))
 
-(defn rand-cap-k-threshold-device [numbers]
-  (fn [_ synaptic-input]
-    (ac/cap-k (rand-nth numbers) synaptic-input)))
+(defn rand-cap-k-threshold-device
+  [numbers]
+  (fn [{:as state :keys [synaptic-input]}]
+    (assoc state
+           :activations
+           (ac/cap-k (rand-nth numbers) synaptic-input))))
 
 (defmethod lib/setup-version :attenuation
   [state]
@@ -39,10 +42,15 @@
        (-> n-area
            (assoc :ac-area
                   {:activations #js []
+                   :n-neurons n-neurons
+                   :attenuation-malus-factor 0.1
+                   :attenuation-decay 0.1
                    :inhibition-model
-                   (rand-cap-k-threshold-device
-                    [(* (:threshold-device-high controls) n-neurons)
-                     (* (:threshold-device-low controls) n-neurons)])
+                   (comp
+                    (rand-cap-k-threshold-device
+                     [(* (:threshold-device-high controls) n-neurons)
+                      (* (:threshold-device-low controls) n-neurons)])
+                    ac/attenuation)
                    :plasticity 0.1
                    :plasticity-model ac/hebbian-plasticity
                    :weights
@@ -330,7 +338,7 @@
                      (-> s
                          (update-in [:eid->entity (:id n-area)
                                      :ac-area]
-                                    ac/update-neuronal-area)))
+                                    ac/update-neuronal-area-2)))
        touch-me-gate (assoc-in (na/->touch-me-gate [300 300])
                                [:on-click-map :clear-area]
                                (fn [e s _]

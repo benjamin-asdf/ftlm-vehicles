@@ -440,16 +440,17 @@
     state
     (let [synaptic-input (synaptic-input weights
                                          activations)
-          state (inhibition-model (assoc state
-                                    :synaptic-input
-                                      synaptic-input))
+          state (inhibition-model
+                 (assoc state
+                        :synaptic-input
+                        synaptic-input))
           next-weights
-            (if plasticity-model
-              (plasticity-model
-                (assoc state
-                  :current-activations activations
-                  :next-activations (:activations state)))
-              weights)]
+          (if plasticity-model
+            (plasticity-model
+             (assoc state
+                    :current-activations activations
+                    :next-activations (:activations state)))
+            weights)]
       (assoc state :weights next-weights))))
 
 
@@ -858,19 +859,71 @@
 ;;
 
 (defn attenuation
-  [{:keys
-    [attenuation-malus n-neurons activations attenuation-epsilon]}]
+  [{:as state
+    :keys [attenuation-malus attenuation-decay
+           attenuation-malus-factor synaptic-input n-neurons
+           activations]}]
   (def activations activations)
-  (let
-      [attenuation-malus
-       (or
+  (let [attenuation-malus (or attenuation-malus
+                              (mathjs/matrix
+                                (mathjs/zeros
+                                  #js [n-neurons])))
+        ;; decay the malus from previous step
+        attenuation-malus (mathjs/multiply
+                            attenuation-malus
+                            (- 1 attenuation-decay))
         attenuation-malus
-        (mathjs/matrix (mathjs/zeros #js[n-neurons]) "sparse"))]
-    ;; if you are active, you attenuation malus goes up
-    ))
+          ;; accumulate the malus on everybody active
+          (.subset attenuation-malus
+                   (mathjs/index activations)
+                   (mathjs/add (mathjs/subset
+                                 attenuation-malus
+                                 (mathjs/index activations))
+                               attenuation-malus-factor))]
+    (assoc state
+      :synaptic-input (mathjs/dotDivide
+                        synaptic-input
+                        (mathjs/add 1 attenuation-malus))
+      :attenuation-malus attenuation-malus)))
+
+
 
 (comment
+  (mathjs/add #js[1 2 3] #js[1 2 3])
+
+  (.subset
+   (mathjs/matrix (mathjs/zeros #js [10]) "sparse")
+   (mathjs/index 0))
+
+
+  (let [synaptic-input #js [1 2 3 1.5]]
+    (mathjs/subset synaptic-input
+                   (mathjs/index (mathjs/larger synaptic-input 1.5))))
+
+  (let [synaptic-input (mathjs/matrix #js [1 2 3 1.5])]
+    (mathjs/subset synaptic-input
+                   (mathjs/index (mathjs/larger synaptic-input
+                                                1.5))))
 
 
 
-  )
+  ((let [attenuation-malus (mathjs/matrix (mathjs/zeros
+                                           #js [10]))
+         attenuation-malus-factor 0.1
+         activations #js [0 1 2]
+         attenuation-decay 0.9
+         ;; decay the malus from previous step
+         attenuation-malus (mathjs/multiply attenuation-malus
+                                            attenuation-decay)
+         attenuation-malus
+         ;; accumulate the malus on everybody active
+         (.subset attenuation-malus
+                  (mathjs/index activations)
+                  (mathjs/add (mathjs/subset
+                               attenuation-malus
+                               (mathjs/index activations))
+                              attenuation-malus-factor))]
+     (fn [{:keys [ac synaptic-input]}]
+       (mathjs/dotDivide synaptic-input
+                         (mathjs/add 1 attenuation-malus))))
+   (mathjs/matrix #js [1 1 1 1 1 1 1 1 1 1])))
