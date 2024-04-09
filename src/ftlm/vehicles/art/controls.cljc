@@ -186,7 +186,8 @@
    {
     "1" {:v :color-assemblies}
     "2" {:v :attenuation
-         :attenuation-malus 1.0
+         :attenuation-decay 0.4
+         :attenuation-malus-factor 2.0
          :threshold-device-high 0.1
          :threshold-device-low 0.05
          :connectivity-amplitude 0.2
