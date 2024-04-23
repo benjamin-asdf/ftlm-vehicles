@@ -18,6 +18,7 @@
    [tech.v3.datatype :as dtype]
    ["mathjs" :as mathjs]
    [ftlm.vehicles.art.vehicles.attenuation]
+   [ftlm.vehicles.art.vehicles.excitability]
    [ftlm.vehicles.assembly-calculus :as ac]
    [ftlm.vehicles.art.neuronal-area :as na]))
 
@@ -105,16 +106,18 @@
            (assoc :ac-area
                     {:activations #js []
                      :inhibition-model
-                       (fn [state synaptic-input]
-                         (ac/cap-k 50 synaptic-input))
+                     (fn [state synaptic-input]
+                       (ac/cap-k 50 synaptic-input))
+
                      :plasticity 0.1
                      :plasticity-model ac/hebbian-plasticity
+                     :n-neurons n-neurons
                      :weights
-                       (ac/->directed-graph-with-geometry
-                         n-neurons
-                         (ac/lin-gaussian-geometry
-                           {:amplitude 0.3
-                            :std-deviation 40}))})
+                     (ac/->directed-graph-with-geometry
+                      n-neurons
+                      (ac/lin-gaussian-geometry
+                       {:amplitude 0.3
+                        :std-deviation 40}))})
            (assoc-in [:on-update-map :normalize-weights]
                      (lib/every-n-seconds
                        5

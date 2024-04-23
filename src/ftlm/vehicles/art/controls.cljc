@@ -195,8 +195,16 @@
          :n-neurons 1000
          :plasticity 0.1
          ;; :density 0.1
-         :stimulus-projection-density 0.025
-         }}
+         :stimulus-projection-density 0.025}
+    "3" {:v :excitability
+         :excitability-growth 0.1
+         :excitability-decay 0.1
+         :threshold-device-high 0.01
+         :threshold-device-low 0.05
+         :connectivity-amplitude 0.1
+         :connectivity-std-deviation 100
+         :n-neurons 1000
+         :stimulus-projection-density 0.020}}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614

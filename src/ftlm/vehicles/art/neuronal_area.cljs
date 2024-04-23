@@ -291,3 +291,15 @@
      :stroke controls/white
      :stroke-weight 2
      :transform (lib/->transform pos 30 30 1)}))
+
+
+(defn eye-ball [{:keys [pos]}]
+  (lib/->entity
+   :circle
+   {:clickable? true
+    :z-index 10
+    :color (lib/with-alpha (lib/->hsb controls/white) 0)
+    :draggable? true
+    :stroke controls/white
+    :stroke-weight 2
+    :transform (lib/->transform pos 25 25 1)}))

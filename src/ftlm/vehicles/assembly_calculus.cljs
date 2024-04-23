@@ -29,7 +29,6 @@
 ;; perception, memory, thought, ...
 ;;
 ;;
-;;
 ;; -----------  abstraction barrier -------------------------
 ;;
 ;; substance of cognition
@@ -51,23 +50,18 @@
 ;; 1. Hebbian plasticity - fire together, wire together
 ;; 2. Directed graph of excitatory activations with dynamic edge weights
 ;; 3. Discrete timesteps
-;; 4. Inhibition (Braitenberg calls this a thought pump)
+;; 4. Idealized inhibition model (Braitenberg calls this a thought pump)
 ;;
-
 ;;
 ;; The ignition of this stuff is from Hebb.
 ;;
-
 ;;
 ;; I. Devide the brain into areas containg n activations connected through a G(n,p) directed graph
 ;; II. implement a k-cap selection, the top k excitied activations fire at the next time step
-
-
+;;
 ;; Implementation
 ;; thank you mathjs
 ;; https://dev.to/mrinasugosh/ml-fundamentals-in-javascript-5fm5
-
-
 
 
 ;; +----------------+
@@ -454,6 +448,10 @@
       (assoc state :weights next-weights))))
 
 
+
+
+
+
 ;; inputs are just a set of neuron indices
 ;; you might decide to call the inhibition model here, but whatever.
 ;; there will be another time step soon
@@ -787,29 +785,6 @@
           (take 10 @r))))
 
 (comment
-
-  (let [edges (atom [])]
-    (.forEach
-     (->directed-graph-with-geometry
-      3
-      (lin-gaussian-geometry
-       {:amplitude 0.7
-        :std-deviation 1}))
-     (fn [v idx]
-       (swap! edges conj idx))
-     true)
-    @edges)
-
-
-
-  (mathjs/subset
-   (->directed-graph-with-geometry
-    3
-    (lin-gaussian-geometry
-     {:amplitude 0.7
-      :std-deviation 1})))
-
-
   (do
     (def mystate {:activations (->neurons 3)
                   :weights (->directed-graph-with-geometry
@@ -831,10 +806,6 @@
      ;; (update-neuronal-area mystate)
      :next-weights
      (:weights (update-neuronal-area mystate))]))
-
-
-
-
 
 
 ;; ================
@@ -863,7 +834,6 @@
     :keys [attenuation-malus attenuation-decay
            attenuation-malus-factor synaptic-input n-neurons
            activations]}]
-  (def activations activations)
   (let [attenuation-malus (or attenuation-malus
                               (mathjs/matrix
                                 (mathjs/zeros
@@ -888,42 +858,77 @@
 
 
 
-(comment
-  (mathjs/add #js[1 2 3] #js[1 2 3])
+;; ================
+;; intrinsic excitability plasticity
+;; ================
+;;
+;; https://faster-than-light-memes.xyz/biological-notes-on-the-vehicles-cell-assemblies.html
+;; *Iceberg Cell Assemblies*
+;;
+;; Paper: https://www.biorxiv.org/content/10.1101/2020.07.29.223966v1
+;;
+;;
+;; quote:
+;; we find increases in neuronal excitability, accompanied by increases in membrane resistance and a reduction in spike threshold. We conclude that the formation of neuronal ensemble by photostimulation is mediated by cell-intrinsic changes in excitability, rather than by Hebbian synaptic plasticity or changes in local synaptic connectivity. We propose an “iceberg” model, by which increased neuronal excitability makes subthreshold connections become suprathreshold, increasing the functional effect of already existing synapses and generating a new neuronal ensemble.
+;;___
+;;
+;;
+;; So instead of hebbian plasticity, we can try to model a cell-intrinsic `excitability`, `intrinsic-excitability`.
+;;
+;; The easiest model coming to mind is the same as the attenuation above. (but inverted).
+;; A cummulative excitability, with a decay.
+;;
+;;
+;; `excitability-growth`: Could have been called learning rate, to make it sound like machine learning
+;;
+;; `excitability-decay`: Relative decay each time step
+;;
+;; `excitabilities`: You could imagine pre-allocating this, probably this is somewhat random in biology.
+;;
+;;
+;; 0. Grow excitability for all active neurons, (add excitability-growth)
+;; 1. Decay excitabilities multiplicatively by excitability-decay
+;; 2. excitabilities multiplicatively on the sum of the inputs for each neuron.
+;;
+;;
+;; 0-2 could also be more complecated functions
+;;
+;; An excitability of 0.0 means your inputs are at baseline.
+;; An excitability of 1.0 means your inputs count double and so forth.
+;; In principle, negative numbers are allowed. (but not utilized by this step model here).
+;; In this case this would flip into an attenuation or depression model.
+;;
+;; -1.0 is the minimal meaningful number, saying that synaptic input is 0, beyond that you would
+;; get negative synaptic-inputs, which are not defined behaviour.
+;;
+;;
 
-  (.subset
-   (mathjs/matrix (mathjs/zeros #js [10]) "sparse")
-   (mathjs/index 0))
-
-
-  (let [synaptic-input #js [1 2 3 1.5]]
-    (mathjs/subset synaptic-input
-                   (mathjs/index (mathjs/larger synaptic-input 1.5))))
-
-  (let [synaptic-input (mathjs/matrix #js [1 2 3 1.5])]
-    (mathjs/subset synaptic-input
-                   (mathjs/index (mathjs/larger synaptic-input
-                                                1.5))))
-
-
-
-  ((let [attenuation-malus (mathjs/matrix (mathjs/zeros
-                                           #js [10]))
-         attenuation-malus-factor 0.1
-         activations #js [0 1 2]
-         attenuation-decay 0.9
-         ;; decay the malus from previous step
-         attenuation-malus (mathjs/multiply attenuation-malus
-                                            attenuation-decay)
-         attenuation-malus
-         ;; accumulate the malus on everybody active
-         (.subset attenuation-malus
-                  (mathjs/index activations)
-                  (mathjs/add (mathjs/subset
-                               attenuation-malus
-                               (mathjs/index activations))
-                              attenuation-malus-factor))]
-     (fn [{:keys [ac synaptic-input]}]
-       (mathjs/dotDivide synaptic-input
-                         (mathjs/add 1 attenuation-malus))))
-   (mathjs/matrix #js [1 1 1 1 1 1 1 1 1 1])))
+(defn intrinsic-excitability
+  [{:as state
+    :keys [excitabilities excitability-growth
+           excitability-decay synaptic-input n-neurons
+           activations]}]
+  (let [excitabilities (or excitabilities
+                           (mathjs/matrix (mathjs/zeros
+                                           #js
+                                           [n-neurons])))
+        ;; decay excitabilities
+        excitabilities (mathjs/multiply
+                        excitabilities
+                        (- 1 excitability-decay))
+        excitabilities
+        ;; accumulate the excitabilities on everybody
+        ;; active
+        (.subset excitabilities
+                 (mathjs/index activations)
+                 (mathjs/add (mathjs/subset
+                              excitabilities
+                              (mathjs/index activations))
+                             excitability-growth))]
+    (assoc state
+           ;; if you have excitability, your inputs count
+           ;; more
+           :synaptic-input (mathjs/dotMultiply
+                            synaptic-input
+                            (mathjs/add 1 excitabilities))
+           :excitabilities excitabilities)))
