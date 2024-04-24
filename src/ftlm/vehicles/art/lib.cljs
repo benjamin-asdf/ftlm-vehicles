@@ -890,6 +890,8 @@
       (:brownian-factor (controls))))))
 
 (defn ->explosion
+
+
   [{:keys [n size pos color spread]}]
   (into []
         (map (fn []

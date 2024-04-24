@@ -368,3 +368,53 @@
         [:transform :scale]
         (fn [_]
           (q/lerp start stop (q/sin (* speed @t))))))))
+
+
+(defn ->flash-line-tracking
+  [e end-pos]
+  (->
+    (assoc (->flash-of-line (lib/position e) end-pos) :color
+           (:color e))
+    (assoc-in
+      [:on-update-map :find-pos]
+      (fn [line-e s _]
+        (let [start-pos (lib/position
+                          ((lib/entities-by-id s) (:id e)))]
+          (update-in line-e
+                     [:vertices]
+                     (constantly (rect-line-vertices-1
+                                   start-pos
+                                   end-pos))))))))
+
+
+(defn ->clock-flower
+  [{:keys [pos radius count i->fill]}]
+  (let [angle-step (/ 360 count)]
+    (lib/->entity
+      :clock-circles
+      {:draw-functions
+         {:1 (fn [e]
+               (doall
+                 (map-indexed
+                   (fn [idx _]
+                     (let [angle (* idx angle-step)
+                           center-pos pos
+                           sub-pos (lib/position-on-circle
+                                     center-pos
+                                     radius
+                                     angle)]
+                       (q/stroke-weight 2)
+                       (q/with-stroke
+                         (lib/->hsb controls/white)
+                         (q/with-fill
+                           (or ((:i->fill e) e idx)
+                               (lib/with-alpha
+                                 (lib/->hsb controls/white)
+                                 0))
+                           (q/ellipse (first sub-pos)
+                                      (second sub-pos)
+                                      20
+                                      20)))))
+                   (range count))))}
+       :i->fill i->fill
+       :transform (lib/->transform pos 100 100 1)})))

@@ -483,11 +483,30 @@
   (mathjs/subset
     (mathjs/range 0 n-neurons)
     (mathjs/index
-      (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
+     (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
             (fn [v idx _]
               (if (< (mathjs/random 0 1) p-probability)
                 true
                 false))))))
+
+(defn ->projection
+  "`projection-model` is a function that takes an index and returns
+   wheter there neuron `i` is a projection neuron.
+  If it returns a number, that is taken a probability between 0 and 1"
+  [n-neurons projection-model]
+  (println n-neurons projection-model)
+  (mathjs/subset
+    (mathjs/range 0 n-neurons)
+    (mathjs/index
+      (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
+            (fn [v idx _]
+              (let [p (projection-model idx)]
+                (boolean (cond (number? p)
+                                 (< (mathjs/random 0 1) p)
+                               :else p))))))))
+
+
+
 
 (defn read-projection [proj]
   (.valueOf proj))
