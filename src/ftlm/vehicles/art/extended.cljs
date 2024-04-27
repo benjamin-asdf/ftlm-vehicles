@@ -291,15 +291,16 @@
 
 
 (defn ->fade
-  [speed]
-  (fn [e s _]
-    (update e
-            :color
-            (fn [c]
-              (let [c (lib/->hsb c)]
-                (lib/with-alpha c
-                                (* (- 1 (* lib/*dt* speed))
-                                   (q/alpha c))))))))
+  ([speed] (->fade speed :color))
+  ([speed k]
+   (fn [e s _]
+     (update e
+             k
+             (fn [c]
+               (let [c (lib/->hsb c)]
+                 (lib/with-alpha c
+                                 (* (- 1 (* lib/*dt* speed))
+                                    (q/alpha c)))))))))
 
 (defn from-right [amount]
   (- (q/width) amount))
@@ -388,33 +389,35 @@
 
 
 (defn ->clock-flower
-  [{:keys [pos radius count i->fill]}]
+  [{:as opts :keys [pos radius count i->fill]}]
   (let [angle-step (/ 360 count)]
     (lib/->entity
       :clock-circles
-      {:draw-functions
-         {:1 (fn [e]
-               (doall
-                 (map-indexed
-                   (fn [idx _]
-                     (let [angle (* idx angle-step)
-                           center-pos pos
-                           sub-pos (lib/position-on-circle
-                                     center-pos
-                                     radius
-                                     angle)]
-                       (q/stroke-weight 2)
-                       (q/with-stroke
-                         (lib/->hsb controls/white)
-                         (q/with-fill
-                           (or ((:i->fill e) e idx)
-                               (lib/with-alpha
-                                 (lib/->hsb controls/white)
-                                 0))
-                           (q/ellipse (first sub-pos)
-                                      (second sub-pos)
-                                      20
-                                      20)))))
-                   (range count))))}
-       :i->fill i->fill
-       :transform (lib/->transform pos 100 100 1)})))
+      (merge
+        opts
+        {:draw-functions
+           {:1 (fn [e]
+                 (doall
+                   (map-indexed
+                     (fn [idx _]
+                       (let [angle (* idx angle-step)
+                             center-pos pos
+                             sub-pos (lib/position-on-circle
+                                       center-pos
+                                       radius
+                                       angle)]
+                         (q/stroke-weight 2)
+                         (q/with-stroke
+                           (lib/->hsb controls/white)
+                           (q/with-fill
+                             (or ((:i->fill e) e idx)
+                                 (lib/with-alpha
+                                   (lib/->hsb
+                                     controls/white)
+                                   0))
+                             (q/ellipse (first sub-pos)
+                                        (second sub-pos)
+                                        20
+                                        20)))))
+                     (range count))))}
+         :transform (lib/->transform pos 100 100 1)}))))

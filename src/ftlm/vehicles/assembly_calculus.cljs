@@ -478,32 +478,34 @@
   (when activations
     (.valueOf activations)))
 
-(defn ->rand-projection
-  [n-neurons p-probability]
-  (mathjs/subset
-    (mathjs/range 0 n-neurons)
-    (mathjs/index
-     (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
-            (fn [v idx _]
-              (if (< (mathjs/random 0 1) p-probability)
-                true
-                false))))))
+(defn activation-intersection [set1 set2]
+  (mathjs/setIntersect set1 set2))
+
+(defn count-intersection
+  [a b]
+  (mathjs/count (activation-intersection a b)))
 
 (defn ->projection
   "`projection-model` is a function that takes an index and returns
    wheter there neuron `i` is a projection neuron.
   If it returns a number, that is taken a probability between 0 and 1"
   [n-neurons projection-model]
-  (println n-neurons projection-model)
   (mathjs/subset
-    (mathjs/range 0 n-neurons)
-    (mathjs/index
-      (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
-            (fn [v idx _]
-              (let [p (projection-model idx)]
-                (boolean (cond (number? p)
-                                 (< (mathjs/random 0 1) p)
-                               :else p))))))))
+   (mathjs/range 0 n-neurons)
+   (mathjs/index
+    (.map (mathjs/matrix (mathjs/zeros #js [n-neurons]))
+          (fn [v idx _]
+            (let [p (projection-model idx)]
+              (boolean (cond (number? p)
+                             (< (mathjs/random 0 1) p)
+                             :else p))))))))
+
+(def count-projection mathjs/count)
+(def count-activation mathjs/count)
+
+(defn ->rand-projection
+  [n-neurons p-probability]
+  (->projection n-neurons (constantly p-probability)))
 
 
 
@@ -715,7 +717,13 @@
                      [true false true]
                      (sensory-apparatus-projection 100 3 0.1))))
   (time
-   (do (sensory-apparatus-projection 10000 10 0.1) nil)))
+   (do (sensory-apparatus-projection 10000 10 0.1) nil))
+  )
+
+
+(comment
+
+  )
 
 ;; ==================
 ;; 1 bit version
@@ -951,3 +959,28 @@
                             synaptic-input
                             (mathjs/add 1 excitabilities))
            :excitabilities excitabilities)))
+
+
+(comment
+
+  (mathjs/count (mathjs/setIntersect #js [1 2] #js [1]))
+
+
+  (mathjs/sum #js [1 1] #js [0 1])
+  (mathjs/add #js [1 1] #js [0 1])
+  (mathjs/multiply #js [1 1] #js [0 1])
+
+
+  (mathjs/sum
+   (mathjs/multiply #js [0 1] 0.3)
+   (mathjs/multiply #js [0 1] 0.3))
+
+
+
+
+
+
+
+
+
+  )

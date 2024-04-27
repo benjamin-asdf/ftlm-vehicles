@@ -430,8 +430,6 @@
       (when (< (lib/distance (lib/position e) pos) 25) e))))
 
 
-
-
 ;; ---
 ;; perspective-flower
 ;; Conceptually a landscape modulator
@@ -440,9 +438,26 @@
 ;; i.e. you say what kinds of attractor states the system will fall into.
 ;; This is conceptually very similar to 'attention' in machine learning.
 ;;
+;; Something similar might be an implementation of 'commitment' or 'inner muscles', too.
+;; Basically say dynamically what kind of stuff should be acitve,
+;; by composing this temporarily, that is one way to make thought-sequence kinda things.
+;;
+;;
 ;;
 
-
 (defn perspective-flower
-  [{:as opts :keys [count i->fill]}]
-  (elib/->clock-flower opts))
+  [{:as opts :keys [count i->fill n-neurons p-probability]}]
+  (let [p-lines (into []
+                      (for [i (range count)]
+                        (ac/->rand-projection
+                          n-neurons
+                          p-probability)))]
+    (merge
+     (elib/->clock-flower opts)
+     {:active-p-lines #{} :p-lines p-lines})))
+
+(defn perspective-inputs [{:keys [active-p-lines p-lines]}]
+  (vals (select-keys p-lines active-p-lines)))
+
+(defn reset-n-area [s id]
+  (-> s (update-in [:eid->entity id :ac-area] ac/set-input #js[])))

@@ -5,7 +5,6 @@
   (cider-jack-in-clj
    '(:project-dir "/home/benj/repos/clojure/vehicles/")))
 
-
 (defun ftlm-vehicles-cider-shadow-cljs-connect-app-client ()
   (interactive)
   (let ((cider-shadow-default-options ":client"))
