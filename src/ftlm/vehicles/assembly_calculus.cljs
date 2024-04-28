@@ -960,27 +960,40 @@
                             (mathjs/add 1 excitabilities))
            :excitabilities excitabilities)))
 
+;; ================
+;; Skipping Rate
+;; ================
+;;
+;; Neuron 'failure rate' to fire.
+;;
+;; This is biologically plausible. At first glance this looks like an imperfection,
+;; but I am reasononing that this would modify the dynamism of the substrate.
+;;
+;; Higher neuron failure rate is similar to attenuation, it makes the ensembles spread more
+;; and be less stuck. But high attenuation makes the move around, where the skip rate makes them farther spread
+;; if applied before threshold model, and smaller if applied after the threshold model.
+;;
+;; Intuitively, this smoothes out the energy transitions between attractor states somewhat.
+;;
+;; This is the kind of stuff we can come up with by considering the
+;; the activity, not the neurons, as the functional unit.
+;;
+;; Give every neuron at each timestep a chance to =skip=.
+;;
+;; This could be applied before or after the threshold model, with distinct results.
+;;
+;; Skip rate is a counterintuitive functional notion and might (or not) be implemented biochemically in neurons.
+;;
 
-(comment
-
-  (mathjs/count (mathjs/setIntersect #js [1 2] #js [1]))
-
-
-  (mathjs/sum #js [1 1] #js [0 1])
-  (mathjs/add #js [1 1] #js [0 1])
-  (mathjs/multiply #js [1 1] #js [0 1])
-
-
-  (mathjs/sum
-   (mathjs/multiply #js [0 1] 0.3)
-   (mathjs/multiply #js [0 1] 0.3))
-
-
-
-
-
-
-
-
-
-  )
+(defn neuron-skip
+  [{:as state
+    :keys [synaptic-input n-neurons activations skip-rate]}]
+  (update
+   state
+   :synaptic-input
+   (fn [inputs]
+     (mathjs/dotMultiply
+      inputs
+      (.map (mathjs/zeros n-neurons)
+            (fn [v idx _]
+              (if (< (mathjs/random) skip-rate) 0 1)))))))

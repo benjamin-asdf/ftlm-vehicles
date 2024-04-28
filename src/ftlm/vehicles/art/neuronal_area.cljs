@@ -290,39 +290,41 @@
      :stroke-weight 2
      :transform (lib/->transform pos 30 30 1)}))
 
+(defn shiny-projection-1
+  [state indices id-area color]
+  (let [n-area ((lib/entities-by-id @lib/the-state) id-area)
+        i->pos (fn [i] ((n-area :i->pos) n-area i))]
+    (->
+     state
+     (lib/append-ents
+      [(lib/->entity
+        :blinking-neurons
+        {:color color
+         :draw-functions
+         {:1 (fn [ble]
+               (q/stroke-weight 2)
+               (q/with-fill
+                 nil
+                 (q/with-stroke
+                   (lib/->hsb (:color ble))
+                   (doall
+                    (for [i (:indices ble)
+                          :let [pos (i->pos i)]]
+                      (q/with-translation
+                        pos
+                        (q/rect 0 0 15 15 3)))))))}
+         :indices indices
+         :lifetime 10.5
+         :on-update-map {:fade (lib/->fade-pulse-2
+                                3.0)}})]))))
+
 
 (defn ->shiny-projection
   [->indices id-area]
   (fn [e state _]
-    (let [indices (->indices e state)
-          n-area ((lib/entities-by-id @lib/the-state) id-area)
-          i->pos (fn [i] ((n-area :i->pos) n-area i))]
+    (let [indices (->indices e state)]
       {:updated-state
-       (-> state
-           (lib/append-ents
-            [(lib/->entity
-              :blinking-neurons
-              {:color (:color e)
-               :draw-functions
-               {:1 (fn [ble]
-                     (q/stroke-weight 2)
-                     (q/with-fill
-                       nil
-                       (q/with-stroke
-                         (lib/->hsb (:color ble))
-                         (doall
-                          (for
-                              [i (:indices ble)
-                               :let [pos (i->pos i)]]
-                              (q/with-translation
-                                pos
-                                (q/rect 0
-                                        0 15
-                                        15 3)))))))}
-               :indices indices
-               :lifetime 10.5
-               :on-update-map {:fade (lib/->fade-pulse-2
-                                      3.0)}})]))})))
+       (shiny-projection-1 state indices id-area (:color e))})))
 
 (defn ->flash-some-connections
   [n-area]
