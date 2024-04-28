@@ -548,33 +548,35 @@
 ;; but I am reasononing that this would modify the dynamism of the substrate.
 ;;
 ;; Higher neuron failure rate is similar to attenuation, it makes the ensembles spread more
-;; and be less stuck. But high attenuation makes the move around, where the skip rate makes them farther spread
-;; if applied before threshold model, and smaller if applied after the threshold model.
+;; and be less stuck. But high attenuation makes the move around, where the skip rate makes them spread more
+;; if applied before threshold model, and simply smaller if applied after the threshold model.
 ;;
-;; Intuitively, this smoothes out the energy transitions between attractor states somewhat.
-;;
-;; This is the kind of stuff we can come up with by considering the
-;; the activity, not the neurons, as the functional unit.
-;;
-;; Give every neuron at each timestep a chance to =skip=.
+;; Intuitively, this means you might find other attractor states, if you have some neurons that usually strongly
+;; contribute to one interpretation, now you have the chance to find a new interpretation.
 ;;
 ;; This could be applied before or after the threshold model, with distinct results.
 ;;
-;; Skip rate is a counterintuitive functional notion and might (or not) be implemented 'explicitly' biochemically in neurons.
+;; Skip rate is a counterintuitive notion and might (or not) be implemented 'explicitly' biochemically in neurons.
+;;
+;;
 ;;
 
 (defn neuron-skip
+  "Give every neuron at each timestep a chance to =skip=.
+
+  `skip-rate`: The chance for each neuron to recieve 0 inputs, effectively skipping it.
+  "
   [{:as state
     :keys [synaptic-input n-neurons activations skip-rate]}]
   (update
-   state
-   :synaptic-input
-   (fn [inputs]
-     (mathjs/dotMultiply
-      inputs
-      (.map (mathjs/zeros n-neurons)
-            (fn [v idx _]
-              (if (< (mathjs/random) skip-rate) 0 1)))))))
+    state
+    :synaptic-input
+    (fn [inputs]
+      (mathjs/dotMultiply
+        inputs
+        (.map (mathjs/zeros n-neurons)
+              (fn [v idx _]
+                (if (< (mathjs/random) skip-rate) 0 1)))))))
 
 
 
