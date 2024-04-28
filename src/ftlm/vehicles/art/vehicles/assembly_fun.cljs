@@ -2191,8 +2191,6 @@
                 (-> s
                     (lib/append-ents (show-lines s))))))))))
 
-
-
 (defmethod setup-version :binary-synapses-2
   [state]
   (let [n-neurons 500
