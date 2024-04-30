@@ -308,17 +308,28 @@
 (defn from-bottom [amount]
   (- (q/height) amount))
 
+(defn flash
+  [e]
+  (-> e
+      (assoc :lifetime 3)
+      (lib/live [:fade (->fade 1)])))
+
 (defn ->flash-of-line
-  [pos-1 pos-2]
-  (lib/->entity
+  ([pos-1 pos-2]
+   (->flash-of-line pos-1 pos-2 {:color (:cyan controls/color-map)}))
+  ([pos-1 pos-2 opts]
+   (lib/->entity
     :multi-line
-    {:color (:cyan controls/color-map)
-     :lifetime 3
-     :z-index -2
-     :on-update-map {:fade (->fade 1)}
-     :stroke-weight 1
-     :transform (lib/->transform pos-1 1 1 1)
-     :vertices (rect-line-vertices-1 pos-1 pos-2)}))
+    (merge
+     {:lifetime 3
+      :on-update-map {:fade (->fade 1)}
+      :stroke-weight 1
+      :transform (lib/->transform pos-1 1 1 1)
+      :vertices (rect-line-vertices-1 pos-1 pos-2)
+      :z-index -2}
+     opts))))
+
+
 
 ;; (defn grid [draw-i]
 ;;   (lib/->entity
@@ -387,37 +398,38 @@
                                    start-pos
                                    end-pos))))))))
 
+(defn track [])
 
 (defn ->clock-flower
   [{:as opts :keys [pos radius count i->fill]}]
   (let [angle-step (/ 360 count)]
     (lib/->entity
-      :clock-circles
-      (merge
-        opts
-        {:draw-functions
-           {:1 (fn [e]
-                 (doall
-                   (map-indexed
-                     (fn [idx _]
-                       (let [angle (* idx angle-step)
-                             center-pos pos
-                             sub-pos (lib/position-on-circle
-                                       center-pos
-                                       radius
-                                       angle)]
-                         (q/stroke-weight 2)
-                         (q/with-stroke
-                           (lib/->hsb controls/white)
-                           (q/with-fill
-                             (or ((:i->fill e) e idx)
-                                 (lib/with-alpha
-                                   (lib/->hsb
-                                     controls/white)
-                                   0))
-                             (q/ellipse (first sub-pos)
-                                        (second sub-pos)
-                                        20
-                                        20)))))
-                     (range count))))}
-         :transform (lib/->transform pos 100 100 1)}))))
+     :clock-circles
+     (merge
+      opts
+      {:draw-functions
+       {:1 (fn [e]
+             (doall
+              (map-indexed
+               (fn [idx _]
+                 (let [angle (* idx angle-step)
+                       center-pos pos
+                       sub-pos (lib/position-on-circle
+                                center-pos
+                                radius
+                                angle)]
+                   (q/stroke-weight 2)
+                   (q/with-stroke
+                     (lib/->hsb controls/white)
+                     (q/with-fill
+                       (or ((:i->fill e) e idx)
+                           (lib/with-alpha
+                             (lib/->hsb
+                              controls/white)
+                             0))
+                       (q/ellipse (first sub-pos)
+                                  (second sub-pos)
+                                  20
+                                  20)))))
+               (range count))))}
+       :transform (lib/->transform pos 100 100 1)}))))

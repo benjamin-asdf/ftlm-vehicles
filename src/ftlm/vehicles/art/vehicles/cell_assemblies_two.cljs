@@ -19,6 +19,7 @@
    ["mathjs" :as mathjs]
    [ftlm.vehicles.art.vehicles.attenuation]
    [ftlm.vehicles.art.vehicles.excitability]
+   [ftlm.vehicles.art.vehicles.pulling-stimuli]
    [ftlm.vehicles.assembly-calculus :as ac]
    [ftlm.vehicles.art.neuronal-area :as na]))
 

@@ -5,6 +5,11 @@
    [tech.v3.datatype :as dtype]
    ["mathjs" :as mathjs]))
 
+
+
+
+;; -----------------------------------------------
+
 ;; paper: https://arxiv.org/abs/2110.03171
 
 ;;
@@ -81,14 +86,6 @@
    n-neurons
    (fn [_ _]
      (< (mathjs/random 0 1) density))))
-
-(defn ->uni-directional-fiber
-  [n-neurons-1 n-neurons-2 density]
-  (.map (mathjs/matrix (mathjs/zeros #js [n-neurons-1
-                                          n-neurons-2])
-                       "sparse")
-        (fn [_ _ _] (if (< (mathjs/random) density) 1 0))))
-
 
 ;; Synaptic input is the sum of the weights of the active activations
 ;; Everybody that is active is contributing to my chance of being active
@@ -237,7 +234,7 @@
 
 (defn cap-k
   [k synaptic-input]
-  (into-array :int (take k (argops/argsort > (.valueOf synaptic-input)))))
+  (into-array :int (take k (argops/argsort > (.valueOf (mathjs/filter synaptic-input #(mathjs/larger % 0)))))))
 
 (defn indices-above-input-cutoff [synaptic-input threshold]
   (.subset (mathjs/range 0 (mathjs/count synaptic-input))
@@ -270,23 +267,25 @@
 (defn update-neuronal-area-2
   [{:as state
     :keys [activations weights inhibition-model
+           n-neurons
            plasticity-model]}]
-  (if (zero? (mathjs/count activations))
-    state
-    (let [synaptic-input (synaptic-input weights
-                                         activations)
-          state (inhibition-model
-                 (assoc state
-                        :synaptic-input
-                        synaptic-input))
-          next-weights
-          (if plasticity-model
-            (plasticity-model
-             (assoc state
-                    :current-activations activations
-                    :next-activations (:activations state)))
-            weights)]
-      (assoc state :weights next-weights))))
+  (let [synaptic-input
+        (if
+            (zero? (mathjs/count activations))
+            (mathjs/zeros #js [n-neurons])
+            (synaptic-input weights activations))
+        state (inhibition-model
+               (assoc state
+                      :synaptic-input
+                      synaptic-input))
+        next-weights
+        (if plasticity-model
+          (plasticity-model
+           (assoc state
+                  :current-activations activations
+                  :next-activations (:activations state)))
+          weights)]
+    (assoc state :weights next-weights)))
 
 
 
@@ -414,6 +413,99 @@
           (take 10 @r))))
 
 
+
+;; less relevant stuff:
+
+
+;; ------------------------
+;; A sensory apparatus
+
+;; from sensory units -> neuron indices
+;; With 2 versions, one off and another on
+;; This models inhibitory interneurons, and represents the absence of a signal
+;; This is similar to the canonical receptive fields of neuro-science
+
+(defn sensory-apparatus-projection [n-neurons k-sensory-units projection-density]
+  (into
+   []
+   (for [_ (range k-sensory-units)]
+     ;; off / on projections (i.e the absence of a sensory unit being active is projected to some neurons)
+     {false
+      ;; using only 20% of the connetions for off, this way the inputs are less similar
+      (into #{} (repeatedly (* n-neurons (* 0.2 projection-density)) #(rand-int n-neurons)))
+      true
+      (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))})))
+
+(defn sensory-apparatus
+  [{:keys [n-neurons k-sensory-units projection-density] :as state}]
+  (assoc
+   state
+   :sensory-projection
+   (sensory-apparatus-projection n-neurons k-sensory-units projection-density)))
+
+(defn ->sensory-inputs [input-states sensory-projection]
+  (mathjs/matrix
+   (into-array :int
+               (into #{}
+                     (mapcat
+                      (fn [[idx input-active?]]
+                        (get-in sensory-projection [idx input-active?]))
+                      (map-indexed vector input-states))))))
+
+
+(defn ->uni-directional-fiber
+  [n-neurons-1 n-neurons-2 density]
+  (.map (mathjs/matrix (mathjs/zeros #js [n-neurons-1
+                                          n-neurons-2])
+                       "sparse")
+        (fn [_ _ _] (if (< (mathjs/random) density) 1 0))))
+
+
+;; 2 weights, off and on
+;; simulating inhibitory interneurons, signaling the absence of something
+(defn ->input-fiber
+  [input-space n-area density]
+  {:input-count (:n-neurons input-space)
+   :off-fibers (->uni-directional-fiber (:n-neurons
+                                         input-space)
+                                        (:n-neurons n-area)
+                                        (/ density 10))
+   :on-fibers (->uni-directional-fiber (:n-neurons
+                                        input-space)
+                                       (:n-neurons n-area)
+                                       density)
+   :output-count (:n-neurons n-area)})
+
+(defn ->mask
+      [max-index activations]
+      (if (zero? (mathjs/count activations))
+        (mathjs/and (mathjs/zeros max-index) 1.0)
+        (mathjs/and (.subset (mathjs/zeros max-index)
+                             (mathjs/index activations)
+                             1.0)
+                    1.0)))
+
+(defn input-fiber-activations
+  [input-space
+   {:keys [input-count output-count off-fibers on-fibers]}]
+  (let [activations (read-activations input-space)
+        input->indices (fn [input]
+                         (->indices
+                          input
+                          (mathjs/index
+                           (mathjs/larger input 0))))]
+    (mathjs/setUnion
+     (input->indices
+      (synaptic-input
+       off-fibers
+       (mathjs/not (->mask input-count activations))))
+     (input->indices (synaptic-input on-fibers
+                                     activations)))))
+
+
+;; ----------------------------------------------------------------------------------------------------------
+
+
 ;; ================
 ;; attenuation
 ;; ================
@@ -442,25 +534,25 @@
            activations]}]
   (let [attenuation-malus (or attenuation-malus
                               (mathjs/matrix
-                                (mathjs/zeros
-                                  #js [n-neurons])))
+                               (mathjs/zeros
+                                #js [n-neurons])))
         ;; decay the malus from previous step
         attenuation-malus (mathjs/multiply
-                            attenuation-malus
-                            (- 1 attenuation-decay))
+                           attenuation-malus
+                           (- 1 attenuation-decay))
         attenuation-malus
-          ;; accumulate the malus on everybody active
-          (.subset attenuation-malus
-                   (mathjs/index activations)
-                   (mathjs/add (mathjs/subset
-                                 attenuation-malus
-                                 (mathjs/index activations))
-                               attenuation-malus-factor))]
+        ;; accumulate the malus on everybody active
+        (.subset attenuation-malus
+                 (mathjs/index activations)
+                 (mathjs/add (mathjs/subset
+                              attenuation-malus
+                              (mathjs/index activations))
+                             attenuation-malus-factor))]
     (assoc state
-      :synaptic-input (mathjs/dotDivide
-                        synaptic-input
-                        (mathjs/add 1 attenuation-malus))
-      :attenuation-malus attenuation-malus)))
+           :synaptic-input (mathjs/dotDivide
+                            synaptic-input
+                            (mathjs/add 1 attenuation-malus))
+           :attenuation-malus attenuation-malus)))
 
 
 ;; ================
@@ -513,10 +605,13 @@
     :keys [excitabilities excitability-growth
            excitability-decay synaptic-input n-neurons
            activations]}]
-  (let [excitabilities (or excitabilities
-                           (mathjs/matrix (mathjs/zeros
-                                           #js
-                                           [n-neurons])))
+  (let [excitabilities
+        (or excitabilities
+            (mathjs/matrix
+             (mathjs/zeros
+              #js
+              [n-neurons]
+              )))
         ;; decay excitabilities
         excitabilities (mathjs/multiply
                         excitabilities
@@ -533,9 +628,10 @@
     (assoc state
            ;; if you have excitability, your inputs count
            ;; more
-           :synaptic-input (mathjs/dotMultiply
-                            synaptic-input
-                            (mathjs/add 1 excitabilities))
+           :synaptic-input
+           (mathjs/dotMultiply
+            synaptic-input
+            (mathjs/add 1 excitabilities))
            :excitabilities excitabilities)))
 
 ;; ================
@@ -554,12 +650,11 @@
 ;; Intuitively, this means you might find other attractor states, if you have some neurons that usually strongly
 ;; contribute to one interpretation, now you have the chance to find a new interpretation.
 ;;
+;; This has been described under the topic of 'assembly shift' [insert paper]
+;;
 ;; This could be applied before or after the threshold model, with distinct results.
 ;;
-;; Skip rate is a counterintuitive notion and might (or not) be implemented 'explicitly' biochemically in neurons.
-;;
-;;
-;;
+;; Skip rate is counterintiuitive, if one thinks of single neurons, and might (or not) be implemented 'explicitly' biochemically in brain.
 
 (defn neuron-skip
   "Give every neuron at each timestep a chance to =skip=.
@@ -569,125 +664,53 @@
   [{:as state
     :keys [synaptic-input n-neurons activations skip-rate]}]
   (update
-    state
-    :synaptic-input
-    (fn [inputs]
-      (mathjs/dotMultiply
-        inputs
-        (.map (mathjs/zeros n-neurons)
-              (fn [v idx _]
-                (if (< (mathjs/random) skip-rate) 0 1)))))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;; less relevant stuff:
-
-
-;; ------------------------
-;; A sensory apparatus
-
-;; from sensory units -> neuron indices
-;; With 2 versions, one off and another on
-;; This models inhibitory interneurons, and represents the absence of a signal
-;; This is similar to the canonical receptive fields of neuro-science
-
-(defn sensory-apparatus-projection [n-neurons k-sensory-units projection-density]
-  (into
-   []
-   (for [_ (range k-sensory-units)]
-     ;; off / on projections (i.e the absence of a sensory unit being active is projected to some neurons)
-     {false
-      ;; using only 20% of the connetions for off, this way the inputs are less similar
-      (into #{} (repeatedly (* n-neurons (* 0.2 projection-density)) #(rand-int n-neurons)))
-      true
-      (into #{} (repeatedly (* n-neurons projection-density) #(rand-int n-neurons)))})))
-
-(defn sensory-apparatus
-  [{:keys [n-neurons k-sensory-units projection-density] :as state}]
-  (assoc
    state
-   :sensory-projection
-   (sensory-apparatus-projection n-neurons k-sensory-units projection-density)))
-
-(defn ->sensory-inputs [input-states sensory-projection]
-  (mathjs/matrix
-   (into-array :int
-               (into #{}
-                     (mapcat
-                      (fn [[idx input-active?]]
-                        (get-in sensory-projection [idx input-active?]))
-                      (map-indexed vector input-states))))))
+   :synaptic-input
+   (fn [inputs]
+     (mathjs/dotMultiply
+      inputs
+      (.map (mathjs/zeros n-neurons)
+            (fn [v idx _]
+              (if (< (mathjs/random) skip-rate) 0 1)))))))
 
 
+(defn neuron-skip-inhibition
+  "Give every neuron at each timestep a chance to =skip=.
+
+  This is an inhibition model modifier, applied `after` the threshold model.
+  "
+  [{:as state :keys [skip-rate n-neurons]}]
+  (update
+   state
+   :activations
+   (fn [activations]
+     (let
+         [skip? (mathjs/filter
+                 (mathjs/range 0 n-neurons)
+                 (fn [_] (< (mathjs/random) skip-rate)))]
+         (if-not (< 0 (mathjs/count skip?))
+           activations
+           (mathjs/setDifference
+            activations
+            skip?))))))
 
 
-;; 2 weights, off and on
-;; simulating inhibitory interneurons, signaling the absence of something
-(defn ->input-fiber
-  [input-space n-area density]
-  {:input-count (:n-neurons input-space)
-   :off-fibers (->uni-directional-fiber (:n-neurons
-                                         input-space)
-                                        (:n-neurons n-area)
-                                        (/ density 10))
-   :on-fibers (->uni-directional-fiber (:n-neurons
-                                        input-space)
-                                       (:n-neurons n-area)
-                                       density)
-   :output-count (:n-neurons n-area)})
+;; ==================================
+;; random, intrinsic firing rate
+;; ==================================
 
-(defn ->mask
-      [max-index activations]
-      (if (zero? (mathjs/count activations))
-        (mathjs/and (mathjs/zeros max-index) 1.0)
-        (mathjs/and (.subset (mathjs/zeros max-index)
-                             (mathjs/index activations)
-                             1.0)
-                    1.0)))
+(defn intrinsic-firing-rate
+  "Applied after the threshold model.
 
-(defn input-fiber-activations
-  [input-space
-   {:keys [input-count output-count off-fibers on-fibers]}]
-  (let [activations (read-activations input-space)
-        input->indices (fn [input]
-                         (->indices
-                          input
-                          (mathjs/index
-                           (mathjs/larger input 0))))]
-    (mathjs/setUnion
-     (input->indices
-      (synaptic-input
-       off-fibers
-       (mathjs/not (->mask input-count activations))))
-     (input->indices (synaptic-input on-fibers
-                                     activations)))))
+  Says that neurons are allowed to fire at each time step with chance `intrinsic-firing-rate`.
+  "
+  [{:as state :keys [n-neurons intrinsic-firing-rate]}]
+  (update state
+          :activations
+          (fn [activations]
+            (mathjs/setUnion
+              (or activations #js [])
+              (mathjs/filter (mathjs/range 0 n-neurons)
+                (fn [_]
+                  (< (mathjs/random)
+                     intrinsic-firing-rate)))))))

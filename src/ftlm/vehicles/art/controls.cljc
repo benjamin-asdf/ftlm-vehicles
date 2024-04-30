@@ -48,7 +48,13 @@
   {"assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
    "assembly-friends"
-   {:background-color (:woodsmoke color-map) :time-speed 3}
+   {:background-color (:woodsmoke
+                       color-map)
+    :n-neurons 1000
+    :time-speed 3
+    :plasticity 0.1
+
+    }
    "assembly-fun" {:background-color (:woodsmoke color-map)
                    :time-speed 3}
    "brownians" {:background 230
@@ -150,61 +156,61 @@
 
 (def versions
   {"assembly" {"0" {}}
-   "assembly-fun"
-   {"0" {:v :grid-1}
-    "1" {:v :grid}
-    "10" {:background-color (:woodsmoke color-map)
-          :v :inhibition-pump-mouse}
-    "11" {:background-color (:woodsmoke color-map)
-          :v :thought-pump-rhythm-1}
-    "12" {:background-color (:woodsmoke color-map)
-          :v :prediction-area}
-    "13" {:background-color (:woodsmoke color-map)
-          :v :thought-pump-rhythm}
-    "14" {:background-color (:woodsmoke color-map)
-          :v :binary-synapses}
-    "2" {:background-color {:h 0 :s 0 :v 89} :v :dots}
-    "20" {:background-color (:woodsmoke color-map)
-          :v :bouncy-ball}
-    "21" {:background-color (:woodsmoke color-map)
-          :v :color-assemblies}
-    "3" {:background-color (:woodsmoke color-map)
-         :v :geometry}
-    "4" {:background-color (:woodsmoke color-map)
-         :v :geometry-p}
-    "5" {:background-color (:woodsmoke color-map)
-         :v :triangle-world}
-    "6" {:background-color (:woodsmoke color-map)
-         :v :triangle-world-and-geometry-timer-wave}
-    "7" {:background-color (:woodsmoke color-map)
-         :v :wavemaker-without-world}
-    "8" {:background-color (:woodsmoke color-map)
-         :v :burst-inputs}
-    "9" {:background-color (:woodsmoke color-map)
-         :v :burst-inputs-triangle-world}}
    "assembly-friends"
-   {
-    "1" {:v :color-assemblies}
-    "2" {:v :attenuation
-         :attenuation-decay 0.4
-         :attenuation-malus-factor 2.0
-         :threshold-device-high 0.1
-         :threshold-device-low 0.05
-         :connectivity-amplitude 0.2
-         :connectivity-std-deviation 50
-         :n-neurons 1000
-         :plasticity 0.1
-         ;; :density 0.1
-         :stimulus-projection-density 0.025}
-    "3" {:v :excitability
-         :excitability-growth 0.1
-         :excitability-decay 0.1
-         :threshold-device-high 0.01
-         :threshold-device-low 0.05
-         :connectivity-amplitude 0.1
-         :connectivity-std-deviation 100
-         :n-neurons 1000
-         :stimulus-projection-density 0.020}}
+     {"1" {:v :color-assemblies}
+      "2" {:v :attenuation
+           :attenuation-decay 0.4
+           :attenuation-malus-factor 2.0
+           :threshold-device-high 0.1
+           :threshold-device-low 0.05
+           :connectivity-amplitude 0.2
+           :connectivity-std-deviation 50
+           :n-neurons 1000
+           :plasticity 0.1
+           ;; :density 0.1
+           :stimulus-projection-density 0.025}
+      "3" {:connectivity-amplitude 0.1
+           :connectivity-std-deviation 100
+           :excitability-decay 0.1
+           :excitability-growth 0.1
+           :n-neurons 1000
+           :stimulus-projection-density 0.020
+           :threshold-device-high 0.01
+           :threshold-device-low 0.05
+           :v :excitability}
+      "4" {:v :pulling-stimuli}}
+   "assembly-fun"
+     {"0" {:v :grid-1}
+      "1" {:v :grid}
+      "10" {:background-color (:woodsmoke color-map)
+            :v :inhibition-pump-mouse}
+      "11" {:background-color (:woodsmoke color-map)
+            :v :thought-pump-rhythm-1}
+      "12" {:background-color (:woodsmoke color-map)
+            :v :prediction-area}
+      "13" {:background-color (:woodsmoke color-map)
+            :v :thought-pump-rhythm}
+      "14" {:background-color (:woodsmoke color-map)
+            :v :binary-synapses}
+      "2" {:background-color {:h 0 :s 0 :v 89} :v :dots}
+      "20" {:background-color (:woodsmoke color-map)
+            :v :bouncy-ball}
+      "21" {:background-color (:woodsmoke color-map)
+            :v :color-assemblies}
+      "3" {:background-color (:woodsmoke color-map)
+           :v :geometry}
+      "4" {:background-color (:woodsmoke color-map)
+           :v :geometry-p}
+      "5" {:background-color (:woodsmoke color-map)
+           :v :triangle-world}
+      "6" {:background-color (:woodsmoke color-map)
+           :v :triangle-world-and-geometry-timer-wave}
+      "7" {:background-color (:woodsmoke color-map)
+           :v :wavemaker-without-world}
+      "8" {:background-color (:woodsmoke color-map)
+           :v :burst-inputs}
+      "9" {:background-color (:woodsmoke color-map)
+           :v :burst-inputs-triangle-world}}
    "brownians" {"0" {}
                 "1" {:background 230
                      :base-color 7.790258368269614
@@ -527,148 +533,148 @@
                       "2" {:v :neighbours-lines}
                       "4" {:v :grid}}
    "fear_and_aggression"
-   {"0" {}
-    "1" {:aggression {:amount 0 :scale 0.4}
-         :explore {:amount 0 :scale 0.4}
-         :fear {:amount 0 :scale 0.4}
-         :love {:amount 15 :scale 0.4}
-         :ray-source-count 8
-         :ray-source-scale 0.4
-         :ray-sources-die? false
-         :ray-sources-spawn-rate 0}
-    "2" {:aggression {:amount 10 :scale 0.4}
-         :explore {:amount 0 :scale 0.4}
-         :fear {:amount 0 :scale 0.4}
-         :love {:amount 0 :scale 0.4}
-         :ray-source-count 8
-         :ray-source-scale 0.4
-         :ray-sources-die? false
-         :ray-sources-spawn-rate 0}
-    "3" {:aggression {:amount 4 :scale 1}
-         :explore {:amount 0 :scale 0.4}
-         :fear {:amount 0 :scale 0.4}
-         :love {:amount 0 :scale 0.4}
-         :ray-source-count 0
-         :ray-source-scale 0.3
-         :ray-sources-die? true
-         :ray-sources-spawn-rate 0.8}
-    "4" {:aggression {:amount 0 :scale 1}
-         :explore {:amount 0 :scale 0.4}
-         :fear {:amount 3 :scale 1}
-         :love {:amount 0 :scale 0.4}
-         :ray-source-count 10
-         :ray-source-scale 0.3
-         :ray-sources-die? true
-         :ray-sources-spawn-rate 0}
-    "5" {:aggression {:amount 0 :scale 1}
-         :explore {:amount 3 :scale 1}
-         :fear {:amount 0 :scale 1}
-         :love {:amount 0 :scale 0.4}
-         :ray-source-count 10
-         :ray-source-scale 0.8
-         :ray-sources-die? true
-         :ray-sources-spawn-rate 0}
-    "6" {:aggression {:amount 2 :scale 0.4}
-         :explore {:amount 3 :scale 0.4}
-         :fear {:amount 2 :scale 0.4}
-         :love {:amount 10 :scale 0.4}
-         :ray-source-count 0
-         :ray-source-scale 0.4
-         :ray-sources-die? true
-         :ray-sources-spawn-rate 0.8}
-    "7" {:aggression {:amount 8 :scale 0.4}
-         :explore {:amount 0 :scale 0.4}
-         :fear {:amount 0 :scale 0.4}
-         :love {:amount 3 :scale 1}
-         :ray-source-count 0
-         :ray-source-scale 0.6
-         :ray-sources-die? true
-         :ray-sources-spawn-rate 0.8}}
+     {"0" {}
+      "1" {:aggression {:amount 0 :scale 0.4}
+           :explore {:amount 0 :scale 0.4}
+           :fear {:amount 0 :scale 0.4}
+           :love {:amount 15 :scale 0.4}
+           :ray-source-count 8
+           :ray-source-scale 0.4
+           :ray-sources-die? false
+           :ray-sources-spawn-rate 0}
+      "2" {:aggression {:amount 10 :scale 0.4}
+           :explore {:amount 0 :scale 0.4}
+           :fear {:amount 0 :scale 0.4}
+           :love {:amount 0 :scale 0.4}
+           :ray-source-count 8
+           :ray-source-scale 0.4
+           :ray-sources-die? false
+           :ray-sources-spawn-rate 0}
+      "3" {:aggression {:amount 4 :scale 1}
+           :explore {:amount 0 :scale 0.4}
+           :fear {:amount 0 :scale 0.4}
+           :love {:amount 0 :scale 0.4}
+           :ray-source-count 0
+           :ray-source-scale 0.3
+           :ray-sources-die? true
+           :ray-sources-spawn-rate 0.8}
+      "4" {:aggression {:amount 0 :scale 1}
+           :explore {:amount 0 :scale 0.4}
+           :fear {:amount 3 :scale 1}
+           :love {:amount 0 :scale 0.4}
+           :ray-source-count 10
+           :ray-source-scale 0.3
+           :ray-sources-die? true
+           :ray-sources-spawn-rate 0}
+      "5" {:aggression {:amount 0 :scale 1}
+           :explore {:amount 3 :scale 1}
+           :fear {:amount 0 :scale 1}
+           :love {:amount 0 :scale 0.4}
+           :ray-source-count 10
+           :ray-source-scale 0.8
+           :ray-sources-die? true
+           :ray-sources-spawn-rate 0}
+      "6" {:aggression {:amount 2 :scale 0.4}
+           :explore {:amount 3 :scale 0.4}
+           :fear {:amount 2 :scale 0.4}
+           :love {:amount 10 :scale 0.4}
+           :ray-source-count 0
+           :ray-source-scale 0.4
+           :ray-sources-die? true
+           :ray-sources-spawn-rate 0.8}
+      "7" {:aggression {:amount 8 :scale 0.4}
+           :explore {:amount 0 :scale 0.4}
+           :fear {:amount 0 :scale 0.4}
+           :love {:amount 3 :scale 1}
+           :ray-source-count 0
+           :ray-source-scale 0.6
+           :ray-sources-die? true
+           :ray-sources-spawn-rate 0.8}}
    "getting-around"
-   {"0" {}
-    "1" {:background-color {:h 100 :s 0 :v 0}
-         :brownian-factor 0.8
-         :cart-scale 0.4
-         :color-palatte [50 40 60]
-         :max-temp 1
-         :middle-temp-zone-diameter 300
-         :middle-temp-zone? true
-         :spawn-amount 40
-         :spawn-spread 0.4
-         :temp-color-high quite-green
-         :temp-color-low olive-lime-green
-         :temp-zone-count 10
-         :trail-color {:h 135 :s 100 :v 100}}
-    "10"
-    {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
-    "12" {:brownian-factor 1.8
-          :middle-temp-zone-diameter 300
-          :middle-temp-zone? true
-          :spawn-amount 40
-          :spawn-spread 0.2}
-    "2" {:brownian-factor 0.8
-         :cart-scale 0.4
-         :color-palatte [50 40 60]
-         :max-temp 1
-         :middle-temp-zone-diameter 300
-         :middle-temp-zone? true
-         :spawn-amount 40
-         :temp-color-high {:a 1 :h 146 :s 78 :v 76}
-         :temp-color-low {:a 0.1 :h 234 :s 60 :v 82}
-         :temp-zone-count 20
-         :trail-color {:h 130 :s 52 :v 87}}
-    "20" {:brownian-factor 0.02
-          :cart-scale 2
-          :spawn-amount 3
-          :temp-zone-count 0}
-    "21" {:brownian-factor 1
-          :cart-scale 0.8
-          :spawn-amount 4
-          :temp-zone-count 3}
-    "4" {:background-color {:h 0 :s 0 :v 0}
-         :brownian-factor 0.1
-         :cart-scale 0.4
-         :color-palatte [50 40 60]
-         :everbody-darts? true
-         :make-trails? false
-         :max-temp 1
-         :spawn-amount 40
-         :spawn-spread 0.4
-         :temp-zone-count 0}
-    "5" {:background-color 0
-         :cart-scale 0.8
-         :cart-shinyness 200
-         :everbody-darts? true
-         :make-trails? false
-         :max-temp 1
-         :spawn-amount 40
-         :spawn-spread 0.4
-         :temp-color-high quite-green
-         :temp-color-low olive-lime-green
-         :temp-shinyness 200
-         :temp-zone-count 15}
-    "6" {:background-color {:h 0 :s 0 :v 0}
-         :brownian-factor 3
-         :cart-scale 0.4
-         :cart-shinyness 100
-         :max-temp 5
-         :spawn-amount 40
-         :spawn-spread 0.2
-         :temp-color-high quite-green
-         :temp-color-low olive-lime-green
-         :temp-shinyness 20
-         :temp-zone-count 15
-         :trail-color white}
-    "7" {:background-color {:h 0 :s 0 :v 0}
-         :brownian-factor 1
-         :cart-scale 0.5
-         :color-palatte [0 30 0]
-         :max-temp 5
-         :spawn-amount 40
-         :spawn-spread 0.4
-         :temp-zone-count 10}
-    "8" {:spawn-amount 1 :temp-zones-always-dart true}
-    "9" {:spawn-amount 20 :temp-zones-always-dart true}}
+     {"0" {}
+      "1" {:background-color {:h 100 :s 0 :v 0}
+           :brownian-factor 0.8
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :max-temp 1
+           :middle-temp-zone-diameter 300
+           :middle-temp-zone? true
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-zone-count 10
+           :trail-color {:h 135 :s 100 :v 100}}
+      "10"
+        {:max-temp 10 :spawn-amount 20 :temp-zone-count 20}
+      "12" {:brownian-factor 1.8
+            :middle-temp-zone-diameter 300
+            :middle-temp-zone? true
+            :spawn-amount 40
+            :spawn-spread 0.2}
+      "2" {:brownian-factor 0.8
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :max-temp 1
+           :middle-temp-zone-diameter 300
+           :middle-temp-zone? true
+           :spawn-amount 40
+           :temp-color-high {:a 1 :h 146 :s 78 :v 76}
+           :temp-color-low {:a 0.1 :h 234 :s 60 :v 82}
+           :temp-zone-count 20
+           :trail-color {:h 130 :s 52 :v 87}}
+      "20" {:brownian-factor 0.02
+            :cart-scale 2
+            :spawn-amount 3
+            :temp-zone-count 0}
+      "21" {:brownian-factor 1
+            :cart-scale 0.8
+            :spawn-amount 4
+            :temp-zone-count 3}
+      "4" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 0.1
+           :cart-scale 0.4
+           :color-palatte [50 40 60]
+           :everbody-darts? true
+           :make-trails? false
+           :max-temp 1
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-zone-count 0}
+      "5" {:background-color 0
+           :cart-scale 0.8
+           :cart-shinyness 200
+           :everbody-darts? true
+           :make-trails? false
+           :max-temp 1
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-shinyness 200
+           :temp-zone-count 15}
+      "6" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 3
+           :cart-scale 0.4
+           :cart-shinyness 100
+           :max-temp 5
+           :spawn-amount 40
+           :spawn-spread 0.2
+           :temp-color-high quite-green
+           :temp-color-low olive-lime-green
+           :temp-shinyness 20
+           :temp-zone-count 15
+           :trail-color white}
+      "7" {:background-color {:h 0 :s 0 :v 0}
+           :brownian-factor 1
+           :cart-scale 0.5
+           :color-palatte [0 30 0]
+           :max-temp 5
+           :spawn-amount 40
+           :spawn-spread 0.4
+           :temp-zone-count 10}
+      "8" {:spawn-amount 1 :temp-zones-always-dart true}
+      "9" {:spawn-amount 20 :temp-zones-always-dart true}}
    "hunger" {"0" {:auto-select? true
                   :multi-sensory {:amount 1 :scale 1}
                   :spawn-people [:multi-sensory]
@@ -694,7 +700,6 @@
             "1" {:spawn-people [:multi-sensory
                                 :multi-sensory
                                 :multi-sensory]}}})
-
 
 
 (comment

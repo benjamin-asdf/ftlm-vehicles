@@ -24,7 +24,6 @@
     (assoc state
            :activations
            (ac/cap-k
-
             (rand-nth numbers) synaptic-input))))
 
 (defn
@@ -90,7 +89,7 @@
                               n-neurons
                               (fn [i]
                                 (when (< 15 (mod i 20))
-                                  0.2)))]
+                                  0.05)))]
                    [dir proj]))
             dirs)]
     {:shiny-projection
@@ -159,11 +158,11 @@
                       (rand-cap-k-threshold-device
                        [ ;; (* 0.1 n-neurons)
                         (* 0.05 n-neurons)])
-                      ac/neuron-skip
+                      ;; ac/neuron-skip
                       ac/intrinsic-excitability
                       ac/attenuation
                       )
-                     :skip-rate 0.2
+                     :skip-rate 1.0
                      :attenuation-decay 0.1
                      :attenuation-malus-factor 0.6
                      :excitability-growth 0.6

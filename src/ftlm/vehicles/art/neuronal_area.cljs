@@ -94,117 +94,126 @@
 (defn ->sensoric-field
   [pos]
   (->
-   (lib/->entity
-    :rect
-    {:color (lib/with-alpha (lib/->hsb controls/white)
-              0)
-     :corner-r 5
-     :draw-functions
-     {:stimuli (fn [e]
-                 (let [stimuli (:stimuli e)]
-                   (doall
-                    (for [[idx {:keys [color]}]
-                          (map-indexed
-                           vector
-                           (map
-                            (lib/entities-by-id
-                             (q/state))
-                            stimuli))]
-                      (q/with-fill
-                        (lib/->hsb color)
-                        (q/with-stroke
-                          (lib/->hsb color)
-                          (q/with-translation
-                            (lib/position e)
-                            (q/ellipse
-                             (+ 20
-                                (* -1
-                                   (/ (-> e
-                                          :transform
-                                          :width)
-                                      2))
-                                (* idx 20))
-                             (* 0.8
-                                (/ (-> e
-                                       :transform
-                                       :height)
-                                   2))
-                             10
-                             10))))))))}
-     :on-excite
-     {:1 (fn [e s]
-           {:updated-state
-            (-> s
-                (lib/append-ents
-                 (into
-                  []
-                  (repeatedly
-                   3
-                   #(merge
-                     (lib/clone-entity e)
-                     {:lifetime 1
-                      :on-update-map
-                      {:dance
-                       (lib/every-n-seconds
-                        0.1
-                        (fn [e _ _]
-                          (update-in
-                           e
-                           [:transform
-                            :scale]
-                           +
-                           (rand-nth
-                            [-0.05
-                             0.05]))))}
-                      :stroke-weight 1})))))})}
-     :sensoric-field? true
-     :stimuli #{}
-     :stroke controls/white
-     :stroke-weight 2
-     :transform (lib/->transform pos 100 200 1)
-     :z-index -10})
-   (lib/live
-    [:sensitivity
-     (lib/every-n-seconds
-      1
-      (fn [e s _]
-        (let [current (:stimuli e)
-              next-stimuli
-              (into #{}
-                    (comp (filter :stimulus?)
-                          (filter #(lib/point-inside?
-                                    e
-                                    (lib/position
-                                     %)))
-                          (map :id))
-                    (lib/entities s))
-              new (set/difference next-stimuli
-                                  current)]
-          {:updated-state
-           (cond-> s
-             :next (assoc-in [:eid->entity (:id e)
-                              :stimuli]
-                             next-stimuli)
-             (seq new)
-             (lib/append-ents
-              (map (fn [id]
-                     (let
-                         [color
-                          (:color
-                           ((lib/entities-by-id
-                             s)
-                            id))]
-                         (merge
-                          (lib/clone-entity e)
-                          {:lifetime 10
-                           :on-update-map
-                           {:fade
-                            (lib/->fade-pulse-2
-                             2.0
-                             :stroke)}
-                           :stroke color
-                           :stroke-weight 2})))
-                   new)))})))])))
+    (lib/->entity
+      :rect
+      {:color (lib/with-alpha (lib/->hsb controls/white) 0)
+       :corner-r 5
+       :draw-functions
+         {:center (fn [e]
+                    (q/with-fill (lib/->hsb (:stroke e))
+                                 (q/with-translation
+                                   (lib/position e)
+                                   (q/ellipse 0 0 10 10))))
+          :stimuli (fn [e]
+                     (let [stimuli (take 5 (:stimuli e))]
+                       (doall
+                        (for [[idx {:keys [color]}]
+                              (map-indexed
+                               vector
+                               (map (lib/entities-by-id
+                                     (q/state))
+                                    stimuli))]
+                          (q/with-fill
+                            (lib/->hsb color)
+                            (q/with-stroke
+                              (lib/->hsb color)
+                              (q/with-translation
+                                (lib/position e)
+                                (q/ellipse
+                                 (+ 20
+                                    (* -1
+                                       (/ (-> e
+                                              :transform
+                                              :width)
+                                          2))
+                                    (* idx 20))
+                                 (* 0.8
+                                    (/ (-> e
+                                           :transform
+                                           :height)
+                                       2))
+                                 10
+                                 10))))))))}
+       :on-excite
+         {:1
+            (fn [e s]
+              (when (< (count
+                         (filter
+                           :sensoric-field-excite-shadow?
+                           (lib/entities s)))
+                       6)
+                {:updated-state
+                   (->
+                     s
+                     (lib/append-ents
+                       (into
+                         []
+                         (repeatedly
+                           3
+                           #(merge
+                              (lib/clone-entity e)
+                              {:lifetime 1
+                               :on-update-map
+                                 {:dance
+                                    (lib/every-n-seconds
+                                      0.1
+                                      (fn [e _ _]
+                                        (update-in
+                                          e
+                                          [:transform
+                                           :scale]
+                                          +
+                                          (rand-nth
+                                            [-0.05
+                                             0.05]))))}
+                               :sensoric-field-excite-shadow?
+                                 true
+                               :stroke-weight 1})))))}))}
+       :sensoric-field? true
+       :stimuli #{}
+       :stroke controls/white
+       :stroke-weight 2
+       :transform (lib/->transform pos 100 200 1)
+       :z-index -10})
+    (lib/live
+      [:sensitivity
+       (lib/every-n-seconds
+         1
+         (fn [e s _]
+           (let [current (:stimuli e)
+                 next-stimuli
+                   (into #{}
+                         (comp (filter :stimulus?)
+                               (filter #(lib/point-inside?
+                                          e
+                                          (lib/position %)))
+                               (map :id))
+                         (lib/entities s))
+                 new (set/difference next-stimuli current)]
+             {:updated-state
+                (cond-> s
+                  :next (assoc-in [:eid->entity (:id e)
+                                   :stimuli]
+                          next-stimuli)
+                  (seq new)
+                    (lib/append-ents
+                      (map (fn [id]
+                             (let [color
+                                     (:color
+                                       ((lib/entities-by-id
+                                          s)
+                                         id))]
+                               (merge
+                                 (lib/clone-entity e)
+                                 {:lifetime 10
+                                  :on-update-map
+                                    {:fade
+                                       (lib/->fade-pulse-2
+                                         2.0
+                                         :stroke)}
+                                  :stroke color
+                                  :stroke-weight 2})))
+                        new)))})))])))
 
 
 ;; Makes a neuron step when you tab it
@@ -229,7 +238,7 @@
                {:updated-state
                   ((lib/update-update-functions-map-1
                      :on-excite)
-                    s)}))
+                   s)}))
         :2 (fn [e s _]
              (when-not (when-let [last-clicked
                                     (:last-clicked e)]
@@ -449,11 +458,12 @@
 
 (defn perspective-flower
   [{:as opts :keys [count i->fill n-neurons p-probability]}]
-  (let [p-lines (into []
-                      (for [i (range count)]
-                        (ac/->rand-projection
-                          n-neurons
-                          p-probability)))]
+  (let [p-lines
+        (into []
+              (for [i (range count)]
+                (ac/->rand-projection
+                 n-neurons
+                 p-probability)))]
     (merge
      (elib/->clock-flower opts)
      {:active-p-lines #{} :p-lines p-lines})))
