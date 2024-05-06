@@ -3,40 +3,44 @@
    [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
    [quil.core :as q :include-macros true]
    [ftlm.vehicles.art.extended :as elib]
-   [ftlm.vehicles.art.controls :as controls :refer [versions]]
-   [ftlm.vehicles.art.user-controls :as user-controls]
+   [ftlm.vehicles.art.controls :as controls :refer
+    [versions]]
+   [ftlm.vehicles.art.user-controls :as
+    user-controls]
    [clojure.set :as set]
    [ftlm.vehicles.art.grid]
    [goog.style]
    [ftlm.vehicles.hdv]
-   ["mathjs" :as mathjs]
+   [ftlm.vehicles.audio :as audio]
    [ftlm.vehicles.assembly-calculus :as ac]))
 
-(defn ->neuronal-area-ac-1
-  [{:as opts :keys [spacing grid-width draw-i]}]
+(defn ->neurons
+  [{:as opts
+    :keys [spacing grid-width draw-i ->activations]}]
   (lib/->entity
-    :nn-area
+    :neurons
     (merge
       {:color (:cyan controls/color-map)
        :draw-functions
-       {:1
-        (fn [e]
-          (let [neurons (ac/read-activations (:ac-area e))
-                i->pos (fn [i] ((e :i->pos) e i))
-                i->color (if (:i->color e)
-                           ((:i->color e) e)
-                           (constantly (lib/->hsb (:cyan controls/color-map))))]
-            (q/with-stroke
-              nil
-              (doall
-               (for [i neurons
-                     :let [pos (i->pos i)]]
-                 (q/with-fill (i->color i)
-                   (q/with-translation
-                     pos
-                     (if draw-i
-                       (draw-i i)
-                       (q/rect 0 0 15 15 3)))))))))}
+         {:1 (fn [e]
+               (let [neurons (->activations e)
+                     i->pos (fn [i] ((e :i->pos) e i))
+                     i->color
+                       (if (:i->color e)
+                         ((:i->color e) e)
+                         (constantly (lib/->hsb (:color e))))]
+                 (q/with-stroke
+                   nil
+                   (doall
+                     (for [i neurons
+                           :let [pos (i->pos i)]]
+                       (q/with-fill
+                         (i->color i)
+                         (q/with-translation
+                           pos
+                           (if draw-i
+                             (draw-i i)
+                             (q/rect 0 0 15 15 3)))))))))}
        :i->pos (fn [{:keys [transform]} i]
                  (let [[x y] (:pos transform)
                        coll (mod i grid-width)
@@ -44,9 +48,16 @@
                        x (+ x (* coll spacing))
                        y (+ y (* row spacing))]
                    [x y]))
-       :next-color (constantly (:cyan controls/color-map))
        :spacing spacing}
       opts)))
+
+(defn ->neuronal-area-ac-1
+  [opts]
+  (->neurons
+    (assoc opts
+      :next-color (constantly (:cyan controls/color-map))
+      :->activations
+      (fn [e] (ac/read-activations (:ac-area e))))))
 
 (defn ->neuronal-area-ac
   [{:as opts :keys [frequency]}]
@@ -213,7 +224,7 @@
                                          :stroke)}
                                   :stroke color
                                   :stroke-weight 2})))
-                        new)))})))])))
+                           new)))})))])))
 
 
 ;; Makes a neuron step when you tab it
@@ -414,9 +425,7 @@
               (assoc-in [:on-update-map :flash]
                         (lib/->fade-pulse-2
                          (if (< 0
-                                (mathjs/count
-                                 (ac/read-activations
-                                  (:ac-area ne))))
+                                (ac/count-activation (ac/read-activations (:ac-area ne))))
                            5.0
                            10.0)
                          :stroke))))))])))
@@ -473,3 +482,112 @@
 
 (defn reset-n-area [s id]
   (-> s (update-in [:eid->entity id :ac-area] ac/set-input #js[])))
+
+
+(defn stability-listener-lines []
+
+  )
+
+
+;;
+;; s-listener-wires
+;;
+;;              s-listener-wires
+;;
+;;                                stability-detector
+;;
+;;     +--------+              +-----+            +---+
+;;     |        |              |     |            |   |
+;;     |  --O---+--------------+ off | ...  off   | O |
+;;     |        |              |     |            |   |
+;;     |  ---X--+--------------+ on  | ...  on    | X |
+;;     |        |              |     |            |   |
+;;     |--X----X+--------------+ on  | ...  on    | X |
+;;     |        |              |     |            |   |
+;;     +--------+              +-----+            |   |
+;;         neurons            ... n-wires         +---+
+;;
+;;                               t0,       t1,     t2
+;;
+;; You make random wires through the neurons =s-listener-wires=.
+;; At each time step, you can look at which =s-listener-wires= are on. The set of hot wires is a proxy of what ensembles are active in the neurons.
+;;
+;; If the ensembles move around, your wires will certainly change.
+;;
+;; Make =stability-detector= a population of neurons, make it postsynaptic of your s-listener-wires.
+;; Use biochemistry or equivalent to say that the detector neurons need say 3 /on/ inputs in a row to fire.
+;;
+;; Then, your stability detector is a population of neurons that represents the current /amount of stable activity/ (of ensembles) in the neurons.
+;;
+;; (In absolute terms).
+;;
+;; This can also be used to simply visualize what ensembles are /on/ in the neurons.
+
+(defn ->stability-detector
+  [opts n-area]
+  (let [wires (ac/->one-neuron-per-wire (:n-neurons n-area)
+                                        (:n-wires opts))
+        e (->neurons
+            (merge
+              opts
+              {:activation->beep
+                 (into {}
+                       (map (juxt identity
+                                  (fn [_]
+                                    (let [base 50]
+                                      (audio/->beep
+                                        {:durr 200
+                                         :hz (* 2
+                                                (rand-int
+                                                  10)
+                                                base)
+                                         :pan (- (rand 2) 1)
+                                         :volume 0.2})))))
+                       (range (:n-wires opts)))
+               :neuron-model {:activations #js []
+                              :inputs (ac/->neurons
+                                        (:n-wires opts))
+                              :n-neurons (:n-wires opts)
+                              :threshold 2
+                              :tick-window 4
+                              :wires wires}
+               :->activations (fn [e]
+                                (ac/read-activations
+                                  (:neuron-model e))
+                                ;; (range 6)
+                              )
+               ;; connect each s-line to
+               ;; a single neuron in the
+               ;; n-area for the moment
+              }))
+        e (lib/live
+            e
+            (let [playing (atom #{})]
+              [:make-sounds
+               (lib/every-n-seconds
+                 0.1
+                 (fn [e _ _]
+                   (let [activations (ac/read-activations
+                                       (:neuron-model e))
+                         activations (remove @playing
+                                       activations)
+                         _ (swap! playing into activations)]
+                     (run! (fn [i]
+                             (-> (audio/beep!
+                                   ((e :activation->beep)
+                                     i))
+                                 (.then #(swap! playing disj
+                                           i))))
+                           activations))))]))
+        id (:id e)]
+    {:e e
+     :update (fn [s]
+               (update-in
+                 s
+                 [:eid->entity id :neuron-model]
+                 ac/fixed-window-accumulate-and-fire
+                 (ac/synaptic-input
+                   wires
+                   (ac/read-activations
+                     (:ac-area ((lib/entities-by-id s)
+                                (:id n-area)))))))}))

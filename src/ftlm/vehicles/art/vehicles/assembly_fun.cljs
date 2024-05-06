@@ -1236,7 +1236,7 @@
         n-area
         (-> n-area
             (assoc :ac-area
-                   {:activations (ac/->neurons
+                   {:activations (ac/->activations
                                   n-neurons)
                     :inhibition-model
                     (fn [_ synaptic-input]
@@ -1313,7 +1313,7 @@
         n-area
         (-> n-area
             (assoc :ac-area
-                   {:activations (ac/->neurons n-neurons)
+                   {:activations (ac/->activations n-neurons)
                     :weights
                     (ac/->directed-graph-with-geometry
                      n-neurons
@@ -1388,7 +1388,7 @@
         n-area
         (-> n-area
             (assoc :ac-area
-                   {:activations (ac/->neurons n-neurons)
+                   {:activations (ac/->activations n-neurons)
                     :weights
                     (ac/->directed-graph-with-geometry
                      n-neurons
@@ -1469,7 +1469,7 @@
         n-area
         (-> n-area
             (assoc :ac-area
-                   {:activations (ac/->neurons
+                   {:activations (ac/->activations
                                   n-neurons)
                     :inhibition-model
                     (fn [{:keys [activations]}
@@ -1586,7 +1586,7 @@
         n-area
         (-> n-area
             (assoc :ac-area
-                   {:activations (ac/->neurons
+                   {:activations (ac/->activations
                                   n-neurons)
                     :inhibition-model
                     (fn [{:keys [activations]}
@@ -2100,15 +2100,9 @@
                   (fn [e _s _]
                     (update-in
                       e
-                      [:ac-area :weights]
-                      (fn [w]
-                        (println "pruning " (mathjs/sum w))
-                        (let [r (ac/binary-prune-synapses
-                                  w
-                                  0.1)]
-                          (println "synapses left: "
-                                   (mathjs/sum w))
-                          r)))))))
+                      [:ac-area]
+                      (fn [a]
+                        (ac/binary-prune-synapses (assoc a :prune-factor 0.1))))))))
         id-area (:id n-area)
         state (-> state
                   (assoc :neuronal-area (:id n-area))
@@ -2227,15 +2221,9 @@
               (fn [e _s _]
                 (update-in
                  e
-                 [:ac-area :weights]
-                 (fn [w]
-                   (println "pruning " (mathjs/sum w))
-                   (let [r (ac/binary-prune-synapses
-                            w
-                            0.1)]
-                     (println "synapses left: "
-                              (mathjs/sum w))
-                     r)))))))
+                 [:ac-area]
+                 (fn [a]
+                   (ac/binary-prune-synapses (assoc a :prune-factor 0.1))))))))
         id-area (:id n-area)
         input-space (->input-space-ac-2 3 {})
         input-space
@@ -2416,7 +2404,7 @@
         (-> n-area
             (assoc
              :ac-area
-             {:activations (ac/->neurons n-neurons)
+             {:activations (ac/->activations n-neurons)
               :inhibition-model
               (fn [{:keys [activations]} synaptic-input]
                 (ac/cap-k 50 synaptic-input))
@@ -2508,7 +2496,7 @@
           (-> n-area
               (assoc
                 :ac-area
-                  {:activations (ac/->neurons n-neurons)
+                  {:activations (ac/->activations n-neurons)
                    :inhibition-model
                    (fn [{:keys [activations]}
                         synaptic-input]
@@ -2633,7 +2621,7 @@
         (-> n-area
             (assoc
              :ac-area
-             {:activations (ac/->neurons n-neurons)
+             {:activations (ac/->activations n-neurons)
               :inhibition-model
               (fn [{:keys [activations]}
                    synaptic-input]

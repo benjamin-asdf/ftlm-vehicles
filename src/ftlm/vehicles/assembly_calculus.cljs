@@ -5,9 +5,6 @@
    [tech.v3.datatype :as dtype]
    ["mathjs" :as mathjs]))
 
-
-
-
 ;; -----------------------------------------------
 
 ;; paper: https://arxiv.org/abs/2110.03171
@@ -93,16 +90,23 @@
 (defn synaptic-input
   [weights activations]
   (let [n (.get (mathjs/squeeze (mathjs/size weights)) #js[1])]
-    (-> (mathjs/subset weights
-                       (mathjs/index activations
-                                     (mathjs/range 0 n)))
-        (mathjs/sum 0)
-        (mathjs/squeeze))))
+    (if (zero? (mathjs/count activations))
+      (mathjs/zeros n)
+      (-> (mathjs/subset weights
+                         (mathjs/index activations
+                                       (mathjs/range 0 n)))
+          (mathjs/sum 0)
+          (mathjs/squeeze)))))
 
 (defn ->indices
   [m index]
   (.subset (mathjs/range 0 (mathjs/count m)) index))
 
+(defn indices->binary-array
+  [indices max-index]
+  (.subset (mathjs/zeros max-index)
+           (mathjs/index indices)
+           1))
 
 ;; this is the perf bottleneck atm for the hebbian neuronal area
 (defn normalize
@@ -114,8 +118,11 @@
           true)))
 
 ;; the active activations are a set of indices
-(defn ->neurons [n-neurons]
+(defn ->activations [n-neurons]
   (mathjs/range 0 n-neurons))
+
+(defn ->neurons [n-neurons]
+  (mathjs/zeros #js [n-neurons]))
 
 ;; ---------------------
 ;; Hebbian plasticity dictates that w-ij be increased by a factor of 1 + β at time t + 1
@@ -183,14 +190,18 @@
 (defn scalar? [m]
   (zero? (mathjs/count (mathjs/size m))))
 
+
 (defn binary-hebbian-plasticity
   [{:keys [plasticity weights current-activations
            next-activations]}]
+  ;; take 47ms
   (let [subset (.subset weights
                         (mathjs/index current-activations
                                       next-activations))
         new-subset (if (scalar? subset)
-                     (mathjs/bitOr subset (< (mathjs/random) plasticity))
+                     (mathjs/bitOr subset
+                                   (< (mathjs/random)
+                                      plasticity))
                      (mathjs/map subset
                                  (fn [v _idx _m]
                                    (mathjs/bitOr v
@@ -217,13 +228,48 @@
 ;; However, intuitively, it should all average out with large numbers.
 ;;
 ;;
+;; ---
+;; I notice when using this, you need to start needing to balance how much synapses you have
+;;
+
 (defn binary-prune-synapses
-  [weights prune-factor]
+  [{:as state :keys [prune-factor]}]
   (let [survival-chance (- 1 prune-factor)]
-    (.map weights
-          (fn [v _idx _m]
-            (< (mathjs/random) survival-chance))
-          true)))
+    (update state
+            :weights
+            (fn [weights]
+              (.map weights
+                    (fn [v _idx _m]
+                      (< (mathjs/random) survival-chance))
+                    true)))))
+
+;; this keeps a fixed density of synapses
+(defn prune-synapses-fixed-density
+  [{:as state :keys [density n-neurons]}]
+  (update
+    state
+    :weights
+    (fn [weights]
+      (let [prune-rate (/ (- (.density weights) density)
+                          (.density weights))]
+        (if-not (< 0 prune-rate)
+          weights
+          ;; this a perf bottleneck
+          (.map weights
+                (fn [v _idx _m]
+                  (boolean (< prune-rate (mathjs/random))))
+                :skip-zeros))))))
+
+(comment
+  (binary-prune-synapses
+    (mathjs/matrix (clj->js [[1 1] [1 1]]) "sparse")
+    1.0)
+  (binary-hebbian-plasticity
+    {:current-activations #js [0 1]
+     :next-activations #js [0 1]
+     :plasticity 1.0
+     :weights (mathjs/matrix (clj->js [[0 0] [0 0]])
+                             "sparse")}))
 
 
 ;; ---------------------------
@@ -312,8 +358,7 @@
 
 (defn read-activations
   [{:keys [activations]}]
-  (when activations
-    (.valueOf activations)))
+  (when activations (.valueOf activations)))
 
 (defn activation-intersection [set1 set2]
   (mathjs/setIntersect set1 set2))
@@ -477,13 +522,13 @@
    :output-count (:n-neurons n-area)})
 
 (defn ->mask
-      [max-index activations]
-      (if (zero? (mathjs/count activations))
-        (mathjs/and (mathjs/zeros max-index) 1.0)
-        (mathjs/and (.subset (mathjs/zeros max-index)
-                             (mathjs/index activations)
-                             1.0)
-                    1.0)))
+  [max-index activations]
+  (if (zero? (mathjs/count activations))
+    (mathjs/and (mathjs/zeros max-index) 1.0)
+    (mathjs/and (.subset (mathjs/zeros max-index)
+                         (mathjs/index activations)
+                         1.0)
+                1.0)))
 
 (defn input-fiber-activations
   [input-space
@@ -502,9 +547,7 @@
      (input->indices (synaptic-input on-fibers
                                      activations)))))
 
-
 ;; ----------------------------------------------------------------------------------------------------------
-
 
 ;; ================
 ;; attenuation
@@ -709,8 +752,70 @@
           :activations
           (fn [activations]
             (mathjs/setUnion
-              (or activations #js [])
-              (mathjs/filter (mathjs/range 0 n-neurons)
-                (fn [_]
-                  (< (mathjs/random)
-                     intrinsic-firing-rate)))))))
+             (or activations #js [])
+             (mathjs/filter (mathjs/range 0 n-neurons)
+                            (fn [_]
+                              (< (mathjs/random)
+                                 intrinsic-firing-rate)))))))
+
+
+(defn ->one-neuron-per-wire
+  [n-neurons n-wires]
+  (let [w (mathjs/matrix (mathjs/zeros #js[n-neurons n-wires]) "sparse")
+        ijs (into #{}
+                  (map-indexed
+                    (fn [j i] #js [i j])
+                    (take n-wires
+                          (shuffle (range n-neurons)))))]
+    (.map w (fn [v idx _] (if (ijs idx) 1 0)))))
+
+(defn wires->activations
+  [wires activations]
+  (synaptic-input wires activations))
+
+(defn fixed-window-accumulate-and-fire
+  [{:as state
+    :keys [tick-window threshold n-neurons inputs tick]}
+   synaptic-inputs]
+  (let [state (->
+               state
+               (update :inputs mathjs/add synaptic-inputs)
+               (update :tick (fnil inc 0)))
+        state (if-not (zero? (mod tick tick-window))
+                state
+                (-> state
+                    (assoc :inputs (->neurons n-neurons))
+                    (assoc :activations
+                           (indices-above-input-cutoff
+                            (:inputs state)
+                            threshold))))]
+    state))
+
+(comment
+  (accumulate-inputs #js[0 0 0] #js[0 1 2])
+  (def inputs #js[0 0 0])
+  (->neurons 5)
+
+  (let
+      [s
+       (fixed-window-accumulate-and-fire
+        {:tick-window 3
+         :threshold 2
+         :n-neurons 3}
+)
+       ]
+      s
+      (->
+       s
+       (fixed-window-accumulate-and-fire #js[0 1])
+       (fixed-window-accumulate-and-fire #js[0 1])
+       (fixed-window-accumulate-and-fire #js[0 1])
+       )
+      ;; (fixed-windowed-accumulate-and-fire s)
+      )
+
+
+  (synaptic-input
+   (->one-neuron-per-wire 5 4)
+   (mathjs/range 0 5)
+   ))
