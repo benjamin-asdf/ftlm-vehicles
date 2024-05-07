@@ -172,13 +172,6 @@
                                          e)))))))))))]))))
 
 
-
-
-
-
-
-
-
 (defmethod lib/setup-version :contrast
   [state]
   (let
@@ -198,16 +191,13 @@
          {:activations #js []
           :attenuation-decay 0.1
           :attenuation-malus-factor 0
-
           :density 0.1
           :excitability-decay 0.1
           :excitability-growth 1.8
-
           :inhibition-model
           (comp ac/intrinsic-firing-rate
                 ac/neuron-skip-inhibition
-                (rand-cap-k-threshold-device
-                 [25 50])
+                (rand-cap-k-threshold-device [25 50])
                 ac/intrinsic-excitability
                 ac/attenuation)
           :intrinsic-firing-rate 0.01
@@ -215,8 +205,8 @@
           :plasticity 0.1
           :plasticity-model ac/binary-hebbian-plasticity
           :skip-rate 0.2
-          :weights (ac/->random-directed-graph n-neurons 0.1)})
-
+          :weights (ac/->random-directed-graph n-neurons
+                                               0.1)})
         (assoc-in
          [:on-update-map :normalize-weights]
          (lib/every-n-seconds
@@ -226,10 +216,7 @@
                     :ac-area
                     ac/prune-synapses-fixed-density)))))
        id-area (:id n-area)
-
        sensoric-field (na/->sensoric-field [631 400])
-
-
        stimuli
        (into
         []
@@ -246,56 +233,41 @@
         ;; (take 21 (shuffle (keys
         ;; controls/color-map)))
         [:orange :green-yellow :heliotrope])
-
        relays
        (map-indexed
         (fn [idx stimulus]
-          (let [n-relay-wires 10]
+          (let [n-relay-wires 20]
             (relay/->relay
-             {:n-relay-wires n-relay-wires
-              :color (:color stimulus)
-              :transform
-              (lib/->transform [480 (+ 400 (* (inc idx) 50))] 25 25 1)
-              :->sensor-inputs
+             {:->sensor-inputs
               (fn []
-                (if
-                    ((:stimuli
-                      ((lib/entities-by-id  @lib/the-state)
-                       (:id sensoric-field)))
+                (if ((:stimuli ((lib/entities-by-id
+                                 @lib/the-state)
+                                (:id sensoric-field)))
                      (:id stimulus))
-                  (ac/->ones [n-relay-wires])))}
+                  (ac/->ones [n-relay-wires])))
+              :color (:color stimulus)
+              :n-relay-wires n-relay-wires
+              :transform (lib/->transform
+                          [480 (+ 400 (* (inc idx) 50))]
+                          25
+                          25
+                          1)}
              n-area)))
         stimuli)
-
-
        stimulus->recptive-field
        (into {}
-             ;; this is a simple topological projection
-             (map (fn [stimulus] [(:id stimulus)
-                                  (ac/->projection
-                                   n-neurons
-                                   (fn [i]
-                                     ;; 1 'coll' is 20
-                                     ;; here atm
-                                     ;; now I would say
-                                     ;; that the first
-                                     ;; layer made from
-                                     ;; 5 is input layer
-                                     (when (< (mod i 20) 5)
-                                       0.05)))])
-                  stimuli))
-
-
-
+             (map (fn [stimulus relay] [(:id stimulus)
+                                        (-> relay
+                                            :target
+                                            :wire)])
+                  stimuli
+                  relays))
        append-inputs (fn [s inputs]
                        (-> s
                            (update-in [:eid->entity
                                        (:id n-area) :ac-area]
                                       ac/append-input-2
                                       inputs)))
-
-
-
        eye-ball
        (->
         (na/eye-ball {:pos (lib/rand-on-canvas-gauss 0.1)})
@@ -379,18 +351,16 @@
        append-stimuli-inputs
        (fn [s]
          (append-inputs s
-                        (keep stimulus->recptive-field
-                              (:stimuli
-                               ((lib/entities-by-id s)
-                                (:id sensoric-field))))))
-
-
+                        (sequence
+                         (comp (map :id)
+                               (map (lib/entities-by-id s))
+                               (map relay/target-inputs))
+                         relays)))
        eye-movement (->eye-movement {:n-area n-area
                                      :n-neurons n-neurons
-                                     :sensoric-field sensoric-field
+                                     :sensoric-field
+                                     sensoric-field
                                      :stimuli stimuli})
-
-
        n-area
        (-> n-area
            (assoc
@@ -411,7 +381,8 @@
                        (mapcat
                         (fn [[{:keys [color]} neurons]]
                           (let [c (lib/->hsb color)]
-                            (for [i (ac/read-projection neurons)]
+                            (for [i (ac/read-projection
+                                     neurons)]
                               [i c]))))
                        stimuli->neurons)
                     p-flower-neurons (into
@@ -437,20 +408,16 @@
                            (:cyan
                             controls/color-map)))))))
            (assoc :clickable? true))
-
-
-
        stability-detector
        (na/->stability-detector
         {:grid-width 5
          :n-wires 50
-         :color (lib/->hsb (:misty-rose controls/color-map))
+         :color (lib/->hsb (:misty-rose
+                            controls/color-map))
          ;; :i->color
          :spacing 25
-         :transform
-         (lib/->transform [400 200] 25 25 1)}
+         :transform (lib/->transform [400 200] 25 25 1)}
         n-area)
-
        state (-> state
                  (assoc :neuronal-area (:id n-area))
                  (lib/append-ents [n-area
@@ -504,15 +471,14 @@
            {:updated-state
             (let [s (update s :neuron-tick (fnil inc 0))
                   s ((:update stability-detector) s)
-                  s ((lib/update-update-functions-map-1 :on-neuron-tick-map) s)
-
+                  s ((lib/update-update-functions-map-1
+                      :on-neuron-tick-map)
+                     s)
                   wipe-inputs?
                   (zero? (mod (:neuron-tick s) 10))
                   append-inputs? (when-not wipe-inputs?
                                    (even? (:neuron-tick
                                            s)))]
-
-
               (cond-> s
                 (odd? (:neuron-tick s)) neuron-tick
                 wipe-inputs? (update-in [:eid->entity

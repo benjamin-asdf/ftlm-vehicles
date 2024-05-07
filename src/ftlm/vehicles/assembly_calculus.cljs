@@ -793,17 +793,56 @@
 (defn ->ones [size]
   (mathjs/ones (clj->js size)))
 
+
+(defn ->wire-1
+  [n-inputs n-neurons target-model]
+  (let [w (mathjs/matrix (mathjs/zeros #js [n-inputs
+                                            n-neurons])
+                         "sparse")
+        ijs (into #{}
+                  (map-indexed (fn [j i] #js [i j])
+                               (take n-inputs
+                                     (target-model))))]
+    (.map w (fn [v idx _] (if (ijs idx) 1 0)))))
+
+
+(defn ->targets [n-wries target-model]
+  (.map
+   (mathjs/matrix
+    (mathjs/range 0 n-wries))
+   (fn [v _ _]
+     (target-model v))))
+
+(defn target-inputs
+  [targets activations]
+  (mathjs/subset targets (mathjs/index activations)))
+
+
 (comment
+  (mathjs/subset
+   #js [0 2 1]
+   (mathjs/index (mathjs/matrix #js [])))
+
+  (mathjs/multiply
+   (->ones [n-wires])
+   (do
+     (def n-wires 3)
+     (def n-neurons 10)
+     (->wire-1 n-wires n-neurons #(shuffle (range n-neurons)))))
+
+  (->projection 100 #(when (< % 10) 0.5))
+
+  (do
+    (def n-neurons 10)
+    (def n-wires 3)
+    (->wire n-neurons n-wires #(cycle (range n-wires))))
+
   (->ones [10])
-  (accumulate-inputs
-   #js[0 0 1]
-   #js[0 0 1]
-   #js[0 0 1]
-   )
-  (accumulate-inputs nil #js[0 0 1])
-  (accumulate-inputs  #js[0 0 1])
 
-  (->neurons 10))
+  (mathjs/subset
+   #js [0 10 20 30]
+   (mathjs/index
+    #js [2]))
 
-(indices-above-input-cutoff (->neurons 10) -1)
-(subtract #js[0 0 1] #js[0 0 1])
+
+  )

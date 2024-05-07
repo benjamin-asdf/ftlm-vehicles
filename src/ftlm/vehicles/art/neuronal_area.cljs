@@ -23,7 +23,7 @@
     {:color (:cyan controls/color-map)
      :draw-functions
      {:1 (fn [e]
-           (let [neurons (->activations e)
+           (let [neurons (.valueOf (->activations e))
                  i->pos (fn [i] ((e :i->pos) e i))
                  i->color
                  (if (:i->color e)
@@ -584,3 +584,7 @@
                                 (:id n-area)))))))}))
 
 (def update-neuron-tick-map-functions (lib/update-update-functions-map-1 :on-neuron-tick-map))
+
+(defn ->input-model []
+
+  )
