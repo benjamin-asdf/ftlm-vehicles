@@ -18,38 +18,38 @@
   [{:as opts
     :keys [spacing grid-width draw-i ->activations]}]
   (lib/->entity
-    :neurons
-    (merge
-      {:color (:cyan controls/color-map)
-       :draw-functions
-         {:1 (fn [e]
-               (let [neurons (->activations e)
-                     i->pos (fn [i] ((e :i->pos) e i))
-                     i->color
-                       (if (:i->color e)
-                         ((:i->color e) e)
-                         (constantly (lib/->hsb (:color e))))]
-                 (q/with-stroke
-                   nil
-                   (doall
-                     (for [i neurons
-                           :let [pos (i->pos i)]]
-                       (q/with-fill
-                         (i->color i)
-                         (q/with-translation
-                           pos
-                           (if draw-i
-                             (draw-i i)
-                             (q/rect 0 0 15 15 3)))))))))}
-       :i->pos (fn [{:keys [transform]} i]
-                 (let [[x y] (:pos transform)
-                       coll (mod i grid-width)
-                       row (quot i grid-width)
-                       x (+ x (* coll spacing))
-                       y (+ y (* row spacing))]
-                   [x y]))
-       :spacing spacing}
-      opts)))
+   :neurons
+   (merge
+    {:color (:cyan controls/color-map)
+     :draw-functions
+     {:1 (fn [e]
+           (let [neurons (->activations e)
+                 i->pos (fn [i] ((e :i->pos) e i))
+                 i->color
+                 (if (:i->color e)
+                   ((:i->color e) e)
+                   (constantly (lib/->hsb (:color e))))]
+             (q/with-stroke
+               nil
+               (doall
+                (for [i neurons
+                      :let [pos (i->pos i)]]
+                  (q/with-fill
+                    (i->color i)
+                    (q/with-translation
+                      pos
+                      (if draw-i
+                        (draw-i i)
+                        (q/rect 0 0 15 15 3)))))))))}
+     :i->pos (fn [{:keys [transform]} i]
+               (let [[x y] (:pos transform)
+                     coll (mod i grid-width)
+                     row (quot i grid-width)
+                     x (+ x (* coll spacing))
+                     y (+ y (* row spacing))]
+                 [x y]))
+     :spacing spacing}
+    opts)))
 
 (defn ->neuronal-area-ac-1
   [opts]
@@ -484,11 +484,6 @@
   (-> s (update-in [:eid->entity id :ac-area] ac/set-input #js[])))
 
 
-(defn stability-listener-lines []
-
-  )
-
-
 ;;
 ;; s-listener-wires
 ;;
@@ -530,7 +525,12 @@
         e (->neurons
             (merge
               opts
-              {:activation->beep
+              {:->activations (fn [e]
+                                (ac/read-activations
+                                  (:neuron-model e))
+                                ;; (range 6)
+                              )
+               :activation->beep
                  (into {}
                        (map (juxt identity
                                   (fn [_]
@@ -550,16 +550,7 @@
                               :n-neurons (:n-wires opts)
                               :threshold 2
                               :tick-window 4
-                              :wires wires}
-               :->activations (fn [e]
-                                (ac/read-activations
-                                  (:neuron-model e))
-                                ;; (range 6)
-                              )
-               ;; connect each s-line to
-               ;; a single neuron in the
-               ;; n-area for the moment
-              }))
+                              :wires wires}}))
         e (lib/live
             e
             (let [playing (atom #{})]
@@ -591,3 +582,5 @@
                    (ac/read-activations
                      (:ac-area ((lib/entities-by-id s)
                                 (:id n-area)))))))}))
+
+(def update-neuron-tick-map-functions (lib/update-update-functions-map-1 :on-neuron-tick-map))

@@ -48,13 +48,11 @@
   {"assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
    "assembly-friends"
-   {:background-color (:woodsmoke
-                       color-map)
+   {:background-color
+    (:woodsmoke color-map)
     :n-neurons 1000
-    :time-speed 3
     :plasticity 0.1
-
-    }
+    :time-speed 3}
    "assembly-fun" {:background-color (:woodsmoke color-map)
                    :time-speed 3}
    "brownians" {:background 230
@@ -178,7 +176,11 @@
            :threshold-device-high 0.01
            :threshold-device-low 0.05
            :v :excitability}
-      "4" {:v :pulling-stimuli}}
+      "4" {:v :pulling-stimuli}
+      "5" {:v :develop}
+      "6" {:v :contrast}
+
+      }
    "assembly-fun"
      {"0" {:v :grid-1}
       "1" {:v :grid}

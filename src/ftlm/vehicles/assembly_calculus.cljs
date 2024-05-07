@@ -190,23 +190,19 @@
 (defn scalar? [m]
   (zero? (mathjs/count (mathjs/size m))))
 
-
 (defn binary-hebbian-plasticity
   [{:keys [plasticity weights current-activations
            next-activations]}]
-  ;; take 47ms
   (let [subset (.subset weights
                         (mathjs/index current-activations
                                       next-activations))
         new-subset (if (scalar? subset)
                      (mathjs/bitOr subset
-                                   (< (mathjs/random)
-                                      plasticity))
+                                   (< (mathjs/random) plasticity))
                      (mathjs/map subset
                                  (fn [v _idx _m]
                                    (mathjs/bitOr v
-                                                 (< (mathjs/random)
-                                                    plasticity)))))]
+                                                 (< (mathjs/random) plasticity)))))]
     (.subset weights
              (mathjs/index current-activations
                            next-activations)
@@ -450,13 +446,6 @@
                    (abs (+ (- n-neurons j) i))))))
 
 (def identity-plasticity :weights)
-
-(defn map-weights
-  [area op]
-  (time (let [r (atom [])]
-          (.forEach (:weights area) (comp #(swap! r conj %) op) true)
-          (take 10 @r))))
-
 
 
 ;; less relevant stuff:
@@ -791,31 +780,30 @@
                             threshold))))]
     state))
 
+
+(defn filter-nils
+  [op]
+  (fn [& inputs]
+    (let [xs (filter identity inputs)]
+      (if (< 1 (count xs)) (apply op xs) (first xs)))))
+
+(def accumulate-inputs (filter-nils mathjs/add))
+(def subtract (filter-nils mathjs/subtract))
+
+(defn ->ones [size]
+  (mathjs/ones (clj->js size)))
+
 (comment
-  (accumulate-inputs #js[0 0 0] #js[0 1 2])
-  (def inputs #js[0 0 0])
-  (->neurons 5)
+  (->ones [10])
+  (accumulate-inputs
+   #js[0 0 1]
+   #js[0 0 1]
+   #js[0 0 1]
+   )
+  (accumulate-inputs nil #js[0 0 1])
+  (accumulate-inputs  #js[0 0 1])
 
-  (let
-      [s
-       (fixed-window-accumulate-and-fire
-        {:tick-window 3
-         :threshold 2
-         :n-neurons 3}
-)
-       ]
-      s
-      (->
-       s
-       (fixed-window-accumulate-and-fire #js[0 1])
-       (fixed-window-accumulate-and-fire #js[0 1])
-       (fixed-window-accumulate-and-fire #js[0 1])
-       )
-      ;; (fixed-windowed-accumulate-and-fire s)
-      )
+  (->neurons 10))
 
-
-  (synaptic-input
-   (->one-neuron-per-wire 5 4)
-   (mathjs/range 0 5)
-   ))
+(indices-above-input-cutoff (->neurons 10) -1)
+(subtract #js[0 0 1] #js[0 0 1])

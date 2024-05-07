@@ -12,14 +12,13 @@
    [ftlm.vehicles.art.grid]
    [goog.style]
    [ftlm.vehicles.hdv]
-   [tech.v3.datatype.argops :as argops]
-   [tech.v3.datatype.functional :as dtype-fn]
-   ;; [tech.v3.dataset :as ds]
-   [tech.v3.datatype :as dtype]
+
    ["mathjs" :as mathjs]
-   [ftlm.vehicles.art.vehicles.attenuation]
-   [ftlm.vehicles.art.vehicles.excitability]
-   [ftlm.vehicles.art.vehicles.pulling-stimuli]
+   ftlm.vehicles.art.vehicles.attenuation
+   ftlm.vehicles.art.vehicles.excitability
+   ftlm.vehicles.art.vehicles.pulling-stimuli
+   ftlm.vehicles.art.vehicles.contrast
+
    [ftlm.vehicles.assembly-calculus :as ac]
    [ftlm.vehicles.art.neuronal-area :as na]))
 
