@@ -32,60 +32,85 @@
             [ftlm.vehicles.art.neuronal-area :as na]
             ["mathjs" :as mathjs]))
 
-(defn ->contrast-model
-  [n-relay-wires]
-  {:neurons (ac/->neurons n-relay-wires)})
+(defn ->contrast-neurons
+  [n-relay-wires n-area]
+  {:neurons (ac/->neurons n-relay-wires)
+   :update (fn [s]
+             (assoc s
+               :neurons (ac/synaptic-input
+                          (:wire s)
+                          (ac/read-activations
+                            (:ac-area ((lib/entities-by-id
+                                         @lib/the-state)
+                                        (:id n-area)))))))
+   :wire (ac/->wire-1
+           (:n-neurons n-area)
+           n-relay-wires
+           (into #{}
+                 (map-indexed
+                   (fn [i j] [j i])
+                   (take n-relay-wires
+                         (shuffle (filter (-> n-area
+                                              :layer-model
+                                              :contrast)
+                                    (range
+                                      (:n-neurons
+                                       n-area))))))))})
+
 
 (defn ->relay-model
   [{:keys [n-relay-wires ->sensor-inputs]} n-area]
-  {:contrast-model (->contrast-model n-relay-wires)
+  {:contrast-neurons (->contrast-neurons n-relay-wires
+                                         n-area)
    :neurons (ac/->neurons n-relay-wires)
    :update (fn [s]
              ;; + sensor inputs
              ;; - contrast inputs
-             (assoc s
-               :neurons (ac/subtract
-                          (or (->sensor-inputs)
-                              (ac/->neurons n-relay-wires))
-                          (:neurons (:contrast-model
-                                      s)))))})
+             (-> s
+                 (assoc :neurons (ac/subtract
+                                   (or (->sensor-inputs)
+                                       (ac/->neurons
+                                         n-relay-wires))
+                                   (-> s
+                                       :contrast-neurons
+                                       :neurons)))
+                 (update :contrast-neurons
+                         (fn [m] ((:update m) m)))))})
 
 (defn ->target-projection
   [relay n-area]
   (let [target (into []
-                      (take (:n-relay-wires relay)
-                            (shuffle (filter #(< (mod % 20)
-                                                 5)
-                                       (range (:n-neurons
-                                                n-area))))))
+                     (take (:n-relay-wires relay)
+                           (shuffle (filter (-> n-area :layer-model :sensor-input)
+                                            (range (:n-neurons n-area))))))
         wire (ac/->targets (:n-relay-wires relay) target)]
     {:wire wire}))
 
 (defn ->relay
   [{:as opts
-    :keys [n-relay-wires ->sensor-inputs target-model]}
+    :keys [n-relay-wires
+           ->sensor-inputs
+           target-model]}
    n-area]
   (let [relay-model (->relay-model opts n-area)
         e (na/->neurons
-            (merge {:->activations
-                      (fn [e]
-                        (ac/indices-above-input-cutoff
-                          (-> e
-                              :relay-model
-                              :neurons)
-                          0))
-                    :draw-i (fn [i] (q/ellipse 0 0 8 8))
-                    :grid-width 5
-                    :relay-model relay-model
-                    :spacing 15}
-                   opts))
+           (merge {:->activations
+                   (fn [e]
+                     (ac/indices-above-input-cutoff
+                      (-> e
+                          :relay-model
+                          :neurons)
+                      0))
+                   :draw-i (fn [i] (q/ellipse 0 0 8 8))
+                   :grid-width 5
+                   :relay-model relay-model
+                   :spacing 10}
+                  opts))
         e (assoc e
-            :target (->target-projection e n-area)
-            :on-neuron-tick-map
-              {:1 (fn [e _ _]
-                    (update e
-                            :relay-model
-                            (fn [m] ((:update m) m))))})]
+                 :target (->target-projection e n-area)
+                 :on-neuron-tick-map
+                 {:1 (fn [e _ _]
+                       (update e :relay-model (fn [m] ((:update m) m))))})]
     e))
 
 

@@ -14,13 +14,31 @@
    [ftlm.vehicles.audio :as audio]
    [ftlm.vehicles.assembly-calculus :as ac]))
 
+;; A simple cortical layer model in this scheme
+;; This ignores cortico-cortical, local and global and so forth
+;; This ignored columns at the moment
+;; height is analogues to the height of a cortical column
+(defn ->layers
+  [{:keys [height layers]}]
+  (let [height-of-layer (/ height (count layers))]
+    (into {}
+          (map (fn [[layer k]]
+                 [k
+                  (fn [i]
+                    (<= (* layer height-of-layer)
+                        (mod i height)
+                        (dec (* (inc layer)
+                                height-of-layer))))]))
+          (map-indexed vector layers))))
+
 (defn ->neurons
   [{:as opts
-    :keys [spacing grid-width draw-i ->activations]}]
+    :keys [spacing grid-width layer-config draw-i ->activations]}]
   (lib/->entity
    :neurons
    (merge
     {:color (:cyan controls/color-map)
+     :layer-model (when layer-config (->layers layer-config))
      :draw-functions
      {:1 (fn [e]
            (let [neurons (.valueOf (->activations e))

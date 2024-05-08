@@ -748,16 +748,6 @@
                                  intrinsic-firing-rate)))))))
 
 
-(defn ->one-neuron-per-wire
-  [n-neurons n-wires]
-  (let [w (mathjs/matrix (mathjs/zeros #js[n-neurons n-wires]) "sparse")
-        ijs (into #{}
-                  (map-indexed
-                    (fn [j i] #js [i j])
-                    (take n-wires
-                          (shuffle (range n-neurons)))))]
-    (.map w (fn [v idx _] (if (ijs idx) 1 0)))))
-
 (defn wires->activations
   [wires activations]
   (synaptic-input wires activations))
@@ -780,31 +770,36 @@
                             threshold))))]
     state))
 
-
 (defn filter-nils
   [op]
   (fn [& inputs]
     (let [xs (filter identity inputs)]
       (if (< 1 (count xs)) (apply op xs) (first xs)))))
 
+
 (def accumulate-inputs (filter-nils mathjs/add))
+
 (def subtract (filter-nils mathjs/subtract))
 
 (defn ->ones [size]
   (mathjs/ones (clj->js size)))
 
-
 (defn ->wire-1
   [n-inputs n-neurons target-model]
-  (let [w (mathjs/matrix (mathjs/zeros #js [n-inputs
-                                            n-neurons])
-                         "sparse")
-        ijs (into #{}
-                  (map-indexed (fn [j i] #js [i j])
-                               (take n-inputs
-                                     (target-model))))]
-    (.map w (fn [v idx _] (if (ijs idx) 1 0)))))
+  (let [w (mathjs/matrix (mathjs/zeros #js[n-inputs n-neurons]) "sparse")]
+    (.map w
+          (fn [v idx _]
+            (if (target-model (.valueOf idx)) 1 0)))))
 
+
+(defn ->one-neuron-per-wire
+  [n-neurons n-wires]
+  (let [ijs (into #{}
+                  (map-indexed
+                   (fn [j i] #js [i j])
+                   (take n-wires
+                         (shuffle (range n-neurons)))))]
+    (->wire-1 n-neurons n-wires ijs)))
 
 (defn ->targets [n-wries target-model]
   (.map
@@ -817,32 +812,19 @@
   [targets activations]
   (mathjs/subset targets (mathjs/index activations)))
 
+(defn wire->targets
+  [wire]
+  (let [sum (mathjs/sum wire 0)]
+    (.subset (mathjs/range 0 (mathjs/count sum))
+             (mathjs/index
+               (mathjs/larger (mathjs/squeeze sum) 0)))))
+
+(defn wire->sources [wire] (wire->targets (mathjs/transpose wire)))
+
+
 
 (comment
-  (mathjs/subset
-   #js [0 2 1]
-   (mathjs/index (mathjs/matrix #js [])))
-
-  (mathjs/multiply
-   (->ones [n-wires])
-   (do
-     (def n-wires 3)
-     (def n-neurons 10)
-     (->wire-1 n-wires n-neurons #(shuffle (range n-neurons)))))
-
-  (->projection 100 #(when (< % 10) 0.5))
-
-  (do
-    (def n-neurons 10)
-    (def n-wires 3)
-    (->wire n-neurons n-wires #(cycle (range n-wires))))
-
-  (->ones [10])
-
-  (mathjs/subset
-   #js [0 10 20 30]
-   (mathjs/index
-    #js [2]))
-
-
-  )
+  (wire->targets (->wire-1 3 5 (fn [[i j]] (zero? i))))
+  (wire->sources (->wire-1 5 3 (fn [[i j]] (zero? i))))
+  (wire->sources (->wire-1 3 5 (fn [[i j]] (zero? i))))
+  (wire->sources (->wire-1 3 5 (fn [[i j]] true))))
