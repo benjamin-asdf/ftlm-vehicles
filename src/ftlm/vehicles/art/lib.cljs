@@ -275,6 +275,8 @@
              (bezier-line [x y] end-pos)))
     (q/end-shape)))
 
+
+
 (defmethod draw-entity :triangle
   [{:keys [transform color]}]
   (let [{:keys [pos scale width height rotation]} transform
@@ -291,7 +293,7 @@
         (q/with-stroke
           (->hsb [0 0 0])
           (q/with-fill (->hsb color)
-                       (q/triangle x1 y1 x2 y2 x3 y3)))))))
+            (q/triangle x1 y1 x2 y2 x3 y3)))))))
 
 (defmethod draw-entity :pizza-slice
   [{:keys [transform color]}]
@@ -524,10 +526,12 @@
 
 (defn update-rotation
   [entity]
-  (let [angular-velocity (+ (:angular-velocity entity 0)
-                            (* *dt* (:angular-acceleration entity 0)))]
+  (let [angular-velocity
+        (+ (:angular-velocity entity 0)
+           (* *dt* (:angular-acceleration entity 0)))]
     (-> entity
-        (update-in [:transform :rotation] #(+ % angular-velocity))
+        (update-in [:transform :rotation]
+                   #(+ % angular-velocity))
         (assoc :angular-velocity angular-velocity))))
 
 (defn move-dragged
@@ -675,6 +679,9 @@
                     (/ (q/height) 2)])
 
 (defn angle-between [[x1 y1] [x2 y2]] (- (Math/atan2 (- y1 y2) (- x1 x2)) q/HALF-PI))
+
+(defn normalize-angle [angle]
+  (mod (abs angle) q/TWO-PI))
 
 (defn orient-towards
   [entity target]
@@ -1364,6 +1371,9 @@
 
 (defn put [e pos]
   (assoc-in e [:transform :pos] pos))
+
+(defn put-rotation [e rotation]
+  (assoc-in e [:transform :rotation] rotation))
 
 (defn live [e op]
   (update e :on-update-map (fnil conj {}) op))

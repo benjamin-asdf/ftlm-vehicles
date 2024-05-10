@@ -15,3 +15,4 @@
                     :port 7014))))
 
 (ftlm-vehicles-cider-jack-in)
+(ftlm-vehicles-cider-shadow-cljs-connect-app-client)

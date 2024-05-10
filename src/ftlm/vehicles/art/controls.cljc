@@ -20,14 +20,15 @@
 
 (def color-map
   {:amethyst-smoke {:h 272 :s 20 :v 75}
-   :very-blue {:h 210 :s 255 :v 100}
    :anakiwa {:h 206 :s 44 :v 100}
    :cyan {:h 180 :s 100 :v 100}
+   :dark-blue {:h 224 :s 255 :v 41}
    :fruit-salad {:h 133 :s 54 :v 61}
    :green-yellow {:h 84 :s 82 :v 100}
    :heliotrope {:h 295 :s 46 :v 100}
    :hit-pink {:h 20 :s 44 :v 100}
    :horizon {:h 206 :s 44 :v 66}
+   :magenta {:h 300 :s 100 :v 100}
    :midnight-purple {:h 284 :s 98 :v 22}
    :midnight-violet-1 {:h 257 :s 66 :v 25}
    :mint {:h 116 :s 18 :v 100}
@@ -37,9 +38,9 @@
    :purple {:h 271 :s 81 :v 100}
    :red {:h 0 :s 255 :v 100}
    :sweet-pink {:h 356 :s 39 :v 100}
+   :very-blue {:h 210 :s 255 :v 100}
    :woodsmoke {:h 240 :s 26 :v 9}
-   :yellow {:h 60 :s 100 :v 100}
-   :magenta {:h 300 :s 100 :v 100}})
+   :yellow {:h 60 :s 100 :v 100}})
 
 (def quite-green {:h 135 :s 100 :v 100})
 (def olive-lime-green {:h 72 :s 100 :v 100})
@@ -47,12 +48,11 @@
 (def default-versions
   {"assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
-   "assembly-friends"
-   {:background-color
-    (:woodsmoke color-map)
-    :n-neurons 1000
-    :plasticity 0.1
-    :time-speed 3}
+   "assembly-friends" {:background-color (:woodsmoke
+                                           color-map)
+                       :n-neurons 1000
+                       :plasticity 0.1
+                       :time-speed 3}
    "assembly-fun" {:background-color (:woodsmoke color-map)
                    :time-speed 3}
    "brownians" {:background 230
@@ -74,37 +74,41 @@
                 :spread 1
                 :spread-speed 0}
    "cell-assemblies" {:background-color (:midnight-purple
-                                         color-map)
+                                          color-map)
                       :time-speed 3}
+   "cerebellum" {:background-color
+                 (:fruit-salad
+                  color-map)
+                 :time-speed 3}
    "fear_and_aggression"
-   {:aggression {:amount 2 :scale 1}
-    :background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :explore {:amount 3 :scale 1}
-    :fear {:amount 2 :scale 1}
-    :love {:amount 3 :scale 1}
-    :ray-source-count 0
-    :ray-source-scale 0.8
-    :ray-source-spread 0.4
-    :ray-sources-die? true
-    :ray-sources-spawn-rate 0.8
-    :sub-controls #{:aggression :fear :love :explore}
-    :time-speed 3}
+     {:aggression {:amount 2 :scale 1}
+      :background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :explore {:amount 3 :scale 1}
+      :fear {:amount 2 :scale 1}
+      :love {:amount 3 :scale 1}
+      :ray-source-count 0
+      :ray-source-scale 0.8
+      :ray-source-spread 0.4
+      :ray-sources-die? true
+      :ray-sources-spawn-rate 0.8
+      :sub-controls #{:aggression :fear :love :explore}
+      :time-speed 3}
    "getting-around"
-   {:background-color {:h 0 :s 0 :v 89}
-    :brownian-factor 0.8
-    :cart-scale 1
-    :color-palatte [50 40 60]
-    :make-trails? true
-    :max-temp 1
-    :spawn-amount 30
-    :spawn-spread 0.4
-    :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-    :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
-    :temp-zone-count 10
-    :time-speed 2
-    :trail-color {:h 0 :s 0 :v 89}
-    :trail-size 20}
+     {:background-color {:h 0 :s 0 :v 89}
+      :brownian-factor 0.8
+      :cart-scale 1
+      :color-palatte [50 40 60]
+      :make-trails? true
+      :max-temp 1
+      :spawn-amount 30
+      :spawn-spread 0.4
+      :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+      :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+      :temp-zone-count 10
+      :time-speed 2
+      :trail-color {:h 0 :s 0 :v 89}
+      :trail-size 20}
    "hunger" {:background-color (:misty-rose color-map)
              :brownian-factor 0.8
              :cold {:high-color {:h 212 :s 100 :v 71}
@@ -142,15 +146,14 @@
 
 (def page-layouts
   {"brownians" {:per-page 3}
-   "getting-around" {:per-page 1
+   "fear_and_aggression" {:default-height 900
+                          :default-width 900
+                          :per-page 1
+                          :show-fullscreen-links? true}
+   "getting-around" {:default-height 900
                      :default-width 900
-                     :default-height 900
-                     :show-fullscreen-links? true}
-   "fear_and_aggression"
-   {:per-page 1
-    :default-width 900
-    :default-height 900
-    :show-fullscreen-links? true}})
+                     :per-page 1
+                     :show-fullscreen-links? true}})
 
 (def versions
   {"assembly" {"0" {}}
@@ -178,9 +181,7 @@
            :v :excitability}
       "4" {:v :pulling-stimuli}
       "5" {:v :develop}
-      "6" {:v :contrast}
-
-      }
+      "6" {:v :contrast}}
    "assembly-fun"
      {"0" {:v :grid-1}
       "1" {:v :grid}
@@ -534,6 +535,9 @@
                       "1" {:v :world}
                       "2" {:v :neighbours-lines}
                       "4" {:v :grid}}
+   "cerebellum" {"1" {:v :cerebellum1
+                      :background-color
+                      (:dark-blue color-map)}}
    "fear_and_aggression"
      {"0" {}
       "1" {:aggression {:amount 0 :scale 0.4}
@@ -702,11 +706,3 @@
             "1" {:spawn-people [:multi-sensory
                                 :multi-sensory
                                 :multi-sensory]}}})
-
-
-(comment
-  (:background-color @ftlm.vehicles.art.user-controls/!app)
-  {:h 284 :s 98 :v 22}
-  {:h 257 :s 66 :v 25}
-  nil
-  {:h 356 :s 39 :v 100})
