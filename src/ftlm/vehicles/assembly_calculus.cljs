@@ -824,6 +824,7 @@
 
 
 (comment
+  (->wire-1 10 3 (fn [[i j]] (zero? i)))
   (wire->targets (->wire-1 3 5 (fn [[i j]] (zero? i))))
   (wire->sources (->wire-1 5 3 (fn [[i j]] (zero? i))))
   (wire->sources (->wire-1 3 5 (fn [[i j]] (zero? i))))

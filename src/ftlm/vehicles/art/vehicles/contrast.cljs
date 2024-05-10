@@ -18,18 +18,20 @@
    [ftlm.vehicles.art.neuronal-area :as na]
    [ftlm.vehicles.relay-model :as relay]))
 
-(defn rand-cap-k-threshold-device
+(defn cycling-cap-k-threshold-device
   [numbers]
-  (fn [{:as state :keys [synaptic-input]}]
-    (assoc state
-      :activations (ac/cap-k (rand-nth numbers)
-                             synaptic-input))))
+  (let [next-numbers (atom (cycle numbers))]
+    (fn [{:as state :keys [synaptic-input]}]
+      (let [n (first @next-numbers)
+            _ (swap! next-numbers next)]
+        (assoc state
+          :activations (ac/cap-k n synaptic-input))))))
 
 
 (defn ->eye-movement
   [{:keys [n-neurons stimuli sensoric-field n-area]}]
   ;; make a few 'motor neurons' that 'pull' the
-  ;; stimuliw with some force
+  ;; stimuli with some force
   (let [effector-projections
           (into {}
                 (map (juxt :id
@@ -37,91 +39,93 @@
                              (ac/->projection
                                n-neurons
                                (fn [i]
-                                 (when (< 15 (mod i 20))
+                                 (when ((-> n-area
+                                            :layer-model
+                                            :motor-output)
+                                         i)
                                    0.05)))))
                   stimuli))]
-    {:shiny-projection
-     (fn [s]
-       (na/shiny-projection-1
-        s
-        (.valueOf
-         (rand-nth
-          (into [] (map second effector-projections))))
-        (:id n-area)
-        (lib/->hsb (:red controls/color-map))))
-     :effector-projections effector-projections
-     :update
-     (lib/every-n-seconds
-      0.2
-      (fn [s]
-        (let [sensoric-field ((lib/entities-by-id s)
-                              (:id sensoric-field))
-              activations (ac/read-activations
-                           (:ac-area
-                            ((lib/entities-by-id s)
-                             (:id n-area))))]
-          (reduce
-           (fn [s [stimulus value]]
-             ;; if some high value then flash
-             (let
-                 [s (if-not (< 0 value)
-                      s
-                      (lib/append-ents
-                       s
-                       (let [stimulus-e
-                             ((lib/entities-by-id s)
-                              stimulus)]
-                         [(->
-                           (lib/->entity
-                            :multi-line
-                            {:color (:color stimulus-e)
-                             :lifetime 1
-                             :stroke-weight 1
-                             :transform
-                             (lib/->transform
-                              (lib/position
-                               sensoric-field)
-                              1
-                              1
-                              1)
-                             :vertices
-                             [(lib/position
-                               sensoric-field)
-                              (lib/position
-                               stimulus-e)]
-                             :z-index -2})
-                           (lib/live
-                            [:track-pos
-                             (fn [e s _]
-                               (let
-                                   [stimulus-e
-                                    ((lib/entities-by-id
-                                      s)
-                                     stimulus)]
-                                   (assoc e
-                                          :vertices
-                                          [(lib/position
-                                            sensoric-field)
-                                           (lib/position
-                                            stimulus-e)])))])
-                           (lib/live [:fade
-                                      (elib/->fade
-                                       1)]))])))]
-                 (-> s
-                     (update-in [:eid->entity stimulus]
-                                lib/orient-towards
-                                (lib/position
-                                 sensoric-field))
-                     (update-in [:eid->entity stimulus
-                                 :acceleration]
-                                +
-                                (* value 120)))))
+    {:effector-projections effector-projections
+     :shiny-projection
+       (fn [s]
+         (na/shiny-projection-1
            s
-           (for [[stimulus proj] effector-projections]
-             [stimulus
-              (/ (ac/count-intersection proj
-                                        activations)
-                 (ac/count-projection proj))])))))}))
+           (.valueOf
+             (rand-nth
+               (into [] (map second effector-projections))))
+           (:id n-area)
+           (lib/->hsb (:red controls/color-map))))
+     :update
+       (lib/every-n-seconds
+         0.2
+         (fn [s]
+           (let [sensoric-field ((lib/entities-by-id s)
+                                  (:id sensoric-field))
+                 activations (ac/read-activations
+                               (:ac-area
+                                 ((lib/entities-by-id s)
+                                   (:id n-area))))]
+             (reduce
+               (fn [s [stimulus value]]
+                 ;; if some high value then flash
+                 (let
+                   [s (if-not (< 0 value)
+                        s
+                        (lib/append-ents
+                          s
+                          (let [stimulus-e
+                                  ((lib/entities-by-id s)
+                                    stimulus)]
+                            [(->
+                               (lib/->entity
+                                 :multi-line
+                                 {:color (:color stimulus-e)
+                                  :lifetime 1
+                                  :stroke-weight 1
+                                  :transform
+                                    (lib/->transform
+                                      (lib/position
+                                        sensoric-field)
+                                      1
+                                      1
+                                      1)
+                                  :vertices
+                                    [(lib/position
+                                       sensoric-field)
+                                     (lib/position
+                                       stimulus-e)]
+                                  :z-index -2})
+                               (lib/live
+                                 [:track-pos
+                                  (fn [e s _]
+                                    (let
+                                      [stimulus-e
+                                         ((lib/entities-by-id
+                                            s)
+                                           stimulus)]
+                                      (assoc e
+                                        :vertices
+                                          [(lib/position
+                                             sensoric-field)
+                                           (lib/position
+                                             stimulus-e)])))])
+                               (lib/live [:fade
+                                          (elib/->fade
+                                            1)]))])))]
+                   (-> s
+                       (update-in [:eid->entity stimulus]
+                                  lib/orient-towards
+                                  (lib/position
+                                    sensoric-field))
+                       (update-in [:eid->entity stimulus
+                                   :acceleration]
+                                  +
+                                  (* value 120)))))
+               s
+               (for [[stimulus proj] effector-projections]
+                 [stimulus
+                  (/ (ac/count-intersection proj activations)
+                     (ac/count-projection proj))])))))}))
 
 (defn ->perspective-flower
   [{:as opts :keys [n-neurons]}]
@@ -186,38 +190,46 @@
           :n-neurons n-neurons
           :spacing 15
           :transform (lib/->transform [50 50] 20 20 1)})
-     n-area
-       (->
-         n-area
-         (assoc
-           :ac-area
-             {:activations #js []
-              :attenuation-decay 0.1
-              :attenuation-malus-factor 0
-              :density 0.1
-              :excitability-decay 0.1
-              :excitability-growth 3.0
-              :inhibition-model
-                (comp ac/intrinsic-firing-rate
-                      ac/neuron-skip-inhibition
-                      (rand-cap-k-threshold-device [25 50])
-                      ac/intrinsic-excitability
-                      ac/attenuation)
-              :intrinsic-firing-rate 0.01
-              :n-neurons n-neurons
-              :plasticity 0.1
-              :plasticity-model ac/binary-hebbian-plasticity
-              :skip-rate 0.2
-              :weights (ac/->random-directed-graph n-neurons
-                                                   0.1)})
-         (assoc-in
-           [:on-update-map :normalize-weights]
-           (lib/every-n-seconds
-             10
-             (fn [e _s _]
-               (update e
-                       :ac-area
-                       ac/prune-synapses-fixed-density)))))
+     n-area (-> n-area
+                (assoc
+                  :ac-area
+                    {:activations #js []
+                     :attenuation-decay 0.1
+                     :attenuation-malus-factor 0.2
+                     :density 0.1
+                     :excitability-decay 0.1
+                     :excitability-growth 10.0
+                     :inhibition-model
+                     (comp ac/intrinsic-firing-rate
+                           ac/neuron-skip-inhibition
+                           (cycling-cap-k-threshold-device
+                            [10 20]
+                            )
+                           ac/intrinsic-excitability
+                           ac/attenuation)
+                     :intrinsic-firing-rate 0.01
+                     :n-neurons n-neurons
+                     :plasticity 0.5
+                     :plasticity-model
+                     ac/binary-hebbian-plasticity
+                     :skip-rate 0.2
+                     :weights
+
+                     ;; (ac/->directed-graph-with-geometry
+                     ;;  n-neurons
+                     ;;  (ac/lin-gaussian-geometry {:amplitude 1.0 :std-deviation 50}))
+
+                     (ac/->random-directed-graph n-neurons 0.1)
+                     })
+                (assoc-in
+                  [:on-update-map :normalize-weights]
+                  (lib/every-n-seconds
+                    10
+                    (fn [e _s _]
+                      (update
+                        e
+                        :ac-area
+                        ac/prune-synapses-fixed-density)))))
      id-area (:id n-area)
      sensoric-field (na/->sensoric-field [631 400])
      stimuli
@@ -369,31 +381,46 @@
          n-area
          (assoc
            :i->color
-             (let [contrast-neurons
-                     (into {}
-                           (comp
-                             (map (comp ac/wire->sources
-                                        :wire
-                                        :contrast-neurons
-                                        :relay-model))
-                             (mapcat
-                               (fn [neurons]
-                                 (for [i (.valueOf neurons)]
-                                   [i
-                                    (lib/->hsb
-                                      controls/white)]))))
-                           relays)
-                   p-flower-neurons (into
-                                      {}
-                                      ;; (for [pline
-                                      ;; (:p-lines
-                                      ;;              perspective-flower)
-                                      ;;       i
-                                      ;;       (.valueOf
-                                      ;;       pline)]
-                                      ;;   [i (:color
-                                      ;;   perspective-flower)])
-                                    )]
+             (let
+               [contrast-neurons
+                  (into {}
+                        (comp (map (comp ac/wire->sources
+                                         :wire
+                                         :contrast-neurons
+                                         :relay-model))
+                              (mapcat
+                                (fn [neurons]
+                                  (for [i (.valueOf
+                                            neurons)]
+                                    [i
+                                     (lib/->hsb
+                                       controls/white)]))))
+                        relays)
+                motor-neurons
+                  (into
+                    {}
+                    (comp
+                      (map second)
+                      (map ac/read-projection)
+                      (mapcat
+                        (fn [neurons]
+                          (for [n neurons]
+                            [n
+                             (lib/->hsb
+                              (:red
+                               controls/color-map))]))))
+                    (-> eye-movement :effector-projections))
+                p-flower-neurons (into
+                                   {}
+                                   ;; (for [pline
+                                   ;; (:p-lines
+                                   ;;              perspective-flower)
+                                   ;;       i
+                                   ;;       (.valueOf
+                                   ;;       pline)]
+                                   ;;   [i (:color
+                                   ;;   perspective-flower)])
+                                 )]
                (fn [e]
                  (let [stimuli (filter :stimulus?
                                  (lib/entities
@@ -421,11 +448,12 @@
                    (some-fn remembered-neurons
                             m
                             p-flower-neurons
+                            motor-neurons
                             contrast-neurons
                             (constantly
-                              (lib/->hsb
-                                (:yellow
-                                  controls/color-map))))))))
+                             (lib/->hsb
+                              (:yellow
+                               controls/color-map))))))))
          (assoc :clickable? true))
      stability-detector
        (na/->stability-detector

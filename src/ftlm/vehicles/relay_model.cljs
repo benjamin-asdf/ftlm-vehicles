@@ -37,25 +37,31 @@
   {:neurons (ac/->neurons n-relay-wires)
    :update (fn [s]
              (assoc s
-               :neurons (ac/synaptic-input
-                          (:wire s)
-                          (ac/read-activations
-                            (:ac-area ((lib/entities-by-id
-                                         @lib/the-state)
-                                        (:id n-area)))))))
-   :wire (ac/->wire-1
-           (:n-neurons n-area)
-           n-relay-wires
-           (into #{}
-                 (map-indexed
-                   (fn [i j] [j i])
-                   (take n-relay-wires
-                         (shuffle (filter (-> n-area
-                                              :layer-model
-                                              :contrast)
-                                    (range
-                                      (:n-neurons
-                                       n-area))))))))})
+                    :neurons (ac/synaptic-input
+                              (:wire s)
+                              (ac/read-activations
+                               (:ac-area ((lib/entities-by-id
+                                           @lib/the-state)
+                                          (:id n-area)))))))
+   :wire
+   (ac/->wire-1
+    (:n-neurons n-area)
+    n-relay-wires
+    (into #{}
+          (map-indexed
+           (fn [i j] [j i])
+
+           ;; doens't even have so much of an effect atm,
+           ;; even with many contrast neurons, not many contrast neurons are active.
+
+           (shuffle
+            (filter
+             (-> n-area
+                 :layer-model
+                 :contrast)
+             (range
+              (:n-neurons
+               n-area)))))))})
 
 
 (defn ->relay-model
