@@ -535,9 +535,9 @@
                       "1" {:v :world}
                       "2" {:v :neighbours-lines}
                       "4" {:v :grid}}
-   "cerebellum" {"1" {:v :cerebellum1
-                      :background-color
-                      (:dark-blue color-map)}}
+   "cerebellum" {"1" {:background-color (:midnight-purple
+                                          color-map)
+                      :v :cerebellum1}}
    "fear_and_aggression"
      {"0" {}
       "1" {:aggression {:amount 0 :scale 0.4}

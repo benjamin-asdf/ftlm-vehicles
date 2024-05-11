@@ -86,74 +86,113 @@
     (reset! lib/the-state state)
     state))
 
+(defn make-motor-movement
+  [e dir]
+  (-> e
+      (update :flashing-fins conj dir)
+      (update :angular-velocity
+              (get {:left + :right -} dir)
+              400)
+      (assoc-in [:on-update-map :scale]
+                (elib/->tiny-breath
+                 {:speed 2 :start 1 :stop 2.0}))))
+
 (defn ->fish
   []
   (->
-    (lib/->entity
-      :fish
-      {:color (:woodsmoke controls/color-map)
-       :draggable? true
-       :draw-functions
-         {:1 (fn [e]
-               (q/stroke-weight (:stroke-weight e))
-               (q/with-translation
-                 (lib/position e)
-                 (q/with-fill
-                   (lib/->hsb (:color e))
-                   (q/with-rotation
-                     [(lib/rotation e)]
-                     (let [{:keys [scale width height]}
-                             (:transform e)
-                           [w h] [(* scale width)
-                                  (* scale height)]
-                           [x1 y1] [0 (- (/ h 2))]
-                           [x2 y2] [(- (/ w 2)) (+ (/ h 2))]
-                           [x3 y3] [(+ (/ w 2))
-                                    (+ (/ h 2))]]
-                       (q/with-translation
-                         [15 0]
-                         (q/with-rotation
-                           [q/HALF-PI]
-                           (q/triangle x1 y1 x2 y2 x3 y3)))
-                       (q/with-translation
-                         [-15 0]
-                         (q/with-rotation
-                           [(- q/HALF-PI)]
-                           (q/triangle x1 y1 x2 y2 x3 y3)))
-                       (q/with-translation
-                         [0 -40]
-                         (q/with-rotation
-                           [q/TWO-PI]
-                           (q/triangle x1 y1 x2 y2 x3 y3))))
-                     (q/stroke-weight (:stroke-weight e))
-                     (q/with-stroke (:stroke e)
-                                    (q/ellipse
-                                      0
-                                      0
-                                      (-> e
-                                          :transform
-                                          :width)
-                                      (-> e
-                                          :transform
-                                          :height)))))))}
-       :stroke (lib/->hsb (:orange controls/color-map))
-       :stroke-weight 4
-       :transform
-         (lib/->transform (lib/mid-point) 80 100 1)})
-    (lib/live [:fade (lib/->fade-pulse-2 10 :stroke)])
-    (lib/live [:water
-               (lib/every-n-seconds
-                 1.5
-                 (fn [e]
-                   (update e
-                           :angular-acceleration
-                           (fnil + 0)
-                           (lib/normal-distr
-                             0
-                             ;; 0.1
-                             (get (lib/controls)
-                                  :water-force
-                                  0.5)))))])))
+   (lib/->entity
+    :fish
+    {:color (:woodsmoke controls/color-map)
+     :color-left (lib/->hsb (:orange controls/color-map))
+     :color-right (lib/->hsb (:orange controls/color-map))
+     :draggable? true
+     :draw-functions
+     {:1 (fn [e]
+           (q/stroke-weight (:stroke-weight e))
+           (q/with-translation
+             (lib/position e)
+             (q/with-fill
+               (lib/->hsb (:color e))
+               (q/with-rotation
+                 [(lib/rotation e)]
+                 (let [{:keys [scale width height]}
+                       (:transform e)
+                       [w h] [(* scale width)
+                              (* scale height)]
+                       [x1 y1] [0 (- (/ h 2))]
+                       [x2 y2] [(- (/ w 2)) (+ (/ h 2))]
+                       [x3 y3] [(+ (/ w 2))
+                                (+ (/ h 2))]]
+                   (q/with-fill
+                     (lib/->hsb (if (-> e
+                                        :flashing-fins
+                                        :left)
+                                  (:heliotrope
+                                   controls/color-map)
+                                  (:color e)))
+                     (q/with-translation
+                       [15 0]
+                       (q/with-rotation [q/HALF-PI]
+                         (q/triangle
+                          x1
+                          y1
+                          x2
+                          y2
+                          x3
+                          y3))))
+                   (q/with-fill
+                     (lib/->hsb (if (-> e
+                                        :flashing-fins
+                                        :left)
+                                  (:heliotrope
+                                   controls/color-map)
+                                  (:color e)))
+                     (q/with-translation
+                       [-15 0]
+                       (q/with-rotation [(- q/HALF-PI)]
+                         (q/triangle
+                          x1
+                          y1
+                          x2
+                          y2
+                          x3
+                          y3))))
+                   (q/with-translation
+                     [0 -40]
+                     (q/with-rotation
+                       [q/TWO-PI]
+                       (q/triangle x1 y1 x2 y2 x3 y3))))
+                 (q/stroke-weight (:stroke-weight e))
+                 (q/with-stroke (:stroke e)
+                   (q/ellipse
+                    0
+                    0
+                    (-> e
+                        :transform
+                        :width)
+                    (-> e
+                        :transform
+                        :height)))))))}
+     :flashing-fins #{}
+     :stroke (lib/->hsb (:orange controls/color-map))
+     :stroke-weight 4
+     :transform
+     (lib/->transform (lib/mid-point) 80 100 1)})
+   (lib/live [:fade (lib/->fade-pulse-2 10 :stroke)])
+   ;; (lib/live [:water
+   ;;            (lib/every-n-seconds
+   ;;             1.5
+   ;;             (fn [e]
+   ;;               (update e
+   ;;                       :angular-acceleration
+   ;;                       (fnil + 0)
+   ;;                       (lib/normal-distr
+   ;;                        0
+   ;;                        ;; 0.1
+   ;;                        (get (lib/controls)
+   ;;                             :water-force
+   ;;                             0.5)))))])
+   (lib/live [:motor-move (lib/every-n-seconds 4 (fn [e] (make-motor-movement e (rand-nth [:left :right]))))])))
 
 (defmethod lib/setup-version :cerebellum1
   [state]

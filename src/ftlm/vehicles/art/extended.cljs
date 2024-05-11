@@ -398,8 +398,6 @@
                                    start-pos
                                    end-pos))))))))
 
-(defn track [])
-
 (defn ->clock-flower
   [{:as opts :keys [pos radius count i->fill]}]
   (let [angle-step (/ 360 count)]
