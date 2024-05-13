@@ -67,7 +67,7 @@
                      y (+ y (* row spacing))]
                  [x y]))
      :spacing spacing}
-    opts)))
+    opts))),
 
 (defn ->neuronal-area-ac-1
   [opts]

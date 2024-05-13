@@ -681,7 +681,8 @@
 (defn angle-between [[x1 y1] [x2 y2]] (- (Math/atan2 (- y1 y2) (- x1 x2)) q/HALF-PI))
 
 (defn normalize-angle [angle]
-  (mod (abs angle) q/TWO-PI))
+  (mod (+ (mod angle q/TWO-PI) q/TWO-PI) q/TWO-PI))
+
 
 (defn orient-towards
   [entity target]

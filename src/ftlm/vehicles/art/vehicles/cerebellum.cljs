@@ -1,24 +1,26 @@
+
 (ns ftlm.vehicles.art.vehicles.cerebellum
   (:require
-   [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
-   [ftlm.vehicles.art :as art]
-   [quil.core :as q :include-macros true]
-   [quil.middleware :as m]
-   [ftlm.vehicles.art.extended :as elib]
-   [ftlm.vehicles.art.controls :as controls :refer
-    [versions]]
-   [ftlm.vehicles.art.user-controls :as
-    user-controls]
-   [ftlm.vehicles.art.grid]
-   [goog.style]
-   [ftlm.vehicles.hdv]
-   [tech.v3.datatype.argops :as argops]
-   [tech.v3.datatype.functional :as dtype-fn]
-   ["mathjs" :as mathjs]))
+    [ftlm.vehicles.art.lib :as lib :refer [*dt*]]
+    [ftlm.vehicles.art :as art]
+    [quil.core :as q :include-macros true]
+    [quil.middleware :as m]
+    [ftlm.vehicles.art.extended :as elib]
+    [ftlm.vehicles.art.controls :as controls :refer
+     [versions]]
+    [ftlm.vehicles.art.user-controls :as user-controls]
+    [ftlm.vehicles.art.grid]
+    [goog.style]
+    [ftlm.vehicles.hdv]
+    [tech.v3.datatype.argops :as argops]
+    [tech.v3.datatype.functional :as dtype-fn]
+    [ftlm.vehicles.assembly-calculus :as ac]
+    [ftlm.vehicles.art.neuronal-area :as na]
+    [ftlm.vehicles.art.vehicles.cerebellum.purkinje :as pc]
+    ["mathjs" :as mathjs]))
 
 ;;
 ;; https://www.sciencedirect.com/science/article/abs/pii/S0079612308609711?via%3Dihub
-
 ;;
 ;; Based on Braitenberg about the arrangment of Cerebellum.
 ;;
@@ -178,32 +180,108 @@
      :stroke-weight 4
      :transform
      (lib/->transform (lib/mid-point) 80 100 1)})
-   (lib/live [:fade (lib/->fade-pulse-2 10 :stroke)])
-   ;; (lib/live [:water
-   ;;            (lib/every-n-seconds
-   ;;             1.5
-   ;;             (fn [e]
-   ;;               (update e
-   ;;                       :angular-acceleration
-   ;;                       (fnil + 0)
-   ;;                       (lib/normal-distr
-   ;;                        0
-   ;;                        ;; 0.1
-   ;;                        (get (lib/controls)
-   ;;                             :water-force
-   ;;                             0.5)))))])
-   (lib/live [:motor-move (lib/every-n-seconds 4 (fn [e] (make-motor-movement e (rand-nth [:left :right]))))])))
+   (lib/live [:fade (lib/->fade-pulse-2 10 :stroke)])))
+
+(defn water
+  [e]
+  (lib/live e
+            [:water
+             (lib/every-n-seconds 1
+                                  (fn [e]
+                                    (update
+                                      e
+                                      :angular-acceleration
+                                      (fnil + 0)
+                                      (lib/normal-distr
+                                        0
+                                        (get (lib/controls)
+                                             :water-force
+                                             0.2)))))]))
+
+(defn random-motor-move [e]
+  (lib/live e [:motor-move (lib/every-n-seconds 4 (fn [e] (make-motor-movement e (rand-nth [:left :right]))))]))
+
+(defn ->vestibular-neurons
+  [fish side]
+  (let [e (na/->neurons
+            {:->activations (fn [e]
+                              (-> e
+                                  :neurons
+                                  ac/read-activations))
+             :grid-width 5
+             :n-neurons 50
+             :neurons {:activations #js []}
+             :spacing 15
+             :transform (lib/->transform
+                          [(({:left - :right +} side)
+                             (first (lib/position fish))
+                             200) 400]
+                          10
+                          10
+                          1)})]
+    {:e e
+     :update
+       (fn [s]
+         (let [rotation (lib/rotation ((lib/entities-by-id
+                                         s)
+                                        (:id fish)))
+               rotation (/ (lib/normalize-angle rotation)
+                           q/TWO-PI)
+               _ (println rotation)
+               rotation
+                 (if (= :left side) (- 1 rotation) rotation)
+               active-part (/ rotation 0.5)
+               _ (println side active-part)
+               active (if-not (< 0 active-part 1.0)
+                        0
+                        (* rotation (:n-neurons e)))]
+           (assoc-in s
+             [:eid->entity (:id e) :neurons :activations]
+             (mathjs/range 0 active))))}))
 
 (defmethod lib/setup-version :cerebellum1
   [state]
   (-> state
-      (lib/append-ents
-       [
-        (->fish)
-        ;; (lib/->entity :circle
-        ;;               {:transform (lib/->transform [200 200] 20 20 1)
-        ;;                :color controls/white})
-        ])))
+      (lib/append-ents [(-> (->fish)
+                            random-motor-move)])))
+
+(defmethod lib/setup-version :cerebellum2
+  [state]
+  (let [fish (-> (->fish)
+                 water)
+        vestibular {:left (->vestibular-neurons fish :left)
+                    :right (->vestibular-neurons fish :right)}]
+    (-> state
+        (assoc :on-update-map
+               {:vestibular (fn [s _]
+                              (reduce (fn [s op] (op s)) s (map :update (vals vestibular))))})
+
+        (lib/append-ents (map :e (vals vestibular)))
+        (lib/append-ents
+         [fish
+          (pc/->single-row-purkinjes
+           {:->activations (fn [e]
+                             (-> e
+                                 :neurons
+                                 ac/read-activations))
+            :draw-i (fn [_ active?]
+                      (q/with-fill
+                        (if active?
+                          (lib/->hsb
+                           (:cyan controls/color-map))
+                          (lib/->hsb [0 0 0]))
+                        (q/rect 0 0 4 30 3)))
+            :grid-width 100
+            :neurons {:activations (mathjs/matrix
+                                    (mathjs/range 0 50))
+                      :n-neurons 50}
+            :spacing 10
+            :transform (lib/->transform
+                        [50 (elib/from-bottom 200)]
+                        50
+                        50
+                        1)})]))))
+
 
 (defn setup
   [controls]
@@ -250,3 +328,8 @@
 (defmethod user-controls/action-button ::restart
   [_]
   (some-> @restart-fn (apply nil)))
+
+
+(comment
+  (swap! lib/the-state update-in [:eid->entity 3 :neurons] pc/allocate-segment 20 :left)
+  (swap! lib/the-state update-in [:eid->entity 3 :neurons] pc/allocate-segment 20 :right))
