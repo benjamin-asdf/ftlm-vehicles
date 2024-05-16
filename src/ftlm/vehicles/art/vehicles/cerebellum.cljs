@@ -88,16 +88,29 @@
     (reset! lib/the-state state)
     state))
 
+(def other-side {:left :right :right :left})
+
 (defn make-motor-movement
   [e dir]
+  (println "make-motor-movement" dir)
   (-> e
       (update :flashing-fins conj dir)
-      (update :angular-velocity
-              (get {:left + :right -} dir)
-              400)
+      (update
+       :angular-velocity
+       (constantly
+        (get {:left 5 :right -1} dir)))
       (assoc-in [:on-update-map :scale]
                 (elib/->tiny-breath
-                 {:speed 2 :start 1 :stop 2.0}))))
+                 {:speed 2 :start 1 :stop 2.0}))
+      (assoc-in [:on-update-map :stop-scale]
+                (lib/every-n-seconds
+                 3
+                 (fn [e s k]
+                   (-> e
+                       (update :on-update-map dissoc
+                               :scale :stop-scale)
+                       (assoc :flashing-fins #{})))))))
+
 
 (defn ->fish
   []
@@ -186,17 +199,18 @@
   [e]
   (lib/live e
             [:water
-             (lib/every-n-seconds 1
-                                  (fn [e]
-                                    (update
-                                      e
-                                      :angular-acceleration
-                                      (fnil + 0)
-                                      (lib/normal-distr
-                                        0
-                                        (get (lib/controls)
-                                             :water-force
-                                             0.2)))))]))
+             (lib/every-n-seconds
+              1
+              (fn [e]
+                (update
+                 e
+                 :angular-acceleration
+                 (fnil + 0)
+                 (lib/normal-distr
+                  0
+                  (get (lib/controls)
+                       :water-force
+                       0.02)))))]))
 
 (defn random-motor-move [e]
   (lib/live e [:motor-move (lib/every-n-seconds 4 (fn [e] (make-motor-movement e (rand-nth [:left :right]))))]))
@@ -213,31 +227,85 @@
              :neurons {:activations #js []}
              :spacing 15
              :transform (lib/->transform
-                          [(({:left - :right +} side)
-                             (first (lib/position fish))
-                             200) 400]
-                          10
-                          10
-                          1)})]
+                         [(({:left - :right +} side)
+                           (first (lib/position fish))
+                           200) 400]
+                         10
+                         10
+                         1)
+             :side side})]
     {:e e
      :update
        (fn [s]
-         (let [rotation (lib/rotation ((lib/entities-by-id
-                                         s)
-                                        (:id fish)))
-               rotation (/ (lib/normalize-angle rotation)
-                           q/TWO-PI)
-               _ (println rotation)
+         (let [rotation (lib/rotation ((lib/entities-by-id s) (:id fish)))
+               rotation (/ (lib/normalize-angle rotation) q/TWO-PI)
                rotation
                  (if (= :left side) (- 1 rotation) rotation)
                active-part (/ rotation 0.5)
-               _ (println side active-part)
                active (if-not (< 0 active-part 1.0)
                         0
                         (* rotation (:n-neurons e)))]
            (assoc-in s
              [:eid->entity (:id e) :neurons :activations]
              (mathjs/range 0 active))))}))
+
+(defn initiate-stability-move
+  [fish state _]
+  (if (:is-moving state)
+    state
+    (let [vestibular (into []
+                           (comp (map :e)
+                                 (map :id)
+                                 (map (lib/entities-by-id
+                                       state)))
+                           (vals (:vestibular-nuclei fish)))
+          side->neuron-count
+          (into {}
+                (map (juxt :side
+                           (comp mathjs/count
+                                 (fn [e]
+                                   ((:->activations e)
+                                    e)))))
+                vestibular)]
+      (let [[side neuron-count]
+            (last (sort-by val side->neuron-count))]
+        (if (< 10 neuron-count)
+          ;; 1. start moving the muscles
+          ;; 2. send a signal to the purkinje to start an
+          ;; alarm clock, corresponding to the neuron
+          ;; count
+          ;; 3. send some kind of readiness or make some
+          ;;    kind of state, that says ones the alarm
+          ;;    is over, the equivalent motor vigor is to
+          ;;    be applied on the other side
+          ;; 4. actually, if you are *now* in an error
+          ;; state, you can train the purkinjes to not
+          ;; listen to you as much (?)
+          ;; - if you undershooted, you need to allocate
+          ;; more purkinje next time
+          ;; - if you overshooted, you need to allocate
+          ;; less purkinje next time.
+          ;;   (and this needs to be on 1 side of the
+          ;;   purkinje segment)
+          ;;
+          ;;
+          {:updated-state
+           (-> state
+               (assoc :is-moving true)
+               (update-in
+                [:eid->entity (:purkinje-cells state)]
+                pc/purkinje-alarm-clock
+                neuron-count
+                (fn [s]
+                  (-> s
+                      (update-in [:eid->entity (:id fish)]
+                                 make-motor-movement
+                                 (other-side side))
+                      (dissoc :is-moving))))
+               (update-in [:eid->entity (:id fish)]
+                          make-motor-movement
+                          side))}
+          {:updated-state state})))))
 
 (defmethod lib/setup-version :cerebellum1
   [state]
@@ -250,37 +318,46 @@
   (let [fish (-> (->fish)
                  water)
         vestibular {:left (->vestibular-neurons fish :left)
-                    :right (->vestibular-neurons fish :right)}]
-    (-> state
-        (assoc :on-update-map
-               {:vestibular (fn [s _]
-                              (reduce (fn [s op] (op s)) s (map :update (vals vestibular))))})
-
-        (lib/append-ents (map :e (vals vestibular)))
-        (lib/append-ents
-         [fish
+                    :right (->vestibular-neurons fish
+                                                 :right)}
+        fish (-> (assoc fish :vestibular-nuclei vestibular)
+                 (lib/live [:stability-move
+                            (lib/every-n-seconds
+                              5
+                              initiate-stability-move)]))
+        purkinje-cells
           (pc/->single-row-purkinjes
-           {:->activations (fn [e]
-                             (-> e
-                                 :neurons
-                                 ac/read-activations))
-            :draw-i (fn [_ active?]
-                      (q/with-fill
-                        (if active?
-                          (lib/->hsb
-                           (:cyan controls/color-map))
-                          (lib/->hsb [0 0 0]))
-                        (q/rect 0 0 4 30 3)))
-            :grid-width 100
-            :neurons {:activations (mathjs/matrix
-                                    (mathjs/range 0 50))
-                      :n-neurons 50}
-            :spacing 10
-            :transform (lib/->transform
-                        [50 (elib/from-bottom 200)]
-                        50
-                        50
-                        1)})]))))
+            {:->activations (fn [e]
+                              (-> e
+                                  :neurons
+                                  ac/read-activations))
+             :draw-i (fn [_ active?]
+                       (q/with-fill
+                         (if active?
+                           (lib/->hsb (:cyan
+                                        controls/color-map))
+                           (lib/->hsb [0 0 0]))
+                         (q/rect 0 0 4 30 3)))
+             :grid-width 100
+             :neurons {:activations (mathjs/matrix
+                                      (mathjs/range 0 50))
+                       :n-neurons 50}
+             :spacing 10
+             :transform (lib/->transform
+                          [50 (elib/from-bottom 200)]
+                          50
+                          50
+                          1)})]
+    (-> state
+        (assoc :purkinje-cells (:id purkinje-cells))
+        (assoc :on-update-map
+                 {:vestibular (fn [s _]
+                                (reduce (fn [s op] (op s))
+                                  s
+                                  (map :update
+                                    (vals vestibular))))})
+        (lib/append-ents (map :e (vals vestibular)))
+        (lib/append-ents [fish purkinje-cells]))))
 
 
 (defn setup

@@ -388,8 +388,6 @@
 (defn read-projection [proj]
   (.valueOf proj))
 
-
-
 ;; ==================
 ;; 1 bit version
 ;; - use geometry

@@ -199,11 +199,42 @@
           :activations
           (fn [act]
             (mathjs/setDifference
-             act
-             (case side
-               :left
-               (mathjs/range 0 how-many)
-               :right
-               (mathjs/range
-                (- (:n-neurons model) how-many)
-                (:n-neurons model)))))))
+              act
+              (case side
+                :left (mathjs/range 0 how-many)
+                :right (mathjs/range
+                        (- (:n-neurons model) how-many)
+                        (:n-neurons model)))))))
+
+(defn purkinje-alarm-clock
+  [e n-purkinje cb]
+  (let [fin? (fn [e]
+               (zero? (- 50
+                         (mathjs/count ((:->activations e)
+                                         e)))))]
+    (->
+      e
+      (assoc :parallel-fibre-slap 0)
+      (lib/live [:check-alarm
+                 (fn [e s k]
+                   (if (fin? e)
+                     {:updated-state
+                        (-> s
+                            cb
+                            (update-in [:eid->entity (:id e)
+                                        :on-update-map]
+                                       dissoc
+                                       k))}
+                     e))])
+      ;; pretend that the fibres go left to right
+      (lib/live
+        [:parallel-fibre-input
+         (fn [e _ k]
+           (if (fin? e)
+             (update e :on-update-map dissoc k)
+             (-> e
+                 (update-in [:neurons :activations]
+                            mathjs/setUnion
+                            #js [(:parallel-fibre-slap e)])
+                 (update :parallel-fibre-slap inc))))])
+      (update :neurons allocate-segment n-purkinje :left))))
