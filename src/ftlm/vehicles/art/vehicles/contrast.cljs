@@ -201,16 +201,13 @@
                      :inhibition-model
                      (comp ac/intrinsic-firing-rate
                            ac/neuron-skip-inhibition
-                           (cycling-cap-k-threshold-device
-                            [10 20]
-                            )
+                           (cycling-cap-k-threshold-device [10 20])
                            ac/intrinsic-excitability
                            ac/attenuation)
                      :intrinsic-firing-rate 0.01
                      :n-neurons n-neurons
                      :plasticity 0.5
-                     :plasticity-model
-                     ac/binary-hebbian-plasticity
+                     :plasticity-model ac/binary-hebbian-plasticity
                      :skip-rate 0.2
                      :weights
 
@@ -545,64 +542,3 @@
 ;;
 ;; Thus, a few strong connections could drive local excitation
 ;; of the majority of neurons with weak connections (Cossell et al., 2015).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(comment
-
-  (do (defn storage-get [o key] ((:storage-get o) key))
-      (defn storage-put
-        [o key value]
-        ((:storage-put o) key value))
-      (defn atomStorage
-        []
-        (let [a (atom {})]
-          {:a a
-           :storage-get (fn [key] (get @a key))
-           :storage-put (fn [key value]
-                          (swap! a assoc key value))}))
-      (defn cache-lookup-or-miss
-        [op key storage]
-        (js/Promise.
-         (fn [resolve reject]
-           (println 'cache-lookup-or-miss
-                    {:key key :storage storage})
-           (let [v (storage-get storage key)]
-             (println {:v v})
-             (if v
-               (resolve v)
-               (-> (op)
-                   (.then (fn [v]
-                            (storage-put storage key v)
-                            (resolve v)))))))))
-      (defn wrapCache
-        [op storage]
-        (fn [key] (cache-lookup-or-miss op key storage)))
-      (defn calc
-        []
-        (println "----------------calc----------------")
-        (js/Promise. (fn [resolve reject]
-                       (js/setTimeout #(resolve 50) 200))))
-      (def calcm (wrapCache calc (atomStorage))))
-  (.then (calcm "1") (fn [v] (println v))))

@@ -515,7 +515,7 @@
 ;;     |        |              |     |            |   |
 ;;     |  ---X--+--------------+ on  | ...  on    | X |
 ;;     |        |              |     |            |   |
-;;     |--X----X+--------------+ on  | ...  on    | X |
+;;     |--X----X+--------------+ on  | ...  on    | X | (but here one neuron per wire)
 ;;     |        |              |     |            |   |
 ;;     +--------+              +-----+            |   |
 ;;         neurons            ... n-wires         +---+
@@ -566,7 +566,7 @@
                               :inputs (ac/->neurons
                                         (:n-wires opts))
                               :n-neurons (:n-wires opts)
-                              :threshold 2
+                              :threshold 3
                               :tick-window 4
                               :wires wires}}))
         e (lib/live
