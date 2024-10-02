@@ -15,8 +15,6 @@
 
 
 
-  (clojure.string/includes? "abba" "a")
-
 
 
   )

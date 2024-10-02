@@ -1,6 +1,7 @@
 (ns ftlm.vehicles.art.controls)
 
 (def white [0 0 255])
+(def black [0 0 0])
 
 (def
   cyberpunk-palette-hsb
@@ -40,16 +41,18 @@
    :sweet-pink {:h 356 :s 39 :v 100}
    :very-blue {:h 210 :s 255 :v 100}
    :woodsmoke {:h 240 :s 26 :v 9}
+   :white white
    :yellow {:h 60 :s 100 :v 100}})
 
 (def quite-green {:h 135 :s 100 :v 100})
 (def olive-lime-green {:h 72 :s 100 :v 100})
 
 (def default-versions
-  {"assembly" {:background-color (:woodsmoke color-map)
+  {"pareidolia" {:background-color white :time-speed 4}
+   "assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
    "assembly-friends" {:background-color (:woodsmoke
-                                           color-map)
+                                          color-map)
                        :n-neurons 1000
                        :plasticity 0.1
                        :time-speed 3}
@@ -74,41 +77,41 @@
                 :spread 1
                 :spread-speed 0}
    "cell-assemblies" {:background-color (:midnight-purple
-                                          color-map)
+                                         color-map)
                       :time-speed 3}
    "cerebellum" {:background-color
                  (:fruit-salad
                   color-map)
                  :time-speed 3}
    "fear_and_aggression"
-     {:aggression {:amount 2 :scale 1}
-      :background-color {:h 0 :s 0 :v 89}
-      :brownian-factor 0.8
-      :explore {:amount 3 :scale 1}
-      :fear {:amount 2 :scale 1}
-      :love {:amount 3 :scale 1}
-      :ray-source-count 0
-      :ray-source-scale 0.8
-      :ray-source-spread 0.4
-      :ray-sources-die? true
-      :ray-sources-spawn-rate 0.8
-      :sub-controls #{:aggression :fear :love :explore}
-      :time-speed 3}
+   {:aggression {:amount 2 :scale 1}
+    :background-color {:h 0 :s 0 :v 89}
+    :brownian-factor 0.8
+    :explore {:amount 3 :scale 1}
+    :fear {:amount 2 :scale 1}
+    :love {:amount 3 :scale 1}
+    :ray-source-count 0
+    :ray-source-scale 0.8
+    :ray-source-spread 0.4
+    :ray-sources-die? true
+    :ray-sources-spawn-rate 0.8
+    :sub-controls #{:aggression :fear :love :explore}
+    :time-speed 3}
    "getting-around"
-     {:background-color {:h 0 :s 0 :v 89}
-      :brownian-factor 0.8
-      :cart-scale 1
-      :color-palatte [50 40 60]
-      :make-trails? true
-      :max-temp 1
-      :spawn-amount 30
-      :spawn-spread 0.4
-      :temp-color-high {:a 1 :h 0 :s 68 :v 89}
-      :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
-      :temp-zone-count 10
-      :time-speed 2
-      :trail-color {:h 0 :s 0 :v 89}
-      :trail-size 20}
+   {:background-color {:h 0 :s 0 :v 89}
+    :brownian-factor 0.8
+    :cart-scale 1
+    :color-palatte [50 40 60]
+    :make-trails? true
+    :max-temp 1
+    :spawn-amount 30
+    :spawn-spread 0.4
+    :temp-color-high {:a 1 :h 0 :s 68 :v 89}
+    :temp-color-low {:a 0.1 :h 0 :s 68 :v 89}
+    :temp-zone-count 10
+    :time-speed 2
+    :trail-color {:h 0 :s 0 :v 89}
+    :trail-size 20}
    "hunger" {:background-color (:misty-rose color-map)
              :brownian-factor 0.8
              :cold {:high-color {:h 212 :s 100 :v 71}
@@ -535,15 +538,11 @@
                       "1" {:v :world}
                       "2" {:v :neighbours-lines}
                       "4" {:v :grid}}
-   "cerebellum" {
-                 "1" {:background-color (:midnight-purple
-                                         color-map)
-                      :v :cerebellum1}
-                 "2" {:background-color (:midnight-purple
-                                         color-map)
-                      :v :cerebellum2}
-
-                 }
+   "cerebellum"
+     {"1" {:background-color (:midnight-purple color-map)
+           :v :cerebellum1}
+      "2" {:background-color (:midnight-purple color-map)
+           :v :cerebellum2}}
    "fear_and_aggression"
      {"0" {}
       "1" {:aggression {:amount 0 :scale 0.4}
@@ -705,6 +704,11 @@
                 "8" {:v :worms-only}
                 "9" {:v :messing-with-you}}
    "logic" {"0" {}}
+   "pareidolia" {"0"
+                 {:background-color white
+                  :shape-color black
+                  :v :pareidolia-1
+                  }}
    "taste" {"0" {:auto-select? true
                  :multi-sensory {:amount 1 :scale 1}
                  :spawn-people [:multi-sensory]

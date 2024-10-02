@@ -17,6 +17,7 @@
    ftlm.vehicles.art.vehicles.hunger
    ftlm.vehicles.art.vehicles.cell-assemblies-two
    ftlm.vehicles.art.vehicles.cerebellum
+   ftlm.vehicles.art.pareidolia
    [ftlm.vehicles.art.user-controls :as user-controls]))
 
 ;; (defn req [href opts]

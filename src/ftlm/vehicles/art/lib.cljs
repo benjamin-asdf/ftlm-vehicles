@@ -1376,8 +1376,10 @@
 (defn put-rotation [e rotation]
   (assoc-in e [:transform :rotation] rotation))
 
-(defn live [e op]
-  (update e :on-update-map (fnil conj {}) op))
+(defn live
+  [e op]
+  (let [op (if (vector? op) op [(random-uuid) op])]
+    (update e :on-update-map (fnil conj {}) op)))
 
 (defn clone-entity
   [e]
