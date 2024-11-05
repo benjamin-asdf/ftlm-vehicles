@@ -4,16 +4,20 @@
    [ring.util.response :as resp]
    [ring.middleware.anti-forgery :as csrf]))
 
-(defn base [body]
+(defn base
+  [body]
   (h/html
-      {:escape-strings? false}
-      [:head
-       [:link {:rel "preload" :as "script" :href "/js/main.js"}]
-       [:link {:rel "stylesheet" :href "/css/ui.css"}]
-       [:title "ftlm-vehicles"]]
-      [:body
-       body
-       [:script {:type "text/javascript" :src "/js/main.js" :defer true}]]))
+    {:escape-strings? false}
+    [:head
+     [:link
+      {:as "script" :href "/js/main.js" :rel "preload"}]
+     [:link {:href "/css/ui.css" :rel "stylesheet"}]
+     [:title "ftlm-vehicles"]]
+    [:body body
+     [:script
+      {:defer true
+       :src "/js/main.js"
+       :type "text/javascript"}]]))
 
 (defn page-resp [body]
   (->
@@ -21,3 +25,22 @@
    str
    resp/response
    (resp/header "Content-Type" "text/html")))
+
+;; --------------------------------------------
+
+(defn embed-page-resp
+  [body]
+  (-> (h/html
+        {:escape-strings? false}
+        [:head
+         [:link
+          {:as "script" :href "/js/main.js" :rel "preload"}]
+         [:title "ftml-vehicles-embed"]]
+        [:body body
+         [:script
+          {:defer true
+           :src "/js/main.js"
+           :type "text/javascript"}]])
+      str
+      resp/response
+      (resp/header "Content-Type" "text/html")))

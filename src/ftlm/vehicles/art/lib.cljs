@@ -1408,3 +1408,8 @@
 (defmulti setup-version (comp keyword :v :controls))
 
 (defonce the-state (atom {:event-q (atom [])}))
+
+(defn every-now-and-then
+  ([mean op] (every-now-and-then mean (q/sqrt mean) op))
+  ([mean stdv op]
+   (every-n-seconds (fn [] (normal-distr mean stdv)) op)))

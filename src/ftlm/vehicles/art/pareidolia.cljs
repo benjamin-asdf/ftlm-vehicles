@@ -19,10 +19,37 @@
 
 (defn draw-state
   [state]
-  (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 0)
   ;; (q/stroke 0.3)
-  (lib/draw-entities state))
+  (if ((q/state) :background-fades?)
+    (do (q/color-mode :hsb)
+        (lib/draw-entities state)
+        (q/color-mode :rgb)
+        ;; (q/fill 0 0 0 10)
+        #_(q/fill (lib/->hsb
+                   (lib/with-alpha
+                     (lib/->hsb
+                      (or (state :background-color)
+                          (-> state
+                              :controls
+                              :background-color)))
+                     0.1)))
+
+        (if
+            (=
+             (-> state :controls :background-color)
+             controls/black)
+            (q/fill 0 0 0 10)
+            (q/fill 256 256 256 10))
+
+        (q/rect 0 0 (* 2 (q/width)) (* 2 (q/height))))
+    (do (q/color-mode :hsb)
+        (q/background (lib/->hsb
+                        (or (state :background-color)
+                            (-> state
+                                :controls
+                                :background-color))))
+        (lib/draw-entities state))))
 
 (defn update-entity
   [entity state env]
@@ -47,9 +74,13 @@
                       :controls
                       merge
                       (user-controls/controls))
-        dt (* (:time-speed (lib/controls))
-              (/ (- current-tick (:last-tick state))
-                 1000.0))
+        dt (*
+            (or
+             (:time-speed state)
+             (:time-speed (lib/controls)))
+            (/ (- current-tick (:last-tick state))
+               1000.0))
+        ;; dt (/ dt 5)
         state (binding [*dt* dt]
                 (-> state
                     (assoc :last-tick current-tick)
@@ -68,31 +99,210 @@
     state))
 
 (defn update-state
-  [_]
-  (let [state @lib/the-state
-        state (update-state-inner state)]
-    (reset! lib/the-state state)
-    state))
+  [state]
+  (update-state-inner state))
+
+(defn dancer
+  []
+  (->
+   (lib/->entity :circle
+                 {:dancer? true
+                  :color
+                  ;; (:mint controls/color-map)
+                  controls/black
+                  :kinetic-energy 2
+                  :no-stroke? true
+                  :particle? true
+                  :transform
+                  (lib/->transform
+                   (lib/rand-on-canvas-gauss 0.1)
+                   ;; (lib/mid-point)
+                   (min (float (/ (q/width) 2)) 300)
+                   (min (float (/ (q/width) 2)) 300)
+                   1)})
+   #_(lib/live (lib/every-now-and-then
+                0.1
+                (fn [e s k]
+                  (update-in e
+                             [:transform :scale]
+                             (fn [scale]
+                               (* scale
+                                  (if (< 0.5 (q/random 1))
+                                    1.3
+                                    0.4)))))))
+   (lib/live
+    (lib/every-n-seconds
+     (fn [] (+ 0.3 (lib/normal-distr 1 1)))
+     (fn [e s k]
+       (if-not (< 2e3 (q/millis))
+         e
+         (-> e
+             (assoc :kind (rand-nth [:circle :triangle
+                                     :rect]))
+             (assoc-in [:transform :scale]
+                       (rand-nth [1 0.5]))
+             (assoc-in [:kinetic-energy]
+                       (q/pow 2 (rand-int 3)))
+             (update-in [:transform :pos]
+                        (if (< 0.5 (rand 1))
+                          (constantly (lib/mid-point))
+                          identity)))))))
+
+   (lib/live (lib/every-now-and-then
+              1
+              (fn [e]
+                (if-not (< 10e3 (q/millis))
+                  e
+                  (assoc e
+                         :color ((rand-nth [:cyan
+                                            :black
+                                            :red])
+                                 controls/color-map))))))
+
+   #_(lib/live
+      (lib/every-now-and-then 10
+                              (fn [e]
+                                (update-in
+                                 e
+                                 [:color]
+                                 (fn [color]
+                                   controls/white
+                                   ;; (lib/with-alpha
+                                   ;;   (lib/->hsb
+                                   ;;   color)
+                                   ;;   (*
+                                   ;;   (rand-nth
+                                   ;;   [0.9
+                                   ;;   1.1])
+                                   ;;      (q/alpha
+                                   ;;      (lib/->hsb
+                                   ;;      color))))
+                                   )))))
+   ;; (lib/live
+   ;;  (lib/every-now-and-then
+   ;;   0.1
+   ;;   (fn [e]
+   ;;     (->
+   ;;      e
+   ;;      (assoc-in [:angular-velocity] 0)
+   ;;      (assoc-in
+   ;;       [:angular-acceleration]
+   ;;       0
+   ;;       ;; (fn [acc]
+   ;;       ;;   (* (rand-nth [-1 -0.5 0.5 0]) acc))
+   ;;       )))))
+   ))
 
 (defmethod lib/setup-version :pareidolia-1
   [state]
+  (-> state
+      (assoc :background-fades? true)
+      (lib/live
+       (lib/every-now-and-then
+        5
+        (fn [s k]
+          (let [fades? (not (:background-fades? s))]
+            (assoc-in s [:background-fades?] fades?)
+            (assoc-in s [:time-speed] (if fades? 4 2))))))
+      (lib/live (lib/every-now-and-then
+                 60
+                 (fn [s k]
+                   (lib/append-ents s [(dancer)]))))
+      (lib/append-ents [(dancer)])))
+
+(defmethod lib/setup-version :pareidolia-2
+  [state]
+  (-> state
+      (assoc :background-fades? true)
+      (lib/live
+        (lib/every-now-and-then
+          5
+          (fn [s k]
+            (let [fades? (not (:background-fades? s))]
+              (assoc-in s [:background-fades?] fades?)
+              (assoc-in s [:time-speed] (if fades? 4 2))))))
+      (lib/live (lib/every-now-and-then
+                  5
+                  (fn [s k]
+                    (lib/append-ents s [(dancer)]))))
+      (lib/append-ents [(dancer)])))
+
+
+
+(defmethod lib/setup-version :pareidolia-3
+  [state]
   (->
     state
-    (lib/append-ents
-      [(->
-         (lib/->entity
-           :circle
-           {:color controls/black
-            :kinetic-energy 0.1
-            :particle? true
-            :transform
-              (lib/->transform (lib/mid-point) 300 300 1)})
-         (lib/live (lib/every-n-seconds
-                     (fn [] (+ 0.3 (lib/normal-distr 1 1)))
-                     (fn [e s k]
-                       (assoc e
-                         :kind (rand-nth [:circle :triangle
-                                          :rect]))))))])))
+    (assoc :background-fades? true)
+    (lib/live
+      (lib/every-now-and-then
+        5
+        (fn [s k]
+          (let [fades? (not (:background-fades? s))]
+            (assoc-in s [:background-fades?] fades?)
+            (assoc-in s [:time-speed] (if fades? 4 2))))))
+    (lib/live (lib/every-now-and-then
+                20
+                (fn [s k] (lib/append-ents s [(dancer)]))))
+    (lib/append-ents [(dancer)])
+    (lib/live
+      (lib/every-now-and-then
+        0.1
+        (fn [s k]
+          (let [e (lib/clone-entity
+                    (first (filter :dancer?
+                             (shuffle (lib/entities s)))))]
+            (lib/append-ents
+              s
+              [(-> e
+                   (assoc-in [:transform :pos]
+                             (lib/rand-on-canvas-gauss 0.7))
+                   (assoc :lifetime (lib/normal-distr
+                                      10
+                                      5)))])))))))
+
+
+(defmethod lib/setup-version :pareidolia-4
+  [state]
+  (let [dancer (fn []
+                 (-> (dancer)
+                     (assoc-in [:transform :scale] 0.5)
+                     (lib/live (fn [e s k]
+                                 (assoc e
+                                   :color
+                                     controls/white)))))]
+    (->
+      state
+      (assoc :background-fades? true)
+      (lib/live
+        (lib/every-now-and-then
+          5
+          (fn [s k]
+            (let [fades? (not (:background-fades? s))]
+              (assoc-in s [:background-fades?] fades?)
+              (assoc-in s [:time-speed] (if fades? 4 2))))))
+      (lib/live (lib/every-now-and-then
+                  20
+                  (fn [s k]
+                    (lib/append-ents s [(dancer)]))))
+      (lib/append-ents [(dancer)])
+      (lib/live
+        (lib/every-now-and-then
+          2
+          (fn [s k]
+            (let [e (lib/clone-entity
+                      (first (filter :dancer?
+                               (shuffle (lib/entities
+                                          s)))))]
+              (lib/append-ents
+                s
+                [(-> e
+                     (assoc-in [:transform :pos]
+                               (lib/rand-on-canvas-gauss
+                                 0.7))
+                     (assoc :lifetime (lib/normal-distr
+                                        10
+                                        5)))]))))))))
 
 
 (defn setup
@@ -102,21 +312,19 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (let [state {:controls controls :on-update []}
-        state (-> state lib/setup-version)]
-    (reset! lib/the-state state)))
-
+        state (-> state
+                  lib/setup-version)]
+    state))
 
 (defn sketch
   [host {:keys [width height]} controls]
   (let [[screen-width screen-height] (lib/window-dimensions)
-        _width (cond (= width "max") screen-width
-                     width width
-                     :else screen-width)
-        _height (cond (= height "max") screen-height
-                      height height
-                      :else screen-height)
-        width 1000
-        height 800]
+        width (cond (= width "max") screen-width
+                    width width
+                    :else screen-width)
+        height (cond (= height "max") screen-height
+                     height height
+                     :else screen-height)]
     (q/sketch :host host
               :size [width height]
               :setup (partial setup controls)
@@ -124,26 +332,18 @@
               :draw draw-state
               :features [:keep-on-top]
               :middleware [m/fun-mode]
-              :mouse-pressed (comp #(reset! lib/the-state %)
-                                   lib/mouse-pressed)
-              :mouse-released (comp #(reset! lib/the-state
-                                             %)
-                                    lib/mouse-released)
-              :mouse-wheel (comp #(reset! lib/the-state %)
-                                 lib/mouse-wheel)
               :frame-rate 30)))
 
-(defonce restart-fn (atom nil))
+;; --------------------
+;; I need to update 'lib/the-state' to have multiple of these in the gallery
+;; - or put iframes in the gallery !
+;; --------------------
+
+(defonce restart-fn (atom (constantly nil)))
 (defmethod art/view "pareidolia"
   [{:as opts :keys [place version]}]
-  (println version)
-  (println place)
-  (let [f (fn []
-            (let [controls
-                  (merge
+  (let [controls (merge
                    (controls/default-versions "pareidolia")
                    (get-in versions ["pareidolia" version])
                    @user-controls/!app)]
-              (sketch place opts controls)))]
-    (reset! restart-fn f)
-    (f)))
+    (sketch place opts controls)))
