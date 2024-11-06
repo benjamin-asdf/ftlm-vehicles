@@ -69,14 +69,16 @@
               :piece piece
               :version version
               :width width})
-    (embed-page-resp [:div [:div {:id "main"}]
-                      (graft "art"
-                             :prev-sibling
-                             {:height height
-                              :piece piece
-                              :version version
-                              :width width})
-                      [:div {:id "art-place-2"}]])))
+    (embed-page-resp
+     [:div [:div {:id "main"}]
+      (graft "art"
+             :prev-sibling
+             {:height height
+              :piece piece
+              :version version
+              :width width})
+      [:div {:id "art-place-2"}]])
+    ))
 
 (defn ->query
   [& qs]

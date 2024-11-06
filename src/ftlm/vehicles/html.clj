@@ -36,7 +36,7 @@
          [:link
           {:as "script" :href "/js/main.js" :rel "preload"}]
          [:title "ftml-vehicles-embed"]]
-        [:body body
+        [:body {:style {:margin "0px"}} body
          [:script
           {:defer true
            :src "/js/main.js"
