@@ -50,6 +50,7 @@
 
 (def default-versions
   {"pareidolia" {:background-color white :time-speed 2}
+   "sparkles" {:background-color white :time-speed 2}
    "assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
    "assembly-friends" {:background-color (:woodsmoke
@@ -711,6 +712,19 @@
     "1" {:background-color white :v :pareidolia-2}
     "2" {:background-color white :v :pareidolia-3}
     "3" {:background-color black :v :pareidolia-4}}
+
+   "sparkles"
+   {"0" {:background-color white :v :sparkles-1}
+    "1" {:background-color white :v :sparkles-2}
+    "2" {:background-color white :v :sparkles-3}
+    "3" {:background-color black :v :sparkles-4}
+    "4" {:background-color black :v :sparkles-5}
+    "5" {:background-color black :v :sparkles-6}
+    "6" {:background-color black :v :sparkles-7}
+    "7" {:background-color black :v :sparkles-8}
+
+
+    }
 
 
 

@@ -1,5 +1,4 @@
 {:nrepl {:port 7014}
- :deps {:aliases [:client]}
  :builds
  {:client
   {:target :browser

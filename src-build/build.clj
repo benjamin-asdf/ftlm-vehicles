@@ -40,13 +40,17 @@
 (defn build-client [{:keys [optimize debug verbose version]
                      :or {optimize true, debug false, verbose false, version version}}]
   (println "Building client. Version:" version)
-  (shadow-server/start!)
+  ;; (shadow-server/start!)
   (shadow-api/release
    :client
    {:debug debug,
     :verbose verbose,
-    :config-merge [{:compiler-options {:optimizations (if optimize :advanced :simple)}}]})
-  (shadow-server/stop!))
+    :config-merge
+    [{:compiler-options {:optimizations (if optimize :advanced :simple)}}]})
+
+
+  ;; (shadow-server/stop!)
+  )
 
 (defn uberjar [{:keys [jar-name version optimize debug verbose]
                 :or   {version version, optimize true, debug false, verbose false}}]
@@ -56,7 +60,7 @@
   (println "Cleaning cljs compiler output")
   (clean-cljs nil)
 
-  (build-client {:optimize optimize, :debug debug, :verbose verbose, :version version})
+  ;; (build-client {:optimize optimize, :debug debug, :verbose verbose, :version version})
 
   (println "Bundling sources")
   (b/copy-dir {:src-dirs   ["src" "resources"]

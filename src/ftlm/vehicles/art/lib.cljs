@@ -2,7 +2,8 @@
   (:require
    [quil.core :as q :include-macros true]
    [ftlm.vehicles.art.util :as u]
-   [ftlm.vehicles.art.controls])
+   [ftlm.vehicles.art.controls
+    :refer [color-map]])
   (:require-macros [ftlm.vehicles.art.util :as u]))
 
 (def ^:dynamic *dt* nil)
@@ -90,25 +91,29 @@
 
 (defn ->hsb
   [color]
-  (apply q/color
-    (cond
-      (and (map? color)
-           (every? #(contains? color %) [:h :s :b]))
-      [(:h color) (:s color) (:b color)]
-      (and (map? color)
-           (every? #(contains? color %) [:h :s :v :a]))
-      [(* (/ (:h color) 360) 255)
-       (* 255 (/ (:s color) 100))
-       (* 255 (/ (:v color) 100)) (* 255 (:a color))]
-      (and (map? color)
-           (every? #(contains? color %) [:h :s :v]))
-      [(* (/ (:h color) 360) 255)
-       (* 255 (/ (:s color) 100))
-       (* 255 (/ (:v color) 100))]
-      (sequential? color) color
-      (number? color) [color 255 255]
-      (nil? color) [0 0 0 0]
-      :else [color])))
+  (let
+      [color
+       (cond-> color (keyword? color) color-map)]
+      (apply q/color
+             (cond
+
+               (and (map? color)
+                    (every? #(contains? color %) [:h :s :b]))
+               [(:h color) (:s color) (:b color)]
+               (and (map? color)
+                    (every? #(contains? color %) [:h :s :v :a]))
+               [(* (/ (:h color) 360) 255)
+                (* 255 (/ (:s color) 100))
+                (* 255 (/ (:v color) 100)) (* 255 (:a color))]
+               (and (map? color)
+                    (every? #(contains? color %) [:h :s :v]))
+               [(* (/ (:h color) 360) 255)
+                (* 255 (/ (:s color) 100))
+                (* 255 (/ (:v color) 100))]
+               (sequential? color) color
+               (number? color) [color 255 255]
+               (nil? color) [0 0 0 0]
+               :else [color]))))
 
 (defn shine
   [{:as entity :keys [shine shinyness]}]
@@ -780,38 +785,100 @@
                 :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
 
+;; (defn ->circular-shine-1
+;;   [pos color speed]
+;;   (assoc (->entity :circle)
+;;          :transform (assoc
+;;                      (->transform pos 20 20 0.5)
+;;                      :absolute-scale 0.5)
+;;          :lifetime 1
+;;          :color color
+;;          :z-index -4
+;;          :on-update [(->grow speed) (->clamp-scale 20)]))
+
+;; (defn ->circular-shine
+;;   [freq speed]
+;;   (let [s (atom {:next freq})]
+;;     (fn [entity state]
+;;       (swap! s update :next - *dt*)
+;;       (when (<= (:next @s) 0)
+;;         (swap! s assoc :next (normal-distr freq freq))
+;;         (let [c (->hsb (:color entity))
+;;               se (->circular-shine-1
+;;                   (position entity)
+;;                   (q/color
+;;                    (q/hue c)
+;;                    (q/saturation c)
+;;                    (q/brightness c)
+;;                    100)
+;;                   speed)]
+;;           {:updated-state (-> state
+;;                               (update-in [:eid->entity (:id entity) :components]
+;;                                          (fnil conj [])
+;;                                          (:id se))
+;;                               (append-ents [se]))})))))
+
+
+
+
+
+
+
+
+
 (defn ->circular-shine-1
-  [pos color speed]
-  (assoc (->entity :circle)
-         :transform (assoc
-                     (->transform pos 20 20 0.5)
-                     :absolute-scale 0.5)
-         :lifetime 1
-         :color color
-         :z-index -4
-         :on-update [(->grow speed) (->clamp-scale 20)]))
+  [e]
+  (let [pos (position e)]
+    (assoc (->entity :circle)
+           :transform (assoc (->transform pos 20 20 1)
+                             :absolute-scale 1)
+           :lifetime 1
+           :color (color-map
+                    (rand-nth [:hit-pink :red :heliotrope
+                               :green-yellow :horizon :magenta
+                               :purple :sweet-pink :cyan]))
+           :z-index -4)))
 
 (defn ->circular-shine
-  [freq speed]
-  (let [s (atom {:next freq})]
-    (fn [entity state]
-      (swap! s update :next - *dt*)
-      (when (<= (:next @s) 0)
-        (swap! s assoc :next (normal-distr freq freq))
-        (let [c (->hsb (:color entity))
-              se (->circular-shine-1
-                  (position entity)
-                  (q/color
-                   (q/hue c)
-                   (q/saturation c)
-                   (q/brightness c)
-                   100)
-                  speed)]
-          {:updated-state (-> state
-                              (update-in [:eid->entity (:id entity) :components]
-                                         (fnil conj [])
-                                         (:id se))
-                              (append-ents [se]))})))))
+  ([freq speed]
+   (->circular-shine freq speed ->circular-shine-1))
+  ([freq speed make-shine]
+   (->circular-shine freq speed 3 make-shine))
+  ([freq speed lifetime make-shine]
+   (let [s (atom {:next freq})
+         freq (/ freq 3)]
+     (fn [entity state]
+       (swap! s update :next - *dt*)
+       (when (<= (:next @s) 0)
+         (swap! s assoc :next (normal-distr freq freq))
+         (let [c (->hsb (:color entity))
+               se (-> (assoc (make-shine
+                               entity
+                               #_(q/color (q/hue c)
+                                          (q/saturation c)
+                                          (q/brightness c)
+                                          100))
+                               :on-update
+                             [(->grow speed)])
+                      (update :lifetime
+                              (fn [l]
+                                (or l
+                                    (normal-distr
+                                      lifetime
+                                      (Math/sqrt
+                                        lifetime))))))]
+           {:updated-state (-> state
+                               (update-in [:eid->entity
+                                           (:id entity)
+                                           :components]
+                                          (fnil conj [])
+                                          (:id se))
+                               (append-ents [se]))}))))))
+
+
+
+
+
 
 (defn ->ray-source
   [{:as opts
@@ -825,7 +892,7 @@
            :shinyness
            (if-not
                (nil? shinyness)
-             shinyness
+               shinyness
                intensity)
            :on-update [(->circular-shine 1.5 (/ intensity 3))]
            :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
@@ -1413,3 +1480,29 @@
   ([mean op] (every-now-and-then mean (q/sqrt mean) op))
   ([mean stdv op]
    (every-n-seconds (fn [] (normal-distr mean stdv)) op)))
+
+(defn flash-shine-1
+  [{:as entity
+    :keys [shine activation-shine-colors activation-shine
+           activation-shine-speed]}
+   flash-val
+   {:keys [high low]}]
+  (if (:hidden? entity)
+    entity
+    (if flash-val
+      (let [shine (or shine 0)
+            shine (+ shine
+                     (* *dt*
+                        flash-val
+                        (or activation-shine-speed 1)))]
+        (assoc entity
+               :shine shine
+               :color
+               ;; defs/white
+               (q/lerp-color
+                (->hsb (or low (q/color 40 96 255 255)))
+                (->hsb (or high (q/color 100 255 255)))
+                (q/sin shine)
+                ;; (q/norm 0 1 (Math/sin shine))
+                )))
+      entity)))
