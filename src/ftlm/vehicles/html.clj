@@ -8,16 +8,12 @@
   [body]
   (h/html
     {:escape-strings? false}
-    [:head
-     [:link
-      {:as "script" :href "/js/main.js" :rel "preload"}]
+    [:head [:link {:as "script" :href "/js/main.js" :rel "preload"}]
      [:link {:href "/css/ui.css" :rel "stylesheet"}]
      [:title "ftlm-vehicles"]]
-    [:body body
+    [:body {:style {:margin "0px"}} body
      [:script
-      {:defer true
-       :src "/js/main.js"
-       :type "text/javascript"}]]))
+      {:defer true :src "/js/main.js" :type "text/javascript"}]]))
 
 (defn page-resp [body]
   (->
@@ -36,7 +32,9 @@
          [:link
           {:as "script" :href "/js/main.js" :rel "preload"}]
          [:title "ftml-vehicles-embed"]]
-        [:body {:style {:margin "0px"}} body
+        [:body
+         {:style {:margin "0px"}}
+         body
          [:script
           {:defer true
            :src "/js/main.js"

@@ -39,20 +39,18 @@
                                :parameters
                                :query
                                :controls))]
-
-    (page-resp
-     [:div [:div {:id "main"}]
-      (graft "art"
-             :prev-sibling
-             {:height height
-              :piece piece
-              :version version
-              :width width}) [:div {:id "art-place-2"}]
-      (when controls?
-        [:div
-         (graft "controls-app"
-                :parent
-                {:piece piece :version version})])])))
+    (page-resp [:div [:div {:id "main"}]
+                (graft "art"
+                       :prev-sibling
+                       {:height height
+                        :piece piece
+                        :version version
+                        :width width}) [:div {:id "art-place-2"}]
+                (when controls?
+                  [:div
+                   (graft "controls-app"
+                          :parent
+                          {:piece piece :version version})])])))
 
 (defn art-embedded
   [req]
@@ -65,20 +63,16 @@
         {:keys [width height]} (-> req
                                    :parameters
                                    :query)]
-    (println {:height height
-              :piece piece
-              :version version
-              :width width})
     (embed-page-resp
-     [:div [:div {:id "main"}]
+     [:div
+      [:div {:id "main"}]
       (graft "art"
              :prev-sibling
              {:height height
               :piece piece
               :version version
               :width width})
-      [:div {:id "art-place-2"}]])
-    ))
+      [:div {:id "art-place-2"}]])))
 
 (defn ->query
   [& qs]

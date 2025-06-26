@@ -784,6 +784,9 @@
 
 
 
+
+
+
 (defn update-intensity-osc
   [e s _]
   (let [speed 1
@@ -948,14 +951,68 @@
                                1.2))))))))))
 
 
-
-
-
-
-
-
-
-
+(defmethod lib/setup-version :sparkles-9
+  [state]
+  (->
+   state
+   (assoc :background-fades? true)
+   (lib/live
+    (lib/every-now-and-then
+     1
+     (fn [s k]
+       (lib/append-ents
+        s
+        [(->
+          (assoc (ball (lib/rand-on-canvas-gauss 0.2)) :lifetime
+                 10
+                 ;; (lib/normal-distr 5 5)
+                 :kinetic-energy
+                 2 :z-index
+                 100 :color
+                 (rand-nth [:cyan :hit-pink :heliotrope :mint]))
+          (assoc-in [:transform :scale]
+                    (lib/normal-distr 0.5 0.2))
+          (lib/live (lib/every-now-and-then
+                     2
+                     (fn [e s k]
+                       (when (< (count (lib/entities s)) 500)
+                         {:updated-state
+                          (lib/append-ents
+                           s
+                           [(-> (lib/clone-entity e)
+                                (update :lifetime * 1.02)
+                                (update :kinetic-energy
+                                        *
+                                        2))])})))))]))))
+   (lib/live
+    (lib/every-n-seconds
+     (fn []
+       (lib/normal-distr
+        (/ 1 (:line-freq (:controls (q/state))))
+        (q/sqrt (/ 1 (:line-freq (:controls (q/state)))))))
+     (fn [s k]
+       (let [balls (shuffle (filter (comp #{:circle} :kind)
+                                    (lib/entities s)))
+             b1 (first balls)
+             b2 (second balls)]
+         (when (and b1 b2)
+           (lib/append-ents s [(lib/->connection-line b1 b2)]))))))
+   (lib/live
+    (lib/every-now-and-then
+     1
+     (fn [s k]
+       (let [balls (shuffle (filter (comp #{:circle} :kind)
+                                    (lib/entities s)))
+             b1 (first balls)
+             b2 (second balls)]
+         (when (and b1 b2)
+           (-> s
+               (update-in [:eid->entity (:id b1) :kinetic-energy]
+                          *
+                          1.2)
+               (update-in [:eid->entity (:id b2) :kinetic-energy]
+                          *
+                          1.2)))))))))
 
 (defn setup
   [controls]

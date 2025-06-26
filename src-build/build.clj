@@ -47,8 +47,6 @@
     :verbose verbose,
     :config-merge
     [{:compiler-options {:optimizations (if optimize :advanced :simple)}}]})
-
-
   ;; (shadow-server/stop!)
   )
 
@@ -60,7 +58,7 @@
   (println "Cleaning cljs compiler output")
   (clean-cljs nil)
 
-  ;; (build-client {:optimize optimize, :debug debug, :verbose verbose, :version version})
+  (build-client {:optimize optimize, :debug debug, :verbose verbose, :version version})
 
   (println "Bundling sources")
   (b/copy-dir {:src-dirs   ["src" "resources"]

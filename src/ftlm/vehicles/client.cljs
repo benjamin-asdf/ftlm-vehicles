@@ -19,6 +19,7 @@
    ftlm.vehicles.art.vehicles.cerebellum
    ftlm.vehicles.art.pareidolia
    ftlm.vehicles.art.sparkles
+   ftlm.vehicles.art.not-fire
    [ftlm.vehicles.art.user-controls :as user-controls]))
 
 ;; (defn req [href opts]

@@ -50,7 +50,11 @@
 
 (def default-versions
   {"pareidolia" {:background-color white :time-speed 2}
+
    "sparkles" {:background-color white :time-speed 2}
+   "not-fire" {:background-color black :time-speed 2}
+
+
    "assembly" {:background-color (:woodsmoke color-map)
                :time-speed 3}
    "assembly-friends" {:background-color (:woodsmoke
@@ -158,7 +162,9 @@
    "getting-around" {:default-height 900
                      :default-width 900
                      :per-page 1
-                     :show-fullscreen-links? true}})
+                     :show-fullscreen-links? true}
+   "not-fire"
+   {:per-page 1}})
 
 (def versions
   {"assembly" {"0" {}}
@@ -722,6 +728,161 @@
     "5" {:background-color black :v :sparkles-6}
     "6" {:background-color black :v :sparkles-7}
     "7" {:background-color black :v :sparkles-8}
+    "8" {:background-color black :v :sparkles-9
+         :line-freq 0.2}}
+
+   "not-fire"
+   {
+    "0"
+    {:background-color white :v :not-fire-0
+     :line-freq 0.2
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.2
+     :time-speed 1
+     :ball-freq 10}
+    "1"
+    {:background-color white :v :not-fire-0
+     :line-freq 1
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.5
+     :time-speed 1.5
+     :ball-freq 1.5
+     :ball-spread 0.2
+     ;; 0.1
+     }
+
+    "2"
+    {:background-color white :v :not-fire-1
+     :line-freq 1
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.5
+     :time-speed 1.5
+     :ball-freq 1.5
+     :ball-spread 0.2
+     ;; 0.1
+     }
+
+
+    "3"
+    {:background-color white :v :not-fire-2
+     :line-freq 2
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.1
+     :time-speed 1
+     :ball-freq 1
+     :ball-spread 0.08
+     ;; 0.1
+     }
+
+    "4"
+    {:background-color white :v :not-fire-3
+     :line-freq 2
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.1
+     :time-speed 1
+     :ball-freq 1
+     :ball-spread 0.08
+     ;; 0.1
+     }
+
+
+    "5"
+    {:background-color white :v :not-fire-4
+     :line-freq 2
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.1
+     :time-speed 1
+     :ball-freq 1
+     :ball-spread 0.08
+     ;; 0.1
+     }
+
+
+
+    "6"
+    {:background-color white :v :not-fire-5
+     :line-freq 2
+     :ball-scale-base 0.2
+     :ball-scale-stdv 0.2
+     :ball-spread-acc 1.1
+     :time-speed 1
+     :ball-freq 1
+     :ball-spread 0.08
+     ;; 0.1
+     }
+
+    "7"
+    {:background-color white :v :not-fire-6
+     :line-freq 0.2
+     :ball-scale-base 0.5
+     :ball-scale-stdv 0.3
+     :ball-spread-acc 1.05
+     :time-speed 1
+     :ball-freq 2
+     :ball-spread 0.1
+     ;; 0.1
+     }
+
+
+    "8"
+    {:background-color white :v :not-fire-7
+     :line-freq 0.1
+     :ball-scale-base 0.5
+     :ball-scale-stdv 0.3
+     :ball-spread-acc 0.99
+     :time-speed 1
+     :ball-freq 2
+     :ball-spread 0.1
+     ;; 0.1
+     }
+
+
+    "9"
+    {:background-color white :v :not-fire-8
+     :line-freq 0.1
+     :ball-scale-base 0.5
+     :ball-scale-stdv 0.3
+     :ball-spread-acc 0.99
+     :time-speed 1
+     :ball-freq 2
+     :ball-spread 0.1
+     ;; 0.1
+     }
+
+
+    "10"
+    {:background-color white
+     :v :not-fire-9
+     :line-freq 2
+     :ball-scale-base 0.5
+     :ball-scale-stdv 0.3
+     :ball-spread-acc 0.99
+     :time-speed 1
+     :ball-freq 3
+     :ball-spread 0.1
+     ;; 0.1
+     }
+
+    "11"
+    {:background-color white
+     ;; :background-white? true
+     :v :not-fire-10
+     :line-freq 10
+     :ball-scale-base 0.5
+     :ball-scale-stdv 0.3
+     :ball-spread-acc 0.99
+     :time-speed 1.2
+     :ball-freq 1
+     :ball-spread 0.1
+     ;; 0.1
+     }
+
 
 
     }

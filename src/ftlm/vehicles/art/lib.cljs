@@ -259,7 +259,7 @@
   [{:keys [transform end-pos color] :as e}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
-    (q/stroke-weight 2)
+    (q/stroke-weight (:stroke-weight e 2))
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))))
 
@@ -965,8 +965,6 @@
       (:brownian-factor (controls))))))
 
 (defn ->explosion
-
-
   [{:keys [n size pos color spread]}]
   (into []
         (map (fn []
